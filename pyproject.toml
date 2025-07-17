@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MaldiAMRKit"
+version = "0.1.0"
+description = "Toolkit to read and preprocess MALDI-TOF mass-spectra for AMR analyses."
+readme = "README.md"
+authors = [
+  { name = "Ettore Rocchi", email = "ettoreroc@gmail.com" }
+]
+license = "MIT"
+requires-python = ">=3.9"
+keywords = ["MALDI", "mass-spectrometry", "machine-learning", "scikit-learn"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "pybaselines",
+    "matplotlib",
+    "seaborn",
+]
+
+[project.urls]
+Homepage = "https://github.com/EttoreRocchi/MaldiAMRKit"
+Documentation = "https://github.com/EttoreRocchi/MaldiAMRKit#readme"
+Source = "https://github.com/EttoreRocchi/MaldiAMRKit"
+Issues = "https://github.com/EttoreRocchi/MaldiAMRKit/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
