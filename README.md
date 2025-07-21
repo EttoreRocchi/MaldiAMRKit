@@ -9,17 +9,8 @@
 
 ## 🚀 Installation
 
-Clone  the repository:
-
 ```bash
-git clone https://github.com/EttoreRocchi/MaldiAMRKit.git
-cd MaldiAMRKit
-```
-
-Install the package and dependencies:
-
-```bash
-pip install .
+pip install maldiamrkit
 ```
 
 ## 🏃 Quick Start
