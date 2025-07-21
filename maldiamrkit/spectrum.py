@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
-from .config import PreprocessingConfig
+from .config import PreprocessingSettings
 from .preprocessing import preprocess, bin_spectrum
 from .io import read_spectrum
 
@@ -22,10 +22,10 @@ class MaldiSpectrum:
             self,
             source: str | Path | pd.DataFrame,
             *,
-            cfg: PreprocessingConfig | None = None,
+            cfg: PreprocessingSettings | None = None,
             verbose: bool = False,
         ) -> MaldiSpectrum:
-        self.cfg = cfg or PreprocessingConfig()
+        self.cfg = cfg or PreprocessingSettings()
         self._raw: pd.DataFrame
         self._preprocessed: pd.DataFrame | None = None
         self._binned: pd.DataFrame | None = None
@@ -65,7 +65,7 @@ class MaldiSpectrum:
     def preprocess(self, **override) -> MaldiSpectrum:
         """
         Run baseline correction, smoothing, normalisation, trimming.
-        Optionally override parameters from the current `PreprocessingConfig`
+        Optionally override parameters from the current `PreprocessingSettings`
         with `**override` *kwargs*.
         """
         cfg = self.cfg if not override else self.cfg.__class__(**{**self.cfg.as_dict(), **override})

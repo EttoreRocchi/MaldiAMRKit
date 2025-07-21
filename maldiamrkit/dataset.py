@@ -1,9 +1,11 @@
 from __future__ import annotations
 from pathlib import Path
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
 from .spectrum import MaldiSpectrum
-from .config import PreprocessingConfig
+from .config import PreprocessingSettings
 
 
 class MaldiSet:
@@ -46,7 +48,7 @@ class MaldiSet:
             meta_file: str | Path,
             *,
             aggregate_by: dict[str, str],
-            cfg: PreprocessingConfig | None = None,
+            cfg: PreprocessingSettings | None = None,
             bin_width: int = 3,
             verbose: bool = False,
         ) -> MaldiSet:
@@ -84,3 +86,100 @@ class MaldiSet:
     def y(self) -> pd.Series:
         """Return the classification/label vector (antibiotic resistance)."""
         return self.meta.loc[self.X.index, self.antibiotic]
+
+    def plot_pseudogel(
+        self,
+        *,
+        antibiotic: str | None = None,
+        cmap: str = "inferno",
+        vmin: float | None = None,
+        vmax: float | None = None,
+        figsize: tuple[int, int] | None = None,
+        log_scale: bool = True,
+        sort_by_intensity: bool = True,
+        title: str | None = None,
+        show: bool = True,
+    ):
+        """
+        Displays a pseudogel heatmap of the spectra, with one subplot
+        for each unique value of the antibiotic column.
+
+        Parameters
+        ----------
+        antibiotic : str | None
+            Name of the target column to use (default: self.antibiotic).
+        cmap : str
+            Matplotlib colormap to use (default: "inferno").
+        vmin, vmax : float | None
+            Color scale limits. Use None for automatic scaling.
+        figsize : (int, int) | None
+            Figure size. If None, it is automatically set based on the number of subplots.
+        log_scale : bool
+            Apply log1p to intensity values to emphasize weaker signals.
+        sort_by_intensity : bool
+            Sort samples by average intensity before plotting.
+        title : str | None
+            Title of the overall figure.
+        show : bool
+            If True, calls plt.show() at the end of the method.
+
+        Returns
+        -------
+        fig, axes : matplotlib.figure.Figure, ndarray[Axes]
+            Matplotlib figure and axes objects, useful for further customization.
+        """
+        if antibiotic is None:
+            antibiotic = self.antibiotic
+        if antibiotic is None:
+            raise ValueError(
+                "Antibiotic column not defined. "
+            )
+
+        X = self.X
+        y = self.y
+
+        groups = y.groupby(y).groups
+        n_groups = len(groups)
+        if figsize is None:
+            figsize = (6.0, 2.5 * n_groups)
+
+        fig, axes = plt.subplots(
+            n_groups, 1, figsize=figsize, sharex=True, constrained_layout=True
+        )
+        if n_groups == 1:
+            axes = np.asarray([axes])
+
+        for ax, (label, idx) in zip(axes, sorted(groups.items(), key=lambda t: str(t[0]))):
+            M = X.loc[idx].to_numpy()
+            if sort_by_intensity:
+                order = np.argsort(M.mean(axis=1))[::-1]
+                M = M[order]
+            if log_scale:
+                M = np.log1p(M)
+
+            im = ax.imshow(
+                M,
+                aspect="auto",
+                interpolation="nearest",
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.set_ylabel(f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center")
+            ax.set_yticks([])
+
+        xticks = np.linspace(0, X.shape[1] - 1, 6, dtype=int)
+        axes[-1].set_xticks(xticks)
+        axes[-1].set_xticklabels([f"{m}" for m in X.columns[xticks]])
+        axes[-1].set_xlabel("m/z (binned)")
+
+        cbar = fig.colorbar(im, ax=axes, orientation="vertical", pad=0.01)
+        cbar.set_label("Log(intensity + 1)" if log_scale else "intensity")
+
+        if title:
+            fig.suptitle(title, y=1.02)
+
+        if show:
+            plt.show()
+
+        return fig, axes

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 @dataclass()
-class PreprocessingConfig:
+class PreprocessingSettings:
 
     trim_from: int = 2_000
     trim_to:   int = 20_000

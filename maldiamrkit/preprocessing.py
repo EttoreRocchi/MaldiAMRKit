@@ -3,14 +3,14 @@ import pandas as pd
 from pybaselines import Baseline
 from scipy.signal import savgol_filter
 
-from .config import PreprocessingConfig
+from .config import PreprocessingSettings
 
 
 def preprocess(
         df: pd.DataFrame,
-        cfg: PreprocessingConfig = PreprocessingConfig()
+        cfg: PreprocessingSettings = PreprocessingSettings()
     ) -> pd.DataFrame:
-    """Return intensity-normalised, baseline-corrected spectrum."""
+    """Return intensity-normalised, baseline-corrected and trimmed spectrum."""
     df = df.copy()
     df["intensity"] = df["intensity"].clip(lower=0)
 
@@ -20,7 +20,7 @@ def preprocess(
                               window_length=cfg.savgol_window,
                               polyorder=cfg.savgol_poly)
 
-    # baseline
+    # baseline correction
     bkg = Baseline(x_data=df["mass"]).snip(
         intensity,
         max_half_window=cfg.baseline_half_window,
@@ -28,16 +28,22 @@ def preprocess(
         smooth_half_window=0
     )[0]
     intensity -= bkg
-    intensity /= intensity.sum()
+    intensity[intensity < 0] = 0  # remove any small negative values post-baseline
 
     out = pd.DataFrame({"mass": df["mass"], "intensity": intensity})
+
     mmin, mmax = cfg.trim_from, cfg.trim_to
-    return out[(out.mass.between(mmin, mmax))].reset_index(drop=True)
+    out = out[(out.mass.between(mmin, mmax))].reset_index(drop=True)
+
+    total = out["intensity"].sum()
+    if total > 0:
+        out["intensity"] /= total
+    return out
 
 
 def bin_spectrum(
         df: pd.DataFrame,
-        cfg: PreprocessingConfig,
+        cfg: PreprocessingSettings,
         bin_width: int | float | None = None,
     ) -> pd.DataFrame:
     """
