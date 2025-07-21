@@ -54,3 +54,11 @@ Pull requests, bug reports, and feature ideas are welcome: feel free to open a P
 ## 📝 License
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgements
+
+This pipeline is based on the methodology described in the following publication and aims to facilitate the application of similar approaches on MALDI-TOF spectra for AMR prediction in a machine learning context:
+
+> **Weis, C., Cuénod, A., Rieck, B., et al.** (2022). *Direct antimicrobial resistance prediction from clinical MALDI-TOF mass spectra using machine learning*. **Nature Medicine**, 28, 164–174. [https://doi.org/10.1038/s41591-021-01619-9](https://doi.org/10.1038/s41591-021-01619-9)
+
+Please consider citing this work if you find `MaldiAMRKit` useful.
