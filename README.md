@@ -31,7 +31,7 @@ data = MaldiSet.from_directory(
   aggregate_by=dict(antibiotic="Drug"),
   bin_width=3
 )
-X, y = data.X, data.y
+X, y = data.X, data.y["Drug"]
 
 # Machine learning pipeline
 from sklearn.pipeline import Pipeline
