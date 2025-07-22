@@ -48,7 +48,15 @@ class MaldiSet:
         self.antibiotic = self.antibiotics[0] if self.antibiotics else None
         
         self.species = aggregate_by.get("species")
-        self.other_key = aggregate_by.get("other")
+
+        other_key = aggregate_by.get("other")
+        if isinstance(other_key, str):
+            self.other_key = [other_key]
+        elif isinstance(other_key, list):
+            self.other_key = other_key
+        else:
+            self.other_key = None
+
         self.bin_width = bin_width
 
         self.verbose = verbose      
@@ -104,10 +112,8 @@ class MaldiSet:
         if self.species:
             df = df[df["Species"] == self.species]
 
-        if self.other_key and self.other_key in df.columns:
-            df = df[df[self.other_key].notna()]
-
-        return df.select_dtypes("number")
+        to_drop = self.antibiotics + self.other_key + ["Species"]
+        return df.drop(columns=to_drop)
 
     @property
     def y(self) -> pd.DataFrame:
@@ -132,8 +138,9 @@ class MaldiSet:
         if not self.other_key:
             raise ValueError("No additional aggregation key specified")
         
-        if self.other_key not in self.meta.columns:
-            raise ValueError(f"Column '{self.other_key}' not found in metadata")
+        for o_k in self.other_key:
+            if o_k not in self.meta.columns:
+                raise ValueError(f"Column '{o_k}' not found in metadata")
             
         return self.meta.loc[self.X.index, self.other_key]
 
