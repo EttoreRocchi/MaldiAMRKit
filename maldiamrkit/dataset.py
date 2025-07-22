@@ -16,9 +16,13 @@ class MaldiSet:
     -------
     >>> ds = MaldiSet.from_directory(
                 "spectra/", "meta.csv",
-                aggregate_by=dict(antibiotic="Ceftriaxone")
+                aggregate_by=dict(
+                    antibiotics=["Ceftriaxone", "Ceftazidime"],
+                    species="Escherichia coli",
+                    other="batch_id"
+                )
         )
-    >>> ds.X.shape, ds.y.value_counts()
+    >>> ds.X.shape, ds.y.shape, ds.other.shape
     """
 
     def __init__(
@@ -26,20 +30,34 @@ class MaldiSet:
             spectra: list[MaldiSpectrum],
             meta: pd.DataFrame,
             *,
-            aggregate_by: dict[str, str],
+            aggregate_by: dict[str, str | list[str]],
             bin_width: int = 3,
             verbose: bool = False,
         ) -> MaldiSet:
         self.spectra = spectra
         self.meta = meta.set_index("ID")
 
-        self.antibiotic = aggregate_by.get("antibiotic")
+        antibiotics = aggregate_by.get("antibiotics") or aggregate_by.get("antibiotic")
+        if isinstance(antibiotics, str):
+            self.antibiotics = [antibiotics]
+        elif isinstance(antibiotics, list):
+            self.antibiotics = antibiotics
+        else:
+            self.antibiotics = None
+
+        self.antibiotic = self.antibiotics[0] if self.antibiotics else None
+        
         self.species = aggregate_by.get("species")
+        self.other_key = aggregate_by.get("other")
         self.bin_width = bin_width
 
         self.verbose = verbose      
         if verbose:
             print(f"INFO: Dataset created: {len(self.spectra)} spectra")
+            if self.antibiotics:
+                print(f"INFO: Tracking antibiotics: {self.antibiotics}")
+            if self.other_key:
+                print(f"INFO: Additional aggregation by: {self.other_key}")
 
     @classmethod
     def from_directory(
@@ -47,7 +65,7 @@ class MaldiSet:
             spectra_dir: str | Path,
             meta_file: str | Path,
             *,
-            aggregate_by: dict[str, str],
+            aggregate_by: dict[str, str | list[str]],
             cfg: PreprocessingSettings | None = None,
             bin_width: int = 3,
             verbose: bool = False,
@@ -75,17 +93,72 @@ class MaldiSet:
         df = pd.concat(rows, axis=1).T
 
         df = df.join(self.meta, how="left")
-        if self.antibiotic:
-            df = df[df[self.antibiotic].notna()]
+
+        if self.antibiotics:
+            antibiotic_mask = pd.Series(False, index=df.index)
+            for antibiotic in self.antibiotics:
+                if antibiotic in df.columns:
+                    antibiotic_mask |= df[antibiotic].notna()
+            df = df[antibiotic_mask]
+
         if self.species:
             df = df[df["Species"] == self.species]
+
+        if self.other_key and self.other_key in df.columns:
+            df = df[df[self.other_key].notna()]
 
         return df.select_dtypes("number")
 
     @property
-    def y(self) -> pd.Series:
-        """Return the classification/label vector (antibiotic resistance)."""
-        return self.meta.loc[self.X.index, self.antibiotic]
+    def y(self) -> pd.DataFrame:
+        """
+        Return the classification/label matrix for all specified antibiotics.
+        Returns a DataFrame with one column per antibiotic.
+        """
+        if not self.antibiotics:
+            raise ValueError("No antibiotics specified for classification labels")
+        
+        available_antibiotics = [ab for ab in self.antibiotics if ab in self.meta.columns]
+        if not available_antibiotics:
+            raise ValueError(f"None of the specified antibiotics {self.antibiotics} found in metadata")
+        
+        return self.meta.loc[self.X.index, available_antibiotics]
+
+    @property
+    def other(self) -> pd.Series:
+        """
+        Return the additional aggregation variable if specified.
+        """
+        if not self.other_key:
+            raise ValueError("No additional aggregation key specified")
+        
+        if self.other_key not in self.meta.columns:
+            raise ValueError(f"Column '{self.other_key}' not found in metadata")
+            
+        return self.meta.loc[self.X.index, self.other_key]
+
+    def get_y_single(self, antibiotic: str | None = None) -> pd.Series:
+        """
+        Return the classification/label vector for a single antibiotic.
+        
+        Parameters
+        ----------
+        antibiotic : str | None
+            Name of the antibiotic column. If None, uses the first antibiotic.
+            
+        Returns
+        -------
+        pd.Series
+            Classification labels for the specified antibiotic.
+        """
+        if antibiotic is None:
+            antibiotic = self.antibiotic
+        if antibiotic is None:
+            raise ValueError("No antibiotic specified")
+        if antibiotic not in self.meta.columns:
+            raise ValueError(f"Antibiotic '{antibiotic}' not found in metadata")
+            
+        return self.meta.loc[self.X.index, antibiotic]
 
     def plot_pseudogel(
         self,
@@ -136,7 +209,7 @@ class MaldiSet:
             )
 
         X = self.X
-        y = self.y
+        y = self.get_y_single(antibiotic)
 
         groups = y.groupby(y).groups
         n_groups = len(groups)
@@ -168,9 +241,9 @@ class MaldiSet:
             ax.set_ylabel(f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center")
             ax.set_yticks([])
 
-        xticks = np.linspace(0, X.shape[1] - 1, 6, dtype=int)
+        xticks = np.linspace(0, X.shape[1] - 1, 10, dtype=int)
         axes[-1].set_xticks(xticks)
-        axes[-1].set_xticklabels([f"{m}" for m in X.columns[xticks]])
+        axes[-1].set_xticklabels([f"{m}" for m in X.columns[xticks]], rotation=90)
         axes[-1].set_xlabel("m/z (binned)")
 
         cbar = fig.colorbar(im, ax=axes, orientation="vertical", pad=0.01)
