@@ -35,7 +35,6 @@ class MaldiSet:
             verbose: bool = False,
         ) -> MaldiSet:
         self.spectra = spectra
-        self.meta = meta.set_index("ID")
 
         antibiotics = aggregate_by.get("antibiotics") or aggregate_by.get("antibiotic")
         if isinstance(antibiotics, str):
@@ -56,6 +55,23 @@ class MaldiSet:
             self.other_key = other_key
         else:
             self.other_key = None
+
+        columns_to_keep = ["ID"]
+        if self.antibiotics:
+            columns_to_keep.extend(self.antibiotics)
+        if self.species:
+            columns_to_keep.append("Species")
+        if self.other_key:
+            columns_to_keep.extend(self.other_key)
+        columns_to_keep = list(dict.fromkeys(columns_to_keep))
+
+        available_columns = [col for col in columns_to_keep if col in meta.columns]
+        missing_columns = [col for col in columns_to_keep if col not in meta.columns]
+        if missing_columns and verbose:
+            print(f"WARNING: Columns {missing_columns} not found in metadata")
+
+        self.meta = meta[available_columns].set_index("ID")
+        self.meta_cols = self.meta.columns.tolist()
 
         self.bin_width = bin_width
 
@@ -112,7 +128,7 @@ class MaldiSet:
         if self.species:
             df = df[df["Species"] == self.species]
 
-        to_drop = self.antibiotics + self.other_key + ["Species"]
+        to_drop = self.meta_cols
         return df.drop(columns=to_drop)
 
     @property
