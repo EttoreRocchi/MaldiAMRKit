@@ -4,7 +4,7 @@ from .io import read_spectrum
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
