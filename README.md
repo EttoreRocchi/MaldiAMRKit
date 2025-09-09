@@ -4,7 +4,7 @@
   <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="250"/>
 </p>
 <p align="center">
-  <strong>Toolkit to read and preprocess MALDI-TOF mass-spectra for AMR analyses</strong>
+  <strong>Toolkit to read and preprocess MALDI-TOF mass spectra for AMR analyses</strong>
 </p>
 
 ## 🚀 Installation
