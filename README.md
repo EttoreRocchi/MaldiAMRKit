@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>A comprehensive toolkit for MALDI-TOF mass spectrometry data preprocessing and antimicrobial resistance (AMR) prediction</strong>
+  <strong>A comprehensive toolkit for MALDI-TOF mass spectrometry data preprocessing for antimicrobial resistance (AMR) prediction purposes</strong>
 </p>
 
 <p align="center">
