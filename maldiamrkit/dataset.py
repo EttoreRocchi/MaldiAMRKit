@@ -187,6 +187,7 @@ class MaldiSet:
         self,
         *,
         antibiotic: str | None = None,
+        regions: tuple[float, float] | list[tuple[float, float]] | None = None,
         cmap: str = "inferno",
         vmin: float | None = None,
         vmax: float | None = None,
@@ -204,6 +205,11 @@ class MaldiSet:
         ----------
         antibiotic : str | None
             Name of the target column to use (default: self.antibiotic).
+        regions : tuple or list of tuples, optional
+            Specific m/z region(s) to display:
+            - None: show all regions (default)
+            - (min_mz, max_mz): show single region
+            - [(min1, max1), (min2, max2), ...]: show multiple regions
         cmap : str
             Matplotlib colormap to use (default: "inferno").
         vmin, vmax : float | None
@@ -227,12 +233,41 @@ class MaldiSet:
         if antibiotic is None:
             antibiotic = self.antibiotic
         if antibiotic is None:
-            raise ValueError(
-                "Antibiotic column not defined. "
-            )
+            raise ValueError("Antibiotic column not defined.")
 
-        X = self.X
+        X = self.X.copy()
         y = self.get_y_single(antibiotic)
+
+        # Region filtering
+        if regions is not None:
+            # Normalize to list of tuples
+            if isinstance(regions, tuple) and len(regions) == 2:
+                regions = [regions]
+
+            # X with regions separated by blank columns
+            mz_values = X.columns.astype(float)
+            region_dfs = []
+
+            for min_mz, max_mz in regions:
+                if min_mz > max_mz:
+                    raise ValueError(f"Invalid region: min_mz ({min_mz}) > max_mz ({max_mz})")
+
+                mask = (mz_values >= min_mz) & (mz_values <= max_mz)
+                if not mask.any():
+                    raise ValueError(f"No m/z values found in region ({min_mz}, {max_mz})")
+
+                region_dfs.append(X.iloc[:, mask])
+
+                # Add blank separator column except after last region
+                if len(region_dfs) < len(regions):
+                    blank_col = pd.DataFrame(
+                        np.nan, 
+                        index=X.index, 
+                        columns=[f"_blank_{len(region_dfs)}"]
+                    )
+                    region_dfs.append(blank_col)
+
+            X = pd.concat(region_dfs, axis=1)
 
         groups = y.groupby(y).groups
         n_groups = len(groups)
@@ -245,10 +280,14 @@ class MaldiSet:
         if n_groups == 1:
             axes = np.asarray([axes])
 
+        # Set colormap to handle NaN values (for region separators)
+        cmap_obj = plt.get_cmap(cmap).copy()
+        cmap_obj.set_bad(color='white', alpha=1.0)
+
         for ax, (label, idx) in zip(axes, sorted(groups.items(), key=lambda t: str(t[0]))):
             M = X.loc[idx].to_numpy()
             if sort_by_intensity:
-                order = np.argsort(M.mean(axis=1))[::-1]
+                order = np.argsort(np.nanmean(M, axis=1))[::-1]
                 M = M[order]
             if log_scale:
                 M = np.log1p(M)
@@ -257,16 +296,28 @@ class MaldiSet:
                 M,
                 aspect="auto",
                 interpolation="nearest",
-                cmap=cmap,
+                cmap=cmap_obj,
                 vmin=vmin,
                 vmax=vmax,
             )
             ax.set_ylabel(f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center")
             ax.set_yticks([])
 
-        xticks = np.linspace(0, X.shape[1] - 1, 10, dtype=int)
+        # Set x-axis ticks and labels
+        n_ticks = min(10, X.shape[1])
+        xticks = np.linspace(0, X.shape[1] - 1, n_ticks, dtype=int)
+
+        # Skip blank separator columns in labels
+        xticklabels = []
+        for i in xticks:
+            col_name = str(X.columns[i])
+            if col_name.startswith("_blank_"):
+                xticklabels.append("")
+            else:
+                xticklabels.append(col_name)
+
         axes[-1].set_xticks(xticks)
-        axes[-1].set_xticklabels([f"{m}" for m in X.columns[xticks]], rotation=90)
+        axes[-1].set_xticklabels(xticklabels, rotation=90)
         axes[-1].set_xlabel("m/z (binned)")
 
         cbar = fig.colorbar(im, ax=axes, orientation="vertical", pad=0.01)
