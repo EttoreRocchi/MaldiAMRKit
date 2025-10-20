@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MaldiAMRKit"
-version = "0.3.0"
+version = "0.3.1"
 description = "Toolkit to read and preprocess MALDI-TOF mass-spectra for AMR analyses."
 readme = "README.md"
 authors = [
@@ -29,6 +29,7 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "fastdtw",
+    "gudhi",
 ]
 
 [project.urls]

@@ -2,6 +2,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import warnings
+from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from .peak_detector import MaldiPeakDetector
@@ -35,6 +37,11 @@ class Warping(BaseEstimator, TransformerMixin):
     dtw_radius : int, default=10
         Radius constraint for DTW to limit warping path search space.
         (larger radius means less warping)
+    smooth_sigma : float, default=2.0
+        Gaussian smoothing parameter for piecewise segment shifts.
+        Higher values create smoother transitions.
+    min_reference_peaks : int, default=5
+        Minimum number of peaks expected in reference for quality check.
     """
 
     def __init__(
@@ -45,6 +52,8 @@ class Warping(BaseEstimator, TransformerMixin):
         n_segments: int = 5,
         max_shift: int = 50,
         dtw_radius: int = 10,
+        smooth_sigma: float = 2.0,
+        min_reference_peaks: int = 5,
     ):
         self.peak_detector = peak_detector or MaldiPeakDetector(binary=True, prominence=1e-5)
         self.reference = reference
@@ -52,6 +61,8 @@ class Warping(BaseEstimator, TransformerMixin):
         self.n_segments = n_segments
         self.max_shift = max_shift
         self.dtw_radius = dtw_radius
+        self.smooth_sigma = smooth_sigma
+        self.min_reference_peaks = min_reference_peaks
 
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -89,10 +100,32 @@ class Warping(BaseEstimator, TransformerMixin):
         if self.max_shift < 0:
             raise ValueError(f"max_shift must be >= 0, got {self.max_shift}")
 
+        # Validate reference quality
+        self._validate_reference_quality(X)
+
         return self
 
+    def _validate_reference_quality(self, X: pd.DataFrame):
+        """
+        Validate that the reference spectrum has sufficient quality.
+        Issues warnings if the reference appears problematic.
+        """
+        ref_peaks_df = self.peak_detector.transform(
+            pd.DataFrame(self.ref_spec_[np.newaxis, :], columns=X.columns)
+        )
+        n_peaks = ref_peaks_df.iloc[0].to_numpy().nonzero()[0].size
+
+        if n_peaks < self.min_reference_peaks:
+            warnings.warn(
+                f"Reference spectrum has only {n_peaks} peaks detected. "
+                f"Expected at least {self.min_reference_peaks}. "
+                f"This may result in poor alignment quality. "
+                f"Consider adjusting peak detection parameters or choosing a different reference.",
+                UserWarning
+            )
+
     def _shift_only(self, row, peaks, ref_peaks):
-        """Apply global median shift alignment."""
+        """Apply global median shift alignment with zero-padding."""
         if len(peaks) == 0 or len(ref_peaks) == 0:
             return row
 
@@ -103,7 +136,20 @@ class Warping(BaseEstimator, TransformerMixin):
 
         shift = int(np.median(shifts)) if shifts else 0
         shift = np.clip(shift, -self.max_shift, self.max_shift)
-        return np.roll(row, shift)
+
+        # Apply shift with zero-padding
+        if shift > 0:
+            # Shift right: pad left with zeros
+            aligned = np.zeros_like(row)
+            aligned[shift:] = row[:-shift]
+        elif shift < 0:
+            # Shift left: pad right with zeros
+            aligned = np.zeros_like(row)
+            aligned[:shift] = row[-shift:]
+        else:
+            aligned = row.copy()
+
+        return aligned
 
     def _linear_fit(self, row, peaks, ref_peaks, mz_axis):
         """Apply linear transformation alignment using least squares fit."""
@@ -122,10 +168,12 @@ class Warping(BaseEstimator, TransformerMixin):
 
         # Apply inverse transformation to align
         new_positions = a * mz_axis + b
-        return np.interp(mz_axis, new_positions, row, left=0.0, right=0.0)
+
+        # Ensure monotonicity for interpolation
+        return self._monotonic_interp(mz_axis, new_positions, row)
 
     def _piecewise(self, row, peaks, ref_peaks, mz_axis):
-        """Apply piecewise linear alignment with local shifts."""
+        """Apply piecewise linear alignment with smoothed local shifts."""
         if len(peaks) == 0 or len(ref_peaks) == 0:
             return row
 
@@ -155,27 +203,71 @@ class Warping(BaseEstimator, TransformerMixin):
 
         # Interpolate shifts across the spectrum
         shift_interp = np.interp(mz_axis, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1])
+
+        # Apply Gaussian smoothing to reduce abrupt transitions
+        if self.smooth_sigma > 0:
+            shift_interp = gaussian_filter1d(shift_interp, sigma=self.smooth_sigma, mode='nearest')
+
         new_positions = mz_axis + shift_interp
-        return np.interp(mz_axis, new_positions, row, left=0.0, right=0.0)
+
+        # Ensure monotonicity for interpolation
+        return self._monotonic_interp(mz_axis, new_positions, row)
+
+    def _monotonic_interp(self, mz_axis, new_positions, row):
+        """
+        Perform interpolation with monotonicity enforcement.
+
+        Sorts new_positions and corresponding intensities to ensure
+        monotonic mapping before interpolation.
+        """
+        # Check if already monotonic
+        if np.all(np.diff(new_positions) > 0):
+            return np.interp(mz_axis, new_positions, row, left=0.0, right=0.0)
+
+        # Sort to enforce monotonicity
+        sort_idx = np.argsort(new_positions)
+        new_positions_sorted = new_positions[sort_idx]
+        row_sorted = row[sort_idx]
+
+        # Remove duplicates by averaging
+        unique_pos, inverse = np.unique(new_positions_sorted, return_inverse=True)
+        unique_intensities = np.zeros(len(unique_pos))
+
+        for i, pos_idx in enumerate(inverse):
+            unique_intensities[pos_idx] += row_sorted[i]
+
+        # Average duplicates
+        counts = np.bincount(inverse)
+        unique_intensities = unique_intensities / counts
+
+        return np.interp(mz_axis, unique_pos, unique_intensities, left=0.0, right=0.0)
 
     def _dtw(self, row):
         """
         Align intensity vector using Dynamic Time Warping.
-        
+
         This maps the query spectrum to the reference using the optimal
-        warping path found by DTW.
+        warping path found by DTW. Uses averaging for multiple mappings
+        to the same reference index.
         """
         # Compute DTW alignment path with radius constraint
         distance, path = fastdtw(row, self.ref_spec_, radius=self.dtw_radius, dist=lambda a, b: abs(a - b))
-        
+
         # Create aligned spectrum by following the warping path
-        aligned = np.zeros_like(self.ref_spec_)
-        
+        aligned_sum = np.zeros_like(self.ref_spec_)
+        aligned_count = np.zeros_like(self.ref_spec_)
+
         for i, j in path:
             # i is index in query (row), j is index in reference
-            if 0 <= j < len(aligned):
-                aligned[j] = max(aligned[j], row[i])
-        
+            if 0 <= j < len(aligned_sum):
+                aligned_sum[j] += row[i]
+                aligned_count[j] += 1
+
+        # Average where multiple query points map to same reference index
+        aligned = np.zeros_like(self.ref_spec_)
+        mask = aligned_count > 0
+        aligned[mask] = aligned_sum[mask] / aligned_count[mask]
+
         return aligned
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:

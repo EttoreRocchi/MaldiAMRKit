@@ -5,7 +5,7 @@ from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 from .warping import Warping
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
