@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MaldiAMRKit"
-version = "0.3.1"
-description = "Toolkit to read and preprocess MALDI-TOF mass-spectra for AMR analyses."
+version = "0.4.0"
+description = "A comprehensive toolkit for MALDI-TOF mass spectrometry data preprocessing for antimicrobial resistance (AMR) prediction purposes"
 readme = "README.md"
 authors = [
   { name = "Ettore Rocchi", email = "ettoreroc@gmail.com" }

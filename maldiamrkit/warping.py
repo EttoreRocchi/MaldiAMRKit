@@ -54,7 +54,7 @@ class Warping(BaseEstimator, TransformerMixin):
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
         min_reference_peaks: int = 5,
-    ):
+    ) -> Warping:
         self.peak_detector = peak_detector or MaldiPeakDetector(binary=True, prominence=1e-5)
         self.reference = reference
         self.method = method
