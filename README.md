@@ -1,7 +1,6 @@
 # MaldiAMRKit
 
 [![PyPI Version](https://img.shields.io/pypi/v/maldiamrkit?cacheSeconds=300)](https://pypi.org/project/maldiamrkit/)
-[![PyPI Downloads](https://static.pepy.tech/badge/maldiamrkit)](https://pepy.tech/projects/maldiamrkit)
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">

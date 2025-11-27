@@ -24,7 +24,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         - "ph" : Persistent homology based detection using gudhi
     binary : bool, default=True
         If True, peaks are marked with 1; otherwise, original intensity is kept.
-    persistence_threshold : float, default=0.1
+    persistence_threshold : float, default=1e-6
         Minimum persistence (death - birth) required for a peak when using
         method="ph". Only applies to persistent homology detection.
     **kwargs :
@@ -40,7 +40,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     >>> peaks = detector.fit_transform(spectra_df)
 
     >>> # Persistent homology based detection
-    >>> detector = MaldiPeakDetector(method="ph", persistence_threshold=0.05)
+    >>> detector = MaldiPeakDetector(method="ph", persistence_threshold=1e-6)
     >>> peaks = detector.fit_transform(spectra_df)
     """
 
@@ -48,12 +48,12 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         self,
         method: str = "local",
         binary: bool = True,
-        persistence_threshold: float = 0.1,
+        persistence_threshold: float = 1e-6,
         **kwargs
     ) -> MaldiPeakDetector:
         self.method = method
         self.binary = binary
-        self.persistence_threshold = float(np.clip(persistence_threshold, 0, 1e6))
+        self.persistence_threshold = persistence_threshold
         self.kwargs = kwargs
 
         if self.method not in ["local", "ph"]:
