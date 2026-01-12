@@ -1,3 +1,4 @@
+"""Peak detection algorithms for MALDI-TOF spectra."""
 from __future__ import annotations
 import numpy as np
 import pandas as pd
@@ -9,8 +10,7 @@ import gudhi
 
 class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     """
-    Peak detector for MALDI-TOF spectra with support for local maxima 
-    and topological detection methods.
+    Peak detector for MALDI-TOF spectra with local maxima and topological methods.
 
     The transformer maintains the original feature dimension; all non-peak
     positions are set to 0. Peaks can be returned as binary flags or with
@@ -20,18 +20,27 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     ----------
     method : {"local", "ph"}, default="local"
         Detection method to use:
-        - "local" : Local maxima detection using `scipy.signal.find_peaks`
+        - "local" : Local maxima detection using scipy.signal.find_peaks
         - "ph" : Persistent homology based detection using gudhi
     binary : bool, default=True
         If True, peaks are marked with 1; otherwise, original intensity is kept.
     persistence_threshold : float, default=1e-6
         Minimum persistence (death - birth) required for a peak when using
-        method="ph". Only applies to persistent homology detection.
+        method="ph". For normalized spectra (sum=1), typical values are 1e-6
+        to 1e-4. Higher values detect fewer, more prominent peaks.
     **kwargs :
-        Additional keyword arguments passed to the detection method:
-        - For method="local": passed to `scipy.signal.find_peaks`
-          (e.g., prominence, height, distance, width, etc.)
-        - For method="ph": currently unused, reserved for future extensions
+        Additional keyword arguments passed to scipy.signal.find_peaks
+        when method="local". Common parameters:
+        - prominence : float, minimum prominence of peaks (recommended: 1e-5 to 1e-2)
+        - height : float, minimum height of peaks
+        - distance : int, minimum distance between peaks in bins
+        - width : float, minimum width of peaks
+
+    Notes
+    -----
+    For MALDI-TOF spectra normalized to sum=1:
+    - prominence=1e-5 to 1e-3 typically works well for local maxima
+    - persistence_threshold=1e-6 to 1e-4 for persistent homology
 
     Examples
     --------
@@ -64,7 +73,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
     def fit(self, X: pd.DataFrame, y=None):
         """
-        Fit the peak detector. No learning is performed.
+        Fit the peak detector (no learning performed).
 
         Parameters
         ----------
@@ -87,8 +96,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         """
         Detect peaks using local maxima detection.
 
-        Uses `scipy.signal.find_peaks` with configurable parameters passed
-        through **kwargs (e.g., prominence, height, distance).
+        Uses scipy.signal.find_peaks with configurable parameters.
 
         Parameters
         ----------
@@ -109,8 +117,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
         Computes the 0D persistence diagram of the signal treated as a
         1D cubical complex. Peaks correspond to local maxima with sufficient
-        persistence (death - birth) above the threshold. Includes essential
-        features (infinite death) as valid peaks.
+        persistence (death - birth) above the threshold.
 
         Parameters
         ----------
@@ -121,16 +128,28 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         -------
         peaks : np.ndarray
             Array of peak indices corresponding to persistent maxima.
+
+        Notes
+        -----
+        The algorithm:
+        1. Negates the signal for superlevel set analysis
+        2. Computes 0D persistence using cubical complexes
+        3. Filters features by persistence threshold
+        4. Maps birth values back to peak indices using local maxima constraint
         """
         if np.allclose(row, row[0]):
             return np.array([], dtype=int)
 
-        # "Negate" signal for superlevel analysis (peaks become valleys)
+        # Negate signal for superlevel analysis (peaks become valleys)
         signal = -row
-        signal -= signal.min()
+        signal = signal - signal.min()
 
         cc = gudhi.CubicalComplex(top_dimensional_cells=signal[np.newaxis, :])
         persistence_diagram = cc.persistence()
+
+        # Find all local maxima in original signal for accurate index mapping
+        local_maxima, _ = find_peaks(row)
+        local_maxima_set = set(local_maxima)
 
         peak_indices = []
         signal_max = np.max(signal)
@@ -139,31 +158,48 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             if dim != 0:
                 continue
 
-            persistence = (death - birth) if not np.isinf(death) else (signal_max - birth)
+            persistence = (
+                (death - birth) if not np.isinf(death) else (signal_max - birth)
+            )
 
             if persistence >= self.persistence_threshold:
-                # Map birth intensity back to original spectrum index
-                idx = np.argmin(np.abs(signal - birth))
+                # Find candidates close to birth intensity
+                tol = persistence * 0.1 + 1e-10
+                candidates = np.where(np.abs(signal - birth) < tol)[0]
+
+                # Prefer candidates that are local maxima in original signal
+                maxima_candidates = [c for c in candidates if c in local_maxima_set]
+
+                if maxima_candidates:
+                    # Use the candidate closest to birth value among local maxima
+                    idx = maxima_candidates[
+                        np.argmin(np.abs(signal[maxima_candidates] - birth))
+                    ]
+                elif len(candidates) > 0:
+                    # Fallback: use closest candidate
+                    idx = candidates[np.argmin(np.abs(signal[candidates] - birth))]
+                else:
+                    # Last resort: global argmin
+                    idx = np.argmin(np.abs(signal - birth))
+
                 peak_indices.append(idx)
 
         return np.array(sorted(set(peak_indices)), dtype=int)
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Detect peaks in each spectrum independently and mask non-peak positions.
+        Detect peaks in each spectrum and mask non-peak positions.
 
         Parameters
         ----------
         X : pd.DataFrame or pd.Series
-            Input spectra with shape (n_samples, n_bins). If a Series is provided,
-            it will be converted to a single-row DataFrame.
+            Input spectra with shape (n_samples, n_bins).
 
         Returns
         -------
         X_peaks : pd.DataFrame or pd.Series
             Transformed spectra where non-peak positions are set to 0.
-            Peak positions contain either 1 (if binary=True) or the
-            original intensity (if binary=False).
+            Peak positions contain 1 (if binary=True) or original intensity.
         """
         input_is_series = isinstance(X, pd.Series)
         if input_is_series:
@@ -202,8 +238,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X : pd.DataFrame or pd.Series
-            Input spectra with shape (n_samples, n_bins). If a Series is provided,
-            it will be converted to a single-row DataFrame.
+            Input spectra with shape (n_samples, n_bins).
         y : array-like, optional
             Target values (ignored).
         **fit_params :
@@ -229,8 +264,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X : pd.DataFrame or pd.Series
-            Input spectra with shape (n_samples, n_bins). If a Series is provided,
-            it will be converted to a single-row DataFrame.
+            Input spectra with shape (n_samples, n_bins).
 
         Returns
         -------
@@ -283,26 +317,25 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     ):
         """
         Plot detected peaks overlaid on original spectra.
-        
+
         Parameters
         ----------
         X : pd.DataFrame or pd.Series
             Input spectra with shape (n_samples, n_bins).
         indices : int or list of int, optional
             Indices of spectra to plot. If None, plots the first spectrum.
-            Can be a single int or list of ints for multiple spectra.
         xlim : tuple of (float, float), optional
             X-axis limits for zooming into specific m/z range.
         figsize : tuple of (float, float), default=(14, 6)
-            Figure size in inches (width, height).
+            Figure size in inches.
         alpha : float, default=0.7
             Transparency for spectrum lines.
-        
+
         Returns
         -------
         fig : matplotlib.figure.Figure
             The generated figure.
-        axes : array of matplotlib.axes.Axes or single Axes
+        axes : Axes or array of Axes
             The subplot axes.
         """
         input_is_series = isinstance(X, pd.Series)
@@ -316,7 +349,9 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
         for idx in indices:
             if idx < 0 or idx >= len(X):
-                raise ValueError(f"Index {idx} out of bounds for data with {len(X)} samples")
+                raise ValueError(
+                    f"Index {idx} out of bounds for data with {len(X)} samples"
+                )
 
         mz_axis = X.columns.to_numpy()
         if not np.issubdtype(mz_axis.dtype, np.number):
@@ -338,17 +373,27 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             else:
                 raise ValueError(f"Unknown method: {self.method}")
 
-            ax.plot(mz_axis, row, color='black', linewidth=1, alpha=alpha, label='Spectrum')
+            ax.plot(
+                mz_axis, row,
+                color='black', linewidth=1, alpha=alpha, label='Spectrum'
+            )
 
             if len(peaks) > 0:
-                ax.scatter(mz_axis[peaks], row[peaks], color='red', s=50, 
-                          zorder=5, label=f'Peaks (n={len(peaks)})', marker='o')
+                ax.scatter(
+                    mz_axis[peaks], row[peaks],
+                    color='red', s=50, zorder=5,
+                    label=f'Peaks (n={len(peaks)})', marker='o'
+                )
 
                 for peak in peaks:
-                    ax.axvline(mz_axis[peak], color='red', linestyle='--', 
-                             alpha=0.3, linewidth=0.8)
+                    ax.axvline(
+                        mz_axis[peak], color='red', linestyle='--',
+                        alpha=0.3, linewidth=0.8
+                    )
 
-            ax.set_xlabel('m/z' if np.issubdtype(mz_axis.dtype, np.number) else 'Index')
+            ax.set_xlabel(
+                'm/z' if np.issubdtype(mz_axis.dtype, np.number) else 'Index'
+            )
             ax.set_ylabel('Intensity')
             ax.set_title(f'Peak Detection (method={self.method}, idx={spectrum_idx})')
             ax.legend(loc='upper right')

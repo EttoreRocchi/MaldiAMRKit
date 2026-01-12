@@ -1,3 +1,4 @@
+"""Spectral alignment and warping transformers for binned spectra."""
 from __future__ import annotations
 import numpy as np
 import pandas as pd
@@ -6,42 +7,55 @@ import warnings
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from .peak_detector import MaldiPeakDetector
+from ..detection.peak_detector import MaldiPeakDetector
 
 from fastdtw import fastdtw
 
 
 class Warping(BaseEstimator, TransformerMixin):
     """
-    Align MALDI-TOF spectra to a reference using different strategies:
-    - "shift": global median shift
-    - "linear": least-squares linear transform
-    - "piecewise": local median shifts across segments
-    - "dtw": dynamic time warping (for spectra)
+    Align MALDI-TOF spectra to a reference using different strategies.
+
+    Supports multiple alignment methods for correcting mass calibration drift
+    in binned spectra.
 
     Parameters
     ----------
     peak_detector : MaldiPeakDetector, optional
         Peak detector used to find peaks in spectra. If None, a default
-        detector is created.
-    reference : str or int, optional
+        detector is created with binary=True and prominence=1e-5.
+    reference : str or int, default="median"
         How to choose the reference spectrum:
-        - "median" : median spectrum (default)
-        - int      : use that row index
+        - "median" : median spectrum across all samples
+        - int : use that row index as reference
     method : str, default="shift"
-        Alignment method: "shift" | "linear" | "piecewise" | "dtw"
+        Alignment method:
+        - "shift" : global median shift
+        - "linear" : least-squares linear transform
+        - "piecewise" : local median shifts across segments
+        - "dtw" : dynamic time warping
     n_segments : int, default=5
         Number of segments for piecewise warping.
     max_shift : int, default=50
         Max allowed shift in bins (for shift/linear modes).
     dtw_radius : int, default=10
         Radius constraint for DTW to limit warping path search space.
-        (larger radius means less warping)
     smooth_sigma : float, default=2.0
         Gaussian smoothing parameter for piecewise segment shifts.
-        Higher values create smoother transitions.
     min_reference_peaks : int, default=5
         Minimum number of peaks expected in reference for quality check.
+
+    Attributes
+    ----------
+    ref_spec_ : np.ndarray
+        The fitted reference spectrum (stored after fit()).
+
+    Examples
+    --------
+    >>> from maldiamrkit.alignment import Warping
+    >>> warper = Warping(method="shift")
+    >>> warper.fit(X_train)
+    >>> X_aligned = warper.transform(X_test)
     """
 
     def __init__(
@@ -55,7 +69,9 @@ class Warping(BaseEstimator, TransformerMixin):
         smooth_sigma: float = 2.0,
         min_reference_peaks: int = 5,
     ) -> Warping:
-        self.peak_detector = peak_detector or MaldiPeakDetector(binary=True, prominence=1e-5)
+        self.peak_detector = peak_detector or MaldiPeakDetector(
+            binary=True, prominence=1e-5
+        )
         self.reference = reference
         self.method = method
         self.n_segments = n_segments
@@ -67,14 +83,14 @@ class Warping(BaseEstimator, TransformerMixin):
     def fit(self, X: pd.DataFrame, y=None):
         """
         Fit the transformer by selecting or computing the reference spectrum.
-        
+
         Parameters
         ----------
         X : pd.DataFrame
             Input spectra with shape (n_samples, n_bins).
         y : array-like, optional
             Target values (ignored).
-            
+
         Returns
         -------
         self : Warping
@@ -87,14 +103,23 @@ class Warping(BaseEstimator, TransformerMixin):
             self.ref_spec_ = X.median(axis=0).to_numpy()
         elif isinstance(self.reference, int):
             if self.reference < 0 or self.reference >= len(X):
-                raise ValueError(f"Reference index {self.reference} is out of bounds for X with {len(X)} samples")
+                raise ValueError(
+                    f"Reference index {self.reference} is out of bounds "
+                    f"for X with {len(X)} samples"
+                )
             self.ref_spec_ = X.iloc[self.reference].to_numpy()
         else:
-            raise ValueError(f"Unsupported reference specifier: {self.reference}. Must be 'median' or int.")
+            raise ValueError(
+                f"Unsupported reference specifier: {self.reference}. "
+                f"Must be 'median' or int."
+            )
 
         # Validate parameters
         if self.method not in ["shift", "linear", "piecewise", "dtw"]:
-            raise ValueError(f"Unknown warping method: {self.method}. Must be one of: shift, linear, piecewise, dtw")
+            raise ValueError(
+                f"Unknown warping method: {self.method}. "
+                f"Must be one of: shift, linear, piecewise, dtw"
+            )
         if self.n_segments < 1:
             raise ValueError(f"n_segments must be >= 1, got {self.n_segments}")
         if self.max_shift < 0:
@@ -106,10 +131,7 @@ class Warping(BaseEstimator, TransformerMixin):
         return self
 
     def _validate_reference_quality(self, X: pd.DataFrame):
-        """
-        Validate that the reference spectrum has sufficient quality.
-        Issues warnings if the reference appears problematic.
-        """
+        """Validate that the reference spectrum has sufficient quality."""
         ref_peaks_df = self.peak_detector.transform(
             pd.DataFrame(self.ref_spec_[np.newaxis, :], columns=X.columns)
         )
@@ -120,7 +142,8 @@ class Warping(BaseEstimator, TransformerMixin):
                 f"Reference spectrum has only {n_peaks} peaks detected. "
                 f"Expected at least {self.min_reference_peaks}. "
                 f"This may result in poor alignment quality. "
-                f"Consider adjusting peak detection parameters or choosing a different reference.",
+                f"Consider adjusting peak detection parameters or "
+                f"choosing a different reference.",
                 UserWarning
             )
 
@@ -188,7 +211,7 @@ class Warping(BaseEstimator, TransformerMixin):
 
         seg_x, seg_shift = [], []
         for q in range(self.n_segments):
-            # Fix: include upper boundary for last segment
+            # Include upper boundary for last segment
             if q == self.n_segments - 1:
                 mask = (sample >= boundaries[q]) & (sample <= boundaries[q + 1])
             else:
@@ -202,11 +225,16 @@ class Warping(BaseEstimator, TransformerMixin):
             return row
 
         # Interpolate shifts across the spectrum
-        shift_interp = np.interp(mz_axis, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1])
+        shift_interp = np.interp(
+            mz_axis, seg_x, seg_shift,
+            left=seg_shift[0], right=seg_shift[-1]
+        )
 
         # Apply Gaussian smoothing to reduce abrupt transitions
         if self.smooth_sigma > 0:
-            shift_interp = gaussian_filter1d(shift_interp, sigma=self.smooth_sigma, mode='nearest')
+            shift_interp = gaussian_filter1d(
+                shift_interp, sigma=self.smooth_sigma, mode='nearest'
+            )
 
         new_positions = mz_axis + shift_interp
 
@@ -251,7 +279,12 @@ class Warping(BaseEstimator, TransformerMixin):
         to the same reference index.
         """
         # Compute DTW alignment path with radius constraint
-        distance, path = fastdtw(row, self.ref_spec_, radius=self.dtw_radius, dist=lambda a, b: abs(a - b))
+        # Use squared Euclidean distance for better intensity matching
+        distance, path = fastdtw(
+            row, self.ref_spec_,
+            radius=self.dtw_radius,
+            dist=lambda a, b: (a - b) ** 2
+        )
 
         # Create aligned spectrum by following the warping path
         aligned_sum = np.zeros_like(self.ref_spec_)
@@ -278,7 +311,7 @@ class Warping(BaseEstimator, TransformerMixin):
         ----------
         X : pd.DataFrame
             Input spectra with shape (n_samples, n_bins).
-    
+
         Returns
         -------
         X_aligned : pd.DataFrame
@@ -305,7 +338,7 @@ class Warping(BaseEstimator, TransformerMixin):
         # Batch peak detection for efficiency
         if self.method != "dtw":
             peaks_df = self.peak_detector.transform(X)
-        
+
         for i in range(X.shape[0]):
             row = X.iloc[i].to_numpy()
 
@@ -328,6 +361,60 @@ class Warping(BaseEstimator, TransformerMixin):
 
         return pd.DataFrame(aligned_rows, index=X.index, columns=X.columns)
 
+    def get_alignment_quality(
+        self,
+        X_original: pd.DataFrame,
+        X_aligned: pd.DataFrame | None = None
+    ) -> pd.DataFrame:
+        """
+        Compute alignment quality metrics.
+
+        Parameters
+        ----------
+        X_original : pd.DataFrame
+            Original (unaligned) spectra.
+        X_aligned : pd.DataFrame, optional
+            Aligned spectra. If None, will compute by calling transform().
+
+        Returns
+        -------
+        pd.DataFrame
+            Quality metrics with columns:
+            - correlation_before: Pearson correlation with reference (before)
+            - correlation_after: Pearson correlation with reference (after)
+            - improvement: correlation_after - correlation_before
+            - rmse_before: RMSE with reference (before)
+            - rmse_after: RMSE with reference (after)
+        """
+        if not hasattr(self, 'ref_spec_'):
+            raise RuntimeError("Warping must be fitted before computing quality")
+
+        if X_aligned is None:
+            X_aligned = self.transform(X_original)
+
+        metrics = []
+        for i in range(len(X_original)):
+            original = X_original.iloc[i].to_numpy()
+            aligned = X_aligned.iloc[i].to_numpy()
+
+            # Correlation with reference
+            corr_before = np.corrcoef(original, self.ref_spec_)[0, 1]
+            corr_after = np.corrcoef(aligned, self.ref_spec_)[0, 1]
+
+            # RMSE with reference
+            rmse_before = np.sqrt(np.mean((original - self.ref_spec_) ** 2))
+            rmse_after = np.sqrt(np.mean((aligned - self.ref_spec_) ** 2))
+
+            metrics.append({
+                'correlation_before': corr_before,
+                'correlation_after': corr_after,
+                'improvement': corr_after - corr_before,
+                'rmse_before': rmse_before,
+                'rmse_after': rmse_after
+            })
+
+        return pd.DataFrame(metrics, index=X_original.index)
+
     def plot_alignment(
         self,
         X_original: pd.DataFrame,
@@ -346,10 +433,9 @@ class Warping(BaseEstimator, TransformerMixin):
         X_original : pd.DataFrame
             Original (unaligned) spectra.
         X_aligned : pd.DataFrame, optional
-            Aligned spectra. If `None`, will compute by calling transform().
+            Aligned spectra. If None, will compute by calling transform().
         indices : int or list of int, optional
-            Indices of spectra to plot. If `None`, plots the first spectrum.
-            Can be a single int or list of ints for multiple spectra.
+            Indices of spectra to plot. If None, plots the first spectrum.
         show_peaks : bool, default=True
             Whether to show detected peaks as vertical lines.
         xlim : tuple of (float, float), optional
@@ -380,7 +466,9 @@ class Warping(BaseEstimator, TransformerMixin):
 
         for idx in indices:
             if idx < 0 or idx >= len(X_original):
-                raise ValueError(f"Index {idx} out of bounds for data with {len(X_original)} samples")
+                raise ValueError(
+                    f"Index {idx} out of bounds for data with {len(X_original)} samples"
+                )
 
         mz_axis = X_original.columns.to_numpy()
         if not np.issubdtype(mz_axis.dtype, np.number):
@@ -396,15 +484,19 @@ class Warping(BaseEstimator, TransformerMixin):
             if self.method != "dtw":
                 sample_peaks_df = self.peak_detector.transform(X_original.iloc[indices])
                 aligned_peaks_df = self.peak_detector.transform(X_aligned.iloc[indices])
-                
+
                 for i, idx in enumerate(indices):
-                    sample_peaks_dict[idx] = mz_axis[sample_peaks_df.iloc[i].to_numpy().nonzero()[0]]
-                    aligned_peaks_dict[idx] = mz_axis[aligned_peaks_df.iloc[i].to_numpy().nonzero()[0]]
+                    sample_peaks_dict[idx] = mz_axis[
+                        sample_peaks_df.iloc[i].to_numpy().nonzero()[0]
+                    ]
+                    aligned_peaks_dict[idx] = mz_axis[
+                        aligned_peaks_df.iloc[i].to_numpy().nonzero()[0]
+                    ]
 
         # Create figure with subplots
         n_spectra = len(indices)
         fig, axes = plt.subplots(n_spectra, 2, figsize=figsize, squeeze=False)
-        
+
         for plot_idx, spectrum_idx in enumerate(indices):
             ax_before = axes[plot_idx, 0]
             ax_after = axes[plot_idx, 1]
@@ -414,19 +506,27 @@ class Warping(BaseEstimator, TransformerMixin):
             aligned = X_aligned.iloc[spectrum_idx].to_numpy()
 
             # Plot before alignment
-            ax_before.plot(mz_axis, self.ref_spec_, label='Reference', 
-                          color='black', linewidth=1.5, alpha=alpha)
-            ax_before.plot(mz_axis, original, label=f'Original (idx={spectrum_idx})', 
-                          color='red', linewidth=1, alpha=alpha)
-            
+            ax_before.plot(
+                mz_axis, self.ref_spec_, label='Reference',
+                color='black', linewidth=1.5, alpha=alpha
+            )
+            ax_before.plot(
+                mz_axis, original, label=f'Original (idx={spectrum_idx})',
+                color='red', linewidth=1, alpha=alpha
+            )
+
             if show_peaks and ref_peaks is not None:
                 for peak in ref_peaks:
-                    ax_before.axvline(peak, color='black', linestyle='--', 
-                                     alpha=0.3, linewidth=0.8)
+                    ax_before.axvline(
+                        peak, color='black', linestyle='--',
+                        alpha=0.3, linewidth=0.8
+                    )
                 if spectrum_idx in sample_peaks_dict:
                     for peak in sample_peaks_dict[spectrum_idx]:
-                        ax_before.axvline(peak, color='red', linestyle='--', 
-                                         alpha=0.3, linewidth=0.8)
+                        ax_before.axvline(
+                            peak, color='red', linestyle='--',
+                            alpha=0.3, linewidth=0.8
+                        )
 
             ax_before.set_ylabel('Intensity')
             ax_before.set_title(f'Before Alignment ({self.method} method)')
@@ -436,19 +536,27 @@ class Warping(BaseEstimator, TransformerMixin):
                 ax_before.set_xlim(xlim)
 
             # Plot after alignment
-            ax_after.plot(mz_axis, self.ref_spec_, label='Reference', 
-                         color='black', linewidth=1.5, alpha=alpha)
-            ax_after.plot(mz_axis, aligned, label=f'Aligned (idx={spectrum_idx})', 
-                         color='blue', linewidth=1, alpha=alpha)
-            
+            ax_after.plot(
+                mz_axis, self.ref_spec_, label='Reference',
+                color='black', linewidth=1.5, alpha=alpha
+            )
+            ax_after.plot(
+                mz_axis, aligned, label=f'Aligned (idx={spectrum_idx})',
+                color='blue', linewidth=1, alpha=alpha
+            )
+
             if show_peaks and ref_peaks is not None:
                 for peak in ref_peaks:
-                    ax_after.axvline(peak, color='black', linestyle='--', 
-                                    alpha=0.3, linewidth=0.8)
+                    ax_after.axvline(
+                        peak, color='black', linestyle='--',
+                        alpha=0.3, linewidth=0.8
+                    )
                 if spectrum_idx in aligned_peaks_dict:
                     for peak in aligned_peaks_dict[spectrum_idx]:
-                        ax_after.axvline(peak, color='blue', linestyle='--', 
-                                        alpha=0.3, linewidth=0.8)
+                        ax_after.axvline(
+                            peak, color='blue', linestyle='--',
+                            alpha=0.3, linewidth=0.8
+                        )
 
             ax_after.set_title(f'After Alignment ({self.method} method)')
             ax_after.legend(loc='upper right')

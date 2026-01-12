@@ -1,21 +1,57 @@
-from .config import PreprocessingSettings
-from .preprocessing import preprocess, bin_spectrum
-from .io import read_spectrum
-from .dataset import MaldiSet
-from .spectrum import MaldiSpectrum
-from .warping import Warping
+"""
+MaldiAMRKit: MALDI-TOF mass spectrometry preprocessing toolkit for AMR prediction.
 
-__version__ = "0.4.1"
+A Python toolkit for preprocessing MALDI-TOF mass spectrometry data with
+scikit-learn compatible transformers for antimicrobial resistance (AMR) prediction.
+
+Examples
+--------
+>>> from maldiamrkit import MaldiSpectrum, MaldiSet, Warping
+>>> spec = MaldiSpectrum("spectrum.txt")
+>>> spec.preprocess().bin(3)
+>>> spec.plot()
+"""
+
+# Core data structures
+from maldiamrkit.core.config import PreprocessingSettings
+from maldiamrkit.core.spectrum import MaldiSpectrum
+from maldiamrkit.core.dataset import MaldiSet
+
+# Preprocessing functions
+from maldiamrkit.preprocessing.pipeline import preprocess
+from maldiamrkit.preprocessing.binning import bin_spectrum
+from maldiamrkit.preprocessing.quality import estimate_snr
+
+# I/O utilities
+from maldiamrkit.io.readers import read_spectrum
+
+# Alignment transformers
+from maldiamrkit.alignment.warping import Warping
+from maldiamrkit.alignment.raw_warping import RawWarping
+
+# Detection transformers
+from maldiamrkit.detection.peak_detector import MaldiPeakDetector
+
+__version__ = "0.5.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
+    # Core
     "MaldiSpectrum",
     "MaldiSet",
     "PreprocessingSettings",
-    "Warping",
+    # Preprocessing
     "preprocess",
     "bin_spectrum",
+    "estimate_snr",
+    # I/O
     "read_spectrum",
+    # Alignment
+    "Warping",
+    "RawWarping",
+    # Detection
+    "MaldiPeakDetector",
+    # Metadata
     "__version__",
     "__author__",
 ]

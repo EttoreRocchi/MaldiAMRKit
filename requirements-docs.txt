@@ -1,0 +1,23 @@
+# Documentation dependencies for MaldiAMRKit
+# Note: includes all core dependencies since setuptools file: directive
+# doesn't support -r includes
+
+# Core dependencies (same as requirements.txt)
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+pybaselines>=1.0.0
+gudhi>=3.5.0
+fastdtw>=0.3.4
+
+# Sphinx and extensions
+sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
+sphinx-autodoc-typehints>=2.0.0
+
+# Jupyter notebook support
+nbsphinx>=0.9.0
+ipykernel>=6.0.0
