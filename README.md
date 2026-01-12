@@ -1,6 +1,7 @@
 # MaldiAMRKit
 
 [![PyPI Version](https://img.shields.io/pypi/v/maldiamrkit?cacheSeconds=300)](https://pypi.org/project/maldiamrkit/)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://maldiamrkit.readthedocs.io/)
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">
@@ -15,6 +16,7 @@
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
+  <a href="https://maldiamrkit.readthedocs.io/">Documentation</a> •
   <a href="#license">License</a> •
   <a href="#contributing">Contributing</a>
 </p>
@@ -25,20 +27,36 @@
 pip install maldiamrkit
 ```
 
+### Development Installation
+
+```bash
+git clone https://github.com/EttoreRocchi/MaldiAMRKit.git
+cd MaldiAMRKit
+pip install -e .
+```
+
+### Install with Documentation Dependencies
+
+```bash
+pip install -e ".[docs]"
+```
+
 ## Features
 
-- **📊 Spectrum Processing**: Load, smooth, baseline correct, and normalize MALDI-TOF spectra
-- **📦 Dataset Management**: Process multiple spectra with metadata integration
-- **🔍 Peak Detection**: Automated peak finding with customizable parameters
-- **📈 Spectral Alignment (Warping)**: Multiple alignment methods (shift, linear, piecewise, DTW)
-- **🤖 ML-Ready**: Direct integration with scikit-learn pipelines
+- **Spectrum Processing**: Load, smooth, baseline correct, and normalize MALDI-TOF spectra
+- **Dataset Management**: Process multiple spectra with metadata integration
+- **Peak Detection**: Local maxima and persistent homology methods
+- **Spectral Alignment (Warping)**: Multiple alignment methods (shift, linear, piecewise, DTW)
+- **Raw Spectra Warping**: Full m/z resolution alignment before binning
+- **Quality Metrics**: SNR estimation and alignment quality assessment
+- **ML-Ready**: Direct integration with scikit-learn pipelines
 
 ## Quick Start
 
 ### Load and Preprocess a Single Spectrum
 
 ```python
-from maldiamrkit.spectrum import MaldiSpectrum
+from maldiamrkit import MaldiSpectrum
 
 # Load spectrum from file
 spec = MaldiSpectrum("data/spectrum.txt")
@@ -56,20 +74,54 @@ spec.plot(binned=True)
 ### Build a Dataset from Multiple Spectra
 
 ```python
-from maldiamrkit.dataset import MaldiSet
+from maldiamrkit import MaldiSet
 
 # Load multiple spectra with metadata
 data = MaldiSet.from_directory(
     spectra_dir="data/spectra/",
-    metadata_path="data/metadata.csv",
-    aggregate_by={"antibiotic": "Drug", "species": "Species"},
+    meta_file="data/metadata.csv",
+    aggregate_by=dict(antibiotics="Drug", species="Species"),
     bin_width=3
 )
 
 # Access features and labels
 X = data.X  # Feature matrix
-y = data.y["Drug"]  # Target labels
+y = data.get_y_single("Drug")  # Target labels
 ```
+
+### Binning Methods
+
+MaldiAMRKit supports multiple binning strategies:
+
+```python
+from maldiamrkit import MaldiSpectrum
+
+spec = MaldiSpectrum("data/spectrum.txt").preprocess()
+
+# Uniform binning (default)
+spec.bin(bin_width=3)
+
+# Logarithmic binning (width scales with m/z)
+spec.bin(bin_width=3, method="logarithmic")
+
+# Adaptive binning (smaller bins in peak-dense regions)
+spec.bin(method="adaptive", adaptive_min_width=1.0, adaptive_max_width=10.0)
+
+# Custom binning (user-defined edges)
+spec.bin(method="custom", custom_edges=[2000, 5000, 10000, 15000, 20000])
+
+# Access bin metadata
+print(spec.bin_metadata.head())
+#    bin_index  bin_start  bin_end  bin_width
+# 0          0     2000.0   2003.0        3.0
+# 1          1     2003.0   2006.0        3.0
+```
+
+**Binning Methods:**
+- `uniform`: Fixed width bins (default)
+- `logarithmic`: Bin width scales with m/z (matches instrument resolution)
+- `adaptive`: Smaller bins where peaks are dense, larger bins elsewhere
+- `custom`: User-defined bin edges for domain-specific analysis
 
 ### Machine Learning Pipeline
 
@@ -77,44 +129,66 @@ y = data.y["Drug"]  # Target labels
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from maldiamrkit.peak_detector import MaldiPeakDetector
+from sklearn.model_selection import cross_val_score
+from maldiamrkit import MaldiPeakDetector, Warping
 
 # Create ML pipeline
 pipe = Pipeline([
     ("peaks", MaldiPeakDetector(binary=False, prominence=0.05)),
+    ("warp", Warping(method="shift")),
     ("scaler", StandardScaler()),
     ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
 ])
 
-# Train and predict
-pipe.fit(X_train, y_train)
-y_pred = pipe.predict(X_test)
+# Cross-validation (recommended over train accuracy)
+scores = cross_val_score(pipe, X, y, cv=5, scoring="accuracy")
+print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 ```
 
-### Align spectra to correct for mass calibration drift:
+### Spectral Alignment
+
+Align spectra to correct for mass calibration drift:
 
 ```python
-from maldiamrkit.warping import Warping
+from maldiamrkit import Warping
 
-# Create warping transformer with shift method
+# Create warping transformer
 warper = Warping(
-    method='shift',  # or 'linear', 'piecewise', 'dtw'
-    reference='median',  # use median spectrum as reference
-    max_shift=50
+    method='piecewise',  # or 'shift', 'linear', 'dtw'
+    reference='median',
+    n_segments=5
 )
 
 # Fit on training data and transform
 warper.fit(X_train)
 X_aligned = warper.transform(X_test)
 
-# Visualize alignment results
-fig, axes = warper.plot_alignment(
-    X_original=X_test,
-    X_aligned=X_aligned,
-    indices=[0, 5, 10],  # plot multiple spectra
-    xlim=(2000, 10000),  # zoom to m/z range
-    show_peaks=True
+# Check alignment quality
+quality = warper.get_alignment_quality(X_test, X_aligned)
+print(f"Mean improvement: {quality['improvement'].mean():.4f}")
+
+# Visualize
+warper.plot_alignment(X_test, X_aligned, indices=[0], show_peaks=True)
+```
+
+### Raw Spectra Warping (New!)
+
+For higher precision, use RawWarping which operates at full m/z resolution:
+
+```python
+from maldiamrkit import RawWarping
+
+# Raw warping loads original files for warping
+warper = RawWarping(
+    spectra_dir="data/spectra/",
+    method="piecewise",
+    bin_width=3,
+    max_shift_da=10.0
 )
+
+# Outputs binned data for pipeline compatibility
+warper.fit(X_train)
+X_aligned = warper.transform(X_test)
 ```
 
 **Alignment Methods:**
@@ -123,8 +197,30 @@ fig, axes = warper.plot_alignment(
 - `piecewise`: Local shifts across spectrum segments (most flexible)
 - `dtw`: Dynamic Time Warping (best for non-linear drift)
 
+### Quality Assessment
 
-For further details please see the [quick guide notebook](docs/quick_guide.ipynb).
+```python
+from maldiamrkit import estimate_snr
+
+# Estimate signal-to-noise ratio
+spec = MaldiSpectrum("spectrum.txt").preprocess()
+snr = estimate_snr(spec.preprocessed)
+print(f"SNR: {snr:.1f}")
+```
+
+## Project Structure
+
+```
+maldiamrkit/
+├── core/           # Core data structures (MaldiSpectrum, MaldiSet)
+├── preprocessing/  # Preprocessing functions (pipeline, binning, quality)
+├── alignment/      # Warping transformers (Warping, RawWarping)
+├── detection/      # Peak detection (MaldiPeakDetector)
+├── io/             # File I/O utilities
+└── utils/          # Validation and plotting helpers
+```
+
+For further details please see the [quick guide notebook](notebooks/quick_guide.ipynb).
 
 ## Contributing
 
