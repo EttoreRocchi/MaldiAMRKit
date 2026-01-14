@@ -11,7 +11,9 @@ Jupyter Notebooks
 
 The following Jupyter notebooks are available in the ``notebooks/`` directory:
 
-- **quick_guide.ipynb** - Quick introduction to MaldiAMRKit with practical examples
+- **01_quick_start.ipynb** - Loading, preprocessing, binning, and quality assessment
+- **02_peak_detection.ipynb** - Local maxima and persistent homology methods
+- **03_alignment.ipynb** - Warping methods and alignment quality
 
 To view the notebooks, navigate to the ``notebooks/`` directory and start Jupyter:
 

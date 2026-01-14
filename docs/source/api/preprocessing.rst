@@ -56,3 +56,31 @@ Quality Metrics
 ---------------
 
 .. autofunction:: maldiamrkit.preprocessing.quality.estimate_snr
+
+.. autoclass:: maldiamrkit.preprocessing.quality.SpectrumQuality
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: maldiamrkit.preprocessing.quality.SpectrumQualityReport
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Usage Example
+~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from maldiamrkit import SpectrumQuality, MaldiSpectrum
+
+    # Assess spectrum quality
+    spec = MaldiSpectrum("spectrum.txt").preprocess()
+    qc = SpectrumQuality()  # Uses high m/z region (19500-20000) by default
+    report = qc.assess(spec.preprocessed)
+
+    print(f"SNR: {report.snr:.1f}")
+    print(f"Peak count: {report.peak_count}")
+    print(f"Total ion count: {report.total_ion_count:.2e}")
+    print(f"Baseline fraction: {report.baseline_fraction:.2%}")
+    print(f"Dynamic range: {report.dynamic_range:.2f}")

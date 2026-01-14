@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">
-  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="250"/>
+  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="450"/>
 </p>
 
 <p align="center">
@@ -15,10 +15,8 @@
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
   <a href="https://maldiamrkit.readthedocs.io/">Documentation</a> •
-  <a href="#license">License</a> •
-  <a href="#contributing">Contributing</a>
+  <a href="#license">License</a> 
 </p>
 
 ## Installation
@@ -48,7 +46,8 @@ pip install -e ".[docs]"
 - **Peak Detection**: Local maxima and persistent homology methods
 - **Spectral Alignment (Warping)**: Multiple alignment methods (shift, linear, piecewise, DTW)
 - **Raw Spectra Warping**: Full m/z resolution alignment before binning
-- **Quality Metrics**: SNR estimation and alignment quality assessment
+- **Quality Metrics**: SNR estimation, comprehensive quality reports, and alignment assessment
+- **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
 - **ML-Ready**: Direct integration with scikit-learn pipelines
 
 ## Quick Start
@@ -171,7 +170,7 @@ print(f"Mean improvement: {quality['improvement'].mean():.4f}")
 warper.plot_alignment(X_test, X_aligned, indices=[0], show_peaks=True)
 ```
 
-### Raw Spectra Warping (New!)
+### Raw Spectra Warping
 
 For higher precision, use RawWarping which operates at full m/z resolution:
 
@@ -200,12 +199,38 @@ X_aligned = warper.transform(X_test)
 ### Quality Assessment
 
 ```python
-from maldiamrkit import estimate_snr
+from maldiamrkit import estimate_snr, SpectrumQuality, MaldiSpectrum
 
 # Estimate signal-to-noise ratio
 spec = MaldiSpectrum("spectrum.txt").preprocess()
 snr = estimate_snr(spec.preprocessed)
 print(f"SNR: {snr:.1f}")
+
+# Comprehensive quality report
+qc = SpectrumQuality()  # Uses high m/z region (19500-20000) by default
+report = qc.assess(spec.preprocessed)
+print(f"SNR: {report.snr:.1f}")
+print(f"Peak count: {report.peak_count}")
+print(f"Dynamic range: {report.dynamic_range:.2f}")
+```
+
+### Parallel Processing
+
+Use `n_jobs` parameter for multi-core processing:
+
+```python
+from maldiamrkit import MaldiSet, MaldiPeakDetector, Warping
+
+# Parallel dataset loading
+data = MaldiSet.from_directory("spectra/", "meta.csv", n_jobs=-1)
+
+# Parallel peak detection
+detector = MaldiPeakDetector(prominence=0.01, n_jobs=-1)
+peaks = detector.fit_transform(X)
+
+# Parallel alignment
+warper = Warping(method="piecewise", n_jobs=-1)
+X_aligned = warper.fit_transform(X)
 ```
 
 ## Project Structure
@@ -220,7 +245,13 @@ maldiamrkit/
 └── utils/          # Validation and plotting helpers
 ```
 
-For further details please see the [quick guide notebook](notebooks/quick_guide.ipynb).
+## Tutorials
+
+For more detailed examples, see the notebooks:
+
+- [Quick Start](notebooks/01_quick_start.ipynb) - Loading, preprocessing, binning, and quality assessment
+- [Peak Detection](notebooks/02_peak_detection.ipynb) - Local maxima and persistent homology methods
+- [Alignment](notebooks/03_alignment.ipynb) - Warping methods and alignment quality
 
 ## Contributing
 
