@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.base import BaseEstimator, TransformerMixin
 from scipy.signal import find_peaks
+from joblib import Parallel, delayed
 import gudhi
 
 
@@ -28,6 +29,10 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         Minimum persistence (death - birth) required for a peak when using
         method="ph". For normalized spectra (sum=1), typical values are 1e-6
         to 1e-4. Higher values detect fewer, more prominent peaks.
+    n_jobs : int, default=1
+        Number of parallel jobs for peak detection. Use -1 for all available
+        cores, 1 for sequential processing. Parallelization is particularly
+        beneficial for the "ph" method which is CPU-intensive.
     **kwargs :
         Additional keyword arguments passed to scipy.signal.find_peaks
         when method="local". Common parameters:
@@ -58,11 +63,13 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         method: str = "local",
         binary: bool = True,
         persistence_threshold: float = 1e-6,
+        n_jobs: int = 1,
         **kwargs
     ) -> MaldiPeakDetector:
         self.method = method
         self.binary = binary
         self.persistence_threshold = persistence_threshold
+        self.n_jobs = n_jobs
         self.kwargs = kwargs
 
         if self.method not in ["local", "ph"]:
@@ -186,6 +193,24 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
         return np.array(sorted(set(peak_indices)), dtype=int)
 
+    def _process_single_row(self, row: np.ndarray) -> np.ndarray:
+        """Process a single row and return masked array (helper for parallelization)."""
+        if self.method == "local":
+            peaks = self._detect_peaks_local(row)
+        elif self.method == "ph":
+            peaks = self._detect_peaks_ph(row)
+        else:
+            raise ValueError(f"Unknown method: {self.method}")
+
+        masked = np.zeros_like(row, dtype=row.dtype)
+
+        if self.binary:
+            masked[peaks] = 1
+        else:
+            masked[peaks] = row[peaks]
+
+        return masked
+
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Detect peaks in each spectrum and mask non-peak positions.
@@ -205,26 +230,19 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         if input_is_series:
             X = X.to_frame().T
 
-        X_out = X.copy()
+        # Use parallel processing with joblib
+        # "processes" backend is better for CPU-bound tasks like PH
+        results = Parallel(n_jobs=self.n_jobs, prefer="processes")(
+            delayed(self._process_single_row)(X.iloc[i].values)
+            for i in range(X.shape[0])
+        )
 
-        for i in range(X_out.shape[0]):
-            row = X_out.iloc[i].values
-
-            if self.method == "local":
-                peaks = self._detect_peaks_local(row)
-            elif self.method == "ph":
-                peaks = self._detect_peaks_ph(row)
-            else:
-                raise ValueError(f"Unknown method: {self.method}")
-
-            masked = np.zeros_like(row, dtype=row.dtype)
-
-            if self.binary:
-                masked[peaks] = 1
-            else:
-                masked[peaks] = row[peaks]
-
-            X_out.iloc[i] = masked
+        # Reconstruct DataFrame from results
+        X_out = pd.DataFrame(
+            np.vstack(results),
+            index=X.index,
+            columns=X.columns
+        )
 
         if input_is_series:
             return X_out.iloc[0]

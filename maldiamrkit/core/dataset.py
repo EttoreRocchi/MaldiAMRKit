@@ -5,9 +5,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+from joblib import Parallel, delayed
+
 from .spectrum import MaldiSpectrum
 from .config import PreprocessingSettings
-from ..preprocessing.binning import bin_spectrum, get_bin_metadata, _uniform_edges
+from ..preprocessing.binning import get_bin_metadata, _uniform_edges
+
+
+def _load_single_spectrum(
+    path: Path,
+    cfg: PreprocessingSettings | None,
+    bin_width: int,
+    bin_method: str,
+    bin_kwargs: dict,
+) -> MaldiSpectrum:
+    """Load and process a single spectrum (helper for parallel loading)."""
+    return MaldiSpectrum(path, cfg=cfg).bin(bin_width, method=bin_method, **bin_kwargs)
 
 
 class MaldiSet:
@@ -135,6 +148,7 @@ class MaldiSet:
         bin_width: int = 3,
         bin_method: str = "uniform",
         bin_kwargs: dict | None = None,
+        n_jobs: int = -1,
         verbose: bool = False,
     ) -> MaldiSet:
         """
@@ -156,6 +170,9 @@ class MaldiSet:
             Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
         bin_kwargs : dict, optional
             Additional keyword arguments for binning.
+        n_jobs : int, default=-1
+            Number of parallel jobs for loading spectra.
+            Use -1 for all available cores, 1 for sequential processing.
         verbose : bool, default=False
             If True, print progress messages.
 
@@ -163,13 +180,27 @@ class MaldiSet:
         -------
         MaldiSet
             Dataset with loaded spectra and metadata.
+
+        Notes
+        -----
+        Files are sorted alphabetically before loading to ensure reproducibility
+        across runs with different parallelization settings.
         """
         spectra_dir = Path(spectra_dir)
         _bin_kwargs = bin_kwargs or {}
-        specs = [
-            MaldiSpectrum(p, cfg=cfg).bin(bin_width, method=bin_method, **_bin_kwargs)
-            for p in spectra_dir.glob("*.txt")
-        ]
+
+        # Sort file list for reproducibility
+        spectrum_files = sorted(spectra_dir.glob("*.txt"))
+
+        if verbose:
+            print(f"INFO: Loading {len(spectrum_files)} spectra with n_jobs={n_jobs}")
+
+        # Use parallel loading with joblib
+        specs = Parallel(n_jobs=n_jobs, prefer="threads")(
+            delayed(_load_single_spectrum)(p, cfg, bin_width, bin_method, _bin_kwargs)
+            for p in spectrum_files
+        )
+
         meta = pd.read_csv(meta_file)
         return cls(
             specs, meta,

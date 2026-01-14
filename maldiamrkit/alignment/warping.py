@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import warnings
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
+from joblib import Parallel, delayed
 
 from ..detection.peak_detector import MaldiPeakDetector
 
@@ -44,6 +45,10 @@ class Warping(BaseEstimator, TransformerMixin):
         Gaussian smoothing parameter for piecewise segment shifts.
     min_reference_peaks : int, default=5
         Minimum number of peaks expected in reference for quality check.
+    n_jobs : int, default=1
+        Number of parallel jobs for transform. Use -1 for all available
+        cores, 1 for sequential processing. Parallelization is particularly
+        beneficial for the "dtw" method which is CPU-intensive.
 
     Attributes
     ----------
@@ -68,6 +73,7 @@ class Warping(BaseEstimator, TransformerMixin):
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
         min_reference_peaks: int = 5,
+        n_jobs: int = 1,
     ) -> Warping:
         self.peak_detector = peak_detector or MaldiPeakDetector(
             binary=True, prominence=1e-5
@@ -79,6 +85,7 @@ class Warping(BaseEstimator, TransformerMixin):
         self.dtw_radius = dtw_radius
         self.smooth_sigma = smooth_sigma
         self.min_reference_peaks = min_reference_peaks
+        self.n_jobs = n_jobs
 
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -303,6 +310,25 @@ class Warping(BaseEstimator, TransformerMixin):
 
         return aligned
 
+    def _align_single_row(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray | None,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
+        """Align a single row (helper for parallelization)."""
+        if self.method == "dtw":
+            return self._dtw(row)
+        elif self.method == "shift":
+            return self._shift_only(row, peaks, ref_peaks)
+        elif self.method == "linear":
+            return self._linear_fit(row, peaks, ref_peaks, mz_axis)
+        elif self.method == "piecewise":
+            return self._piecewise(row, peaks, ref_peaks, mz_axis)
+        else:
+            raise ValueError(f"Unknown warping method {self.method}")
+
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Transform spectra by aligning them to the reference.
@@ -326,7 +352,6 @@ class Warping(BaseEstimator, TransformerMixin):
                 f"reference spectrum length ({len(self.ref_spec_)})"
             )
 
-        aligned_rows = []
         mz_axis = np.arange(X.shape[1])
 
         # Detect peaks in reference (do once)
@@ -335,29 +360,25 @@ class Warping(BaseEstimator, TransformerMixin):
         )
         ref_peaks = ref_peaks_df.iloc[0].to_numpy().nonzero()[0]
 
-        # Batch peak detection for efficiency
+        # Batch peak detection for efficiency (for non-DTW methods)
+        peaks_list = None
         if self.method != "dtw":
             peaks_df = self.peak_detector.transform(X)
+            peaks_list = [
+                peaks_df.iloc[i].to_numpy().nonzero()[0]
+                for i in range(len(X))
+            ]
 
-        for i in range(X.shape[0]):
-            row = X.iloc[i].to_numpy()
-
-            if self.method == "dtw":
-                aligned = self._dtw(row)
-            else:
-                peaks = peaks_df.iloc[i].to_numpy().nonzero()[0]
-
-                if self.method == "shift":
-                    aligned = self._shift_only(row, peaks, ref_peaks)
-                elif self.method == "linear":
-                    aligned = self._linear_fit(row, peaks, ref_peaks, mz_axis)
-                elif self.method == "piecewise":
-                    aligned = self._piecewise(row, peaks, ref_peaks, mz_axis)
-                else:
-                    # Should never reach here due to validation in fit()
-                    raise ValueError(f"Unknown warping method {self.method}")
-
-            aligned_rows.append(aligned)
+        # Use parallel processing with joblib
+        aligned_rows = Parallel(n_jobs=self.n_jobs, prefer="processes")(
+            delayed(self._align_single_row)(
+                X.iloc[i].to_numpy(),
+                peaks_list[i] if peaks_list is not None else None,
+                ref_peaks,
+                mz_axis,
+            )
+            for i in range(len(X))
+        )
 
         return pd.DataFrame(aligned_rows, index=X.index, columns=X.columns)
 

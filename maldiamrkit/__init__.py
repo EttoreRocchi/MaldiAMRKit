@@ -20,19 +20,23 @@ from maldiamrkit.core.dataset import MaldiSet
 # Preprocessing functions
 from maldiamrkit.preprocessing.pipeline import preprocess
 from maldiamrkit.preprocessing.binning import bin_spectrum
-from maldiamrkit.preprocessing.quality import estimate_snr
+from maldiamrkit.preprocessing.quality import (
+    estimate_snr,
+    SpectrumQuality,
+    SpectrumQualityReport,
+)
 
 # I/O utilities
 from maldiamrkit.io.readers import read_spectrum
 
 # Alignment transformers
 from maldiamrkit.alignment.warping import Warping
-from maldiamrkit.alignment.raw_warping import RawWarping
+from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
 
 # Detection transformers
 from maldiamrkit.detection.peak_detector import MaldiPeakDetector
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
@@ -44,11 +48,14 @@ __all__ = [
     "preprocess",
     "bin_spectrum",
     "estimate_snr",
+    "SpectrumQuality",
+    "SpectrumQualityReport",
     # I/O
     "read_spectrum",
     # Alignment
     "Warping",
     "RawWarping",
+    "create_raw_input",
     # Detection
     "MaldiPeakDetector",
     # Metadata
