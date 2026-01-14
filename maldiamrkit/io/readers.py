@@ -1,4 +1,6 @@
 """File reading utilities for MALDI-TOF spectrum data."""
+from __future__ import annotations
+
 import csv
 from pathlib import Path
 
