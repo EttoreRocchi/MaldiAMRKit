@@ -1,8 +1,9 @@
 """Unit tests for RawWarping class and create_raw_input utility."""
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
 
 from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
 

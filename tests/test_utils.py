@@ -1,13 +1,14 @@
 """Unit tests for utils module."""
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import matplotlib
+
 matplotlib.use("Agg")  # Use non-interactive backend for tests
 import matplotlib.pyplot as plt
 
-from maldiamrkit.utils.validation import validate_spectrum_input, validate_mz_range
-from maldiamrkit.utils.plotting import plot_spectrum, plot_spectra_comparison
+from maldiamrkit.utils.plotting import plot_spectra_comparison, plot_spectrum
+from maldiamrkit.utils.validation import validate_mz_range, validate_spectrum_input
 
 
 class TestValidation:

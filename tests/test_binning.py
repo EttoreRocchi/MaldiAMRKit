@@ -3,11 +3,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from maldiamrkit.core.config import PreprocessingSettings
 from maldiamrkit.preprocessing.binning import (
     bin_spectrum,
 )
 from maldiamrkit.preprocessing.pipeline import preprocess
-from maldiamrkit.core.config import PreprocessingSettings
 
 
 class TestBinSpectrum:

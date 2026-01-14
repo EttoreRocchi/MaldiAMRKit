@@ -1,13 +1,15 @@
 """Single MALDI-TOF spectrum handling."""
 from __future__ import annotations
+
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from .config import PreprocessingSettings
-from ..preprocessing.pipeline import preprocess
-from ..preprocessing.binning import bin_spectrum
 from ..io.readers import read_spectrum
+from ..preprocessing.binning import bin_spectrum
+from ..preprocessing.pipeline import preprocess
+from .config import PreprocessingSettings
 
 
 class MaldiSpectrum:

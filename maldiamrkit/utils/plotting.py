@@ -1,7 +1,9 @@
 """Shared plotting utilities."""
+from __future__ import annotations
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def plot_spectrum(

@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 
-from maldiamrkit.preprocessing.pipeline import preprocess
 from maldiamrkit.core.config import PreprocessingSettings
+from maldiamrkit.preprocessing.pipeline import preprocess
 
 
 class TestPreprocess:

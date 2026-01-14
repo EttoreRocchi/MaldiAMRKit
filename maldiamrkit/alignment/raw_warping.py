@@ -1,20 +1,21 @@
 """Raw spectra warping transformer operating at full m/z resolution."""
 from __future__ import annotations
-import numpy as np
-import pandas as pd
+
 import warnings
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from fastdtw import fastdtw
+from joblib import Parallel, delayed
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
-from joblib import Parallel, delayed
 
 from ..core.config import PreprocessingSettings
-from ..preprocessing.pipeline import preprocess
-from ..preprocessing.binning import bin_spectrum
-from ..io.readers import read_spectrum
 from ..detection.peak_detector import MaldiPeakDetector
-
-from fastdtw import fastdtw
+from ..io.readers import read_spectrum
+from ..preprocessing.binning import bin_spectrum
+from ..preprocessing.pipeline import preprocess
 
 
 def create_raw_input(

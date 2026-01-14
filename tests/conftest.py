@@ -1,11 +1,11 @@
 """Shared pytest fixtures for MaldiAMRKit tests."""
 from __future__ import annotations
+
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-
 
 # Path to the data directory
 DATA_DIR = Path(__file__).parent.parent / "data"

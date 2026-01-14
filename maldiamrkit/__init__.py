@@ -13,28 +13,28 @@ Examples
 """
 
 # Core data structures
-from maldiamrkit.core.config import PreprocessingSettings
-from maldiamrkit.core.spectrum import MaldiSpectrum
-from maldiamrkit.core.dataset import MaldiSet
-
-# Preprocessing functions
-from maldiamrkit.preprocessing.pipeline import preprocess
-from maldiamrkit.preprocessing.binning import bin_spectrum
-from maldiamrkit.preprocessing.quality import (
-    estimate_snr,
-    SpectrumQuality,
-    SpectrumQualityReport,
-)
-
-# I/O utilities
-from maldiamrkit.io.readers import read_spectrum
+from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
 
 # Alignment transformers
 from maldiamrkit.alignment.warping import Warping
-from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
+from maldiamrkit.core.config import PreprocessingSettings
+from maldiamrkit.core.dataset import MaldiSet
+from maldiamrkit.core.spectrum import MaldiSpectrum
 
-# Detection transformers
+# Detector transformers
 from maldiamrkit.detection.peak_detector import MaldiPeakDetector
+
+# I/O utilities
+from maldiamrkit.io.readers import read_spectrum
+from maldiamrkit.preprocessing.binning import bin_spectrum
+
+# Preprocessing functions
+from maldiamrkit.preprocessing.pipeline import preprocess
+from maldiamrkit.preprocessing.quality import (
+    SpectrumQuality,
+    SpectrumQualityReport,
+    estimate_snr,
+)
 
 __version__ = "0.6.0"
 __author__ = "Ettore Rocchi"

@@ -1,8 +1,9 @@
 """Unit tests for MaldiPeakDetector class."""
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import matplotlib
+
 matplotlib.use("Agg")  # Use non-interactive backend for tests
 import matplotlib.pyplot as plt
 

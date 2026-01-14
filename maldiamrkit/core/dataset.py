@@ -1,15 +1,16 @@
 """Multi-spectrum dataset handling."""
 from __future__ import annotations
+
 from pathlib import Path
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import numpy as np
-
+import pandas as pd
 from joblib import Parallel, delayed
 
-from .spectrum import MaldiSpectrum
+from ..preprocessing.binning import _uniform_edges, get_bin_metadata
 from .config import PreprocessingSettings
-from ..preprocessing.binning import get_bin_metadata, _uniform_edges
+from .spectrum import MaldiSpectrum
 
 
 def _load_single_spectrum(

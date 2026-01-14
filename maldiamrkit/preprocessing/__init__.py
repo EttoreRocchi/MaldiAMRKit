@@ -1,7 +1,7 @@
 """Preprocessing functions for MALDI-TOF spectra."""
-from .pipeline import preprocess
 from .binning import bin_spectrum, get_bin_metadata
-from .quality import estimate_snr, SpectrumQuality, SpectrumQualityReport
+from .pipeline import preprocess
+from .quality import SpectrumQuality, SpectrumQualityReport, estimate_snr
 
 __all__ = [
     "preprocess",

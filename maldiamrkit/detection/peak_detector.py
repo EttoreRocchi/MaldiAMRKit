@@ -1,12 +1,13 @@
 """Peak detection algorithms for MALDI-TOF spectra."""
 from __future__ import annotations
+
+import gudhi
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.base import BaseEstimator, TransformerMixin
-from scipy.signal import find_peaks
 from joblib import Parallel, delayed
-import gudhi
+from scipy.signal import find_peaks
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class MaldiPeakDetector(BaseEstimator, TransformerMixin):

@@ -1,16 +1,17 @@
 """Spectral alignment and warping transformers for binned spectra."""
 from __future__ import annotations
+
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import warnings
+from fastdtw import fastdtw
+from joblib import Parallel, delayed
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
-from joblib import Parallel, delayed
 
 from ..detection.peak_detector import MaldiPeakDetector
-
-from fastdtw import fastdtw
 
 
 class Warping(BaseEstimator, TransformerMixin):

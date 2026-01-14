@@ -1,9 +1,10 @@
 """Unit tests for MaldiSet class."""
 from pathlib import Path
 
+import matplotlib
 import pandas as pd
 import pytest
-import matplotlib
+
 matplotlib.use("Agg")  # Use non-interactive backend for tests
 import matplotlib.pyplot as plt
 

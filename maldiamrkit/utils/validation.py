@@ -1,6 +1,8 @@
 """Input validation utilities."""
-import pandas as pd
+from __future__ import annotations
+
 import numpy as np
+import pandas as pd
 
 
 def validate_spectrum_input(X: pd.DataFrame | pd.Series) -> pd.DataFrame:
