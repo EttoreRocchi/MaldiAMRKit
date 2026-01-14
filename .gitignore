@@ -203,4 +203,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Project spcific
-future_dev/
+NOTE.md
+TODO.md

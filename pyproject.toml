@@ -38,6 +38,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.dynamic.optional-dependencies]
 docs = {file = ["requirements-docs.txt"]}
+dev = {file = ["requirements-dev.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -45,3 +46,20 @@ include = ["maldiamrkit*"]
 
 [tool.setuptools.package-data]
 maldiamrkit = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["maldiamrkit"]
