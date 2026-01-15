@@ -175,19 +175,22 @@ warper.plot_alignment(X_test, X_aligned, indices=[0], show_peaks=True)
 For higher precision, use RawWarping which operates at full m/z resolution:
 
 ```python
-from maldiamrkit import RawWarping
+from maldiamrkit import RawWarping, create_raw_input
+
+# Create input DataFrame from spectrum files
+X_raw = create_raw_input("data/spectra/")
 
 # Raw warping loads original files for warping
 warper = RawWarping(
-    spectra_dir="data/spectra/",
     method="piecewise",
     bin_width=3,
-    max_shift_da=10.0
+    max_shift_da=10.0,
+    n_jobs=-1  # Parallel processing
 )
 
 # Outputs binned data for pipeline compatibility
-warper.fit(X_train)
-X_aligned = warper.transform(X_test)
+warper.fit(X_raw)
+X_aligned = warper.transform(X_raw)
 ```
 
 **Alignment Methods:**

@@ -1,4 +1,5 @@
 """Shared plotting utilities."""
+
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ def plot_spectrum(
     title: str | None = None,
     color: str = "black",
     alpha: float = 0.8,
-    **kwargs
+    **kwargs,
 ) -> plt.Axes:
     """
     Plot a single spectrum.
@@ -40,9 +41,9 @@ def plot_spectrum(
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 4))
 
-    ax.plot(df['mass'], df['intensity'], color=color, alpha=alpha, **kwargs)
-    ax.set_xlabel('m/z')
-    ax.set_ylabel('Intensity')
+    ax.plot(df["mass"], df["intensity"], color=color, alpha=alpha, **kwargs)
+    ax.set_xlabel("m/z")
+    ax.set_ylabel("Intensity")
     if title:
         ax.set_title(title)
     ax.set_ylim(bottom=0)
@@ -57,7 +58,7 @@ def plot_spectra_comparison(
     ax: plt.Axes | None = None,
     title: str | None = None,
     alpha: float = 0.7,
-    **kwargs
+    **kwargs,
 ) -> plt.Axes:
     """
     Plot multiple spectra for comparison.
@@ -91,16 +92,15 @@ def plot_spectra_comparison(
         colors = plt.cm.tab10(np.linspace(0, 1, len(spectra)))
 
     if labels is None:
-        labels = [f'Spectrum {i}' for i in range(len(spectra))]
+        labels = [f"Spectrum {i}" for i in range(len(spectra))]
 
     for df, label, color in zip(spectra, labels, colors):
         ax.plot(
-            df['mass'], df['intensity'],
-            label=label, color=color, alpha=alpha, **kwargs
+            df["mass"], df["intensity"], label=label, color=color, alpha=alpha, **kwargs
         )
 
-    ax.set_xlabel('m/z')
-    ax.set_ylabel('Intensity')
+    ax.set_xlabel("m/z")
+    ax.set_ylabel("Intensity")
     ax.legend()
     if title:
         ax.set_title(title)

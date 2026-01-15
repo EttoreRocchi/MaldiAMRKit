@@ -1,4 +1,5 @@
 """Unit tests for MaldiSpectrum class."""
+
 from pathlib import Path
 
 import numpy as np
@@ -160,7 +161,9 @@ class TestMaldiSpectrumBin:
     def test_bin_custom_edges(self, synthetic_spectrum: pd.DataFrame):
         """Test binning with custom edges."""
         edges = [2000, 5000, 10000, 15000, 20000]
-        spec = MaldiSpectrum(synthetic_spectrum).bin(method="custom", custom_edges=edges)
+        spec = MaldiSpectrum(synthetic_spectrum).bin(
+            method="custom", custom_edges=edges
+        )
 
         assert len(spec.binned) == len(edges) - 1
 

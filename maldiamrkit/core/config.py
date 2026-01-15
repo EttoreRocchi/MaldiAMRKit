@@ -1,4 +1,5 @@
 """Configuration dataclasses for preprocessing settings."""
+
 from dataclasses import dataclass
 
 

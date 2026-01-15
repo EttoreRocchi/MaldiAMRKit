@@ -1,4 +1,5 @@
 """File reading utilities for MALDI-TOF spectrum data."""
+
 from __future__ import annotations
 
 import csv
@@ -25,8 +26,7 @@ def sniff_delimiter(path: str | Path, sample_lines: int = 10) -> str:
     """
     with open(path, "r", newline="") as f:
         dialect = csv.Sniffer().sniff(
-            "".join([next(f) for _ in range(sample_lines)]),
-            delimiters=",;\t "
+            "".join([next(f) for _ in range(sample_lines)]), delimiters=",;\t "
         )
     return dialect.delimiter
 
@@ -63,11 +63,7 @@ def read_spectrum(path: str | Path) -> pd.DataFrame:
         delim = r"\s+"
 
     df = pd.read_csv(
-        path,
-        sep=delim,
-        comment="#",
-        header=None,
-        names=["mass", "intensity"]
+        path, sep=delim, comment="#", header=None, names=["mass", "intensity"]
     )
 
     return df

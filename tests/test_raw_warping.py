@@ -1,4 +1,5 @@
 """Unit tests for RawWarping class and create_raw_input utility."""
+
 from pathlib import Path
 
 import numpy as np
@@ -232,10 +233,12 @@ class TestRawWarpingPipelineCompatibility:
 
         spectra_dir, X = synthetic_raw_spectra_pipeline
 
-        pipe = Pipeline([
-            ("warp", RawWarping(method="shift", bin_width=3.0)),
-            ("scaler", StandardScaler()),
-        ])
+        pipe = Pipeline(
+            [
+                ("warp", RawWarping(method="shift", bin_width=3.0)),
+                ("scaler", StandardScaler()),
+            ]
+        )
 
         result = pipe.fit_transform(X)
 
@@ -296,8 +299,7 @@ class TestRawWarpingErrors:
     def test_missing_file_raises(self, tmp_path: Path):
         """Test that missing spectrum file raises FileNotFoundError."""
         X = pd.DataFrame(
-            {"path": [str(tmp_path / "nonexistent.txt")]},
-            index=["sample_0"]
+            {"path": [str(tmp_path / "nonexistent.txt")]}, index=["sample_0"]
         )
         warper = RawWarping(method="shift")
 

@@ -1,4 +1,5 @@
 """Input validation utilities."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,9 +29,7 @@ def validate_spectrum_input(X: pd.DataFrame | pd.Series) -> pd.DataFrame:
         X = X.to_frame().T
 
     if not isinstance(X, pd.DataFrame):
-        raise ValueError(
-            f"Expected DataFrame or Series, got {type(X).__name__}"
-        )
+        raise ValueError(f"Expected DataFrame or Series, got {type(X).__name__}")
 
     if X.empty:
         raise ValueError("Input DataFrame is empty")
@@ -39,9 +38,7 @@ def validate_spectrum_input(X: pd.DataFrame | pd.Series) -> pd.DataFrame:
 
 
 def validate_mz_range(
-    mz_values: np.ndarray,
-    min_mz: float | None = None,
-    max_mz: float | None = None
+    mz_values: np.ndarray, min_mz: float | None = None, max_mz: float | None = None
 ) -> bool:
     """
     Validate that m/z values are within expected range.
@@ -66,12 +63,8 @@ def validate_mz_range(
         If values are outside expected range.
     """
     if min_mz is not None and np.min(mz_values) < min_mz:
-        raise ValueError(
-            f"m/z values below minimum: {np.min(mz_values)} < {min_mz}"
-        )
+        raise ValueError(f"m/z values below minimum: {np.min(mz_values)} < {min_mz}")
     if max_mz is not None and np.max(mz_values) > max_mz:
-        raise ValueError(
-            f"m/z values above maximum: {np.max(mz_values)} > {max_mz}"
-        )
+        raise ValueError(f"m/z values above maximum: {np.max(mz_values)} > {max_mz}")
 
     return True

@@ -1,4 +1,5 @@
 """Unit tests for MaldiPeakDetector class."""
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -72,7 +73,7 @@ class TestMaldiPeakDetectorTransform:
             if peak_mask.any():
                 np.testing.assert_array_almost_equal(
                     result.iloc[i][peak_mask].values,
-                    binned_dataset.iloc[i][peak_mask].values
+                    binned_dataset.iloc[i][peak_mask].values,
                 )
 
     @pytest.mark.slow
@@ -100,12 +101,8 @@ class TestMaldiPeakDetectorParallelization:
 
     def test_parallel_produces_same_results(self, binned_dataset: pd.DataFrame):
         """Test that parallel processing produces same results as sequential."""
-        detector_seq = MaldiPeakDetector(
-            method="local", prominence=1e-4, n_jobs=1
-        )
-        detector_par = MaldiPeakDetector(
-            method="local", prominence=1e-4, n_jobs=2
-        )
+        detector_seq = MaldiPeakDetector(method="local", prominence=1e-4, n_jobs=1)
+        detector_par = MaldiPeakDetector(method="local", prominence=1e-4, n_jobs=2)
 
         result_seq = detector_seq.fit_transform(binned_dataset)
         result_par = detector_par.fit_transform(binned_dataset)
@@ -153,9 +150,7 @@ class TestMaldiPeakDetectorSklearn:
         """Test that detector can be cloned."""
         from sklearn.base import clone
 
-        detector = MaldiPeakDetector(
-            method="ph", persistence_threshold=1e-5, n_jobs=2
-        )
+        detector = MaldiPeakDetector(method="ph", persistence_threshold=1e-5, n_jobs=2)
         cloned = clone(detector)
 
         assert cloned.method == "ph"
@@ -167,10 +162,12 @@ class TestMaldiPeakDetectorSklearn:
         from sklearn.pipeline import Pipeline
         from sklearn.preprocessing import StandardScaler
 
-        pipe = Pipeline([
-            ("peaks", MaldiPeakDetector(binary=False, prominence=1e-4)),
-            ("scaler", StandardScaler()),
-        ])
+        pipe = Pipeline(
+            [
+                ("peaks", MaldiPeakDetector(binary=False, prominence=1e-4)),
+                ("scaler", StandardScaler()),
+            ]
+        )
 
         result = pipe.fit_transform(binned_dataset)
 

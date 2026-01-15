@@ -1,4 +1,5 @@
 """Multi-spectrum dataset handling."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -204,12 +205,13 @@ class MaldiSet:
 
         meta = pd.read_csv(meta_file)
         return cls(
-            specs, meta,
+            specs,
+            meta,
             aggregate_by=aggregate_by,
             bin_width=bin_width,
             bin_method=bin_method,
             bin_kwargs=bin_kwargs,
-            verbose=verbose
+            verbose=verbose,
         )
 
     @property
@@ -272,9 +274,16 @@ class MaldiSet:
                 print(f"WARNING: ID {sid} missing in metadata - skipped.")
                 continue
             row = (
-                s.binned if s._binned is not None
-                else s.bin(self.bin_width, method=self.bin_method, **bin_kwargs).binned
-            ).set_index("mass")["intensity"].rename(sid)
+                (
+                    s.binned
+                    if s._binned is not None
+                    else s.bin(
+                        self.bin_width, method=self.bin_method, **bin_kwargs
+                    ).binned
+                )
+                .set_index("mass")["intensity"]
+                .rename(sid)
+            )
             rows.append(row)
 
         df = pd.concat(rows, axis=1).T
@@ -456,9 +465,7 @@ class MaldiSet:
                 # Add blank separator column except after last region
                 if len(region_dfs) < len(regions):
                     blank_col = pd.DataFrame(
-                        np.nan,
-                        index=X.index,
-                        columns=[f"_blank_{len(region_dfs)}"]
+                        np.nan, index=X.index, columns=[f"_blank_{len(region_dfs)}"]
                     )
                     region_dfs.append(blank_col)
 
@@ -477,7 +484,7 @@ class MaldiSet:
 
         # Set colormap to handle NaN values (for region separators)
         cmap_obj = plt.get_cmap(cmap).copy()
-        cmap_obj.set_bad(color='white', alpha=1.0)
+        cmap_obj.set_bad(color="white", alpha=1.0)
 
         for ax, (label, idx) in zip(
             axes, sorted(groups.items(), key=lambda t: str(t[0]))
@@ -498,8 +505,7 @@ class MaldiSet:
                 vmax=vmax,
             )
             ax.set_ylabel(
-                f"{label}\n(n={M.shape[0]})",
-                rotation=0, ha="right", va="center"
+                f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center"
             )
             ax.set_yticks([])
 

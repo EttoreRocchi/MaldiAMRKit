@@ -1,4 +1,5 @@
 """Unit tests for Warping class."""
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -44,7 +45,7 @@ class TestWarpingFit:
         warper = Warping(reference="median")
         warper.fit(binned_dataset)
 
-        assert hasattr(warper, 'ref_spec_')
+        assert hasattr(warper, "ref_spec_")
         assert len(warper.ref_spec_) == binned_dataset.shape[1]
 
     def test_fit_with_index(self, binned_dataset: pd.DataFrame):
@@ -52,10 +53,9 @@ class TestWarpingFit:
         warper = Warping(reference=5)
         warper.fit(binned_dataset)
 
-        assert hasattr(warper, 'ref_spec_')
+        assert hasattr(warper, "ref_spec_")
         np.testing.assert_array_equal(
-            warper.ref_spec_,
-            binned_dataset.iloc[5].to_numpy()
+            warper.ref_spec_, binned_dataset.iloc[5].to_numpy()
         )
 
     def test_fit_invalid_index_raises(self, binned_dataset: pd.DataFrame):
@@ -77,9 +77,7 @@ class TestWarpingTransform:
     """Tests for Warping transform."""
 
     @pytest.mark.parametrize("method", ["shift", "linear", "piecewise"])
-    def test_all_methods_run(
-        self, binned_dataset: pd.DataFrame, method: str
-    ):
+    def test_all_methods_run(self, binned_dataset: pd.DataFrame, method: str):
         """Test that all methods run without error."""
         warper = Warping(method=method)
         warper.fit(binned_dataset)
@@ -162,9 +160,7 @@ class TestWarpingQuality:
         warper.fit(binned_dataset_with_shift)
 
         X_aligned = warper.transform(binned_dataset_with_shift)
-        quality = warper.get_alignment_quality(
-            binned_dataset_with_shift, X_aligned
-        )
+        quality = warper.get_alignment_quality(binned_dataset_with_shift, X_aligned)
 
         assert "correlation_before" in quality.columns
         assert "correlation_after" in quality.columns
@@ -254,9 +250,11 @@ class TestWarpingSklearn:
         """Test warper in sklearn pipeline."""
         from sklearn.pipeline import Pipeline
 
-        pipe = Pipeline([
-            ("warp", Warping(method="shift")),
-        ])
+        pipe = Pipeline(
+            [
+                ("warp", Warping(method="shift")),
+            ]
+        )
 
         result = pipe.fit_transform(binned_dataset)
 

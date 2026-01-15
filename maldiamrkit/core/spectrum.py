@@ -1,4 +1,5 @@
 """Single MALDI-TOF spectrum handling."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -151,8 +152,10 @@ class MaldiSpectrum:
         MaldiSpectrum
             Self, for method chaining.
         """
-        cfg = self.cfg if not override else self.cfg.__class__(
-            **{**self.cfg.as_dict(), **override}
+        cfg = (
+            self.cfg
+            if not override
+            else self.cfg.__class__(**{**self.cfg.as_dict(), **override})
         )
         self._preprocessed = preprocess(self._raw, cfg)
         if self.verbose:
@@ -240,8 +243,10 @@ class MaldiSpectrum:
         import seaborn as sns
 
         _ax = ax or plt.subplots(figsize=(10, 4))[1]
-        data = self.binned if binned else (
-            self.preprocessed if self._preprocessed is not None else self.raw
+        data = (
+            self.binned
+            if binned
+            else (self.preprocessed if self._preprocessed is not None else self.raw)
         )
         if binned:
             sns.barplot(data=data, x="mass", y="intensity", ax=_ax, **kwargs)
@@ -252,6 +257,6 @@ class MaldiSpectrum:
             xlabel="m/z",
             ylabel="intensity",
             xticks=[],
-            ylim=[0, (data.intensity.max()) * 1.05]
+            ylim=[0, (data.intensity.max()) * 1.05],
         )
         return _ax

@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-MaldiAMRKit requires Python 3.9 or later and the following dependencies:
+MaldiAMRKit requires Python 3.10 or later and the following dependencies:
 
 - numpy
 - pandas

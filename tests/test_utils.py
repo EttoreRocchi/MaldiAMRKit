@@ -1,4 +1,5 @@
 """Unit tests for utils module."""
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -69,10 +70,9 @@ class TestPlotting:
     @pytest.fixture
     def sample_spectrum(self):
         """Create sample spectrum DataFrame with 'mass' column."""
-        return pd.DataFrame({
-            "mass": np.linspace(2000, 20000, 100),
-            "intensity": np.random.rand(100)
-        })
+        return pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 100), "intensity": np.random.rand(100)}
+        )
 
     def test_plot_spectrum_basic(self, sample_spectrum):
         """Test basic spectrum plot."""

@@ -1,4 +1,5 @@
 """Quality metrics for MALDI-TOF spectra."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ class SpectrumQualityReport:
     dynamic_range : float
         Log10 ratio of max to median signal intensity.
     """
+
     snr: float
     total_ion_count: float
     peak_count: int
@@ -85,8 +87,8 @@ class SpectrumQuality:
             Estimated noise standard deviation. Returns 0 if noise region
             is empty.
         """
-        noise_mask = df['mass'].between(*self.noise_region)
-        noise = df.loc[noise_mask, 'intensity']
+        noise_mask = df["mass"].between(*self.noise_region)
+        noise = df.loc[noise_mask, "intensity"]
 
         if len(noise) == 0:
             return 0.0
@@ -117,7 +119,7 @@ class SpectrumQuality:
             return 0.0
 
         baseline_threshold = 2 * noise_level
-        baseline_points = (df['intensity'] < baseline_threshold).sum()
+        baseline_points = (df["intensity"] < baseline_threshold).sum()
         return baseline_points / len(df)
 
     def estimate_dynamic_range(self, df: pd.DataFrame) -> float:
@@ -139,13 +141,13 @@ class SpectrumQuality:
             median is zero.
         """
         # Exclude very low values (likely noise/baseline)
-        signal_mask = df['intensity'] > df['intensity'].quantile(0.1)
+        signal_mask = df["intensity"] > df["intensity"].quantile(0.1)
 
         if signal_mask.sum() == 0:
             return 0.0
 
-        max_signal = df.loc[signal_mask, 'intensity'].max()
-        median_signal = df.loc[signal_mask, 'intensity'].median()
+        max_signal = df.loc[signal_mask, "intensity"].max()
+        median_signal = df.loc[signal_mask, "intensity"].median()
 
         if median_signal <= 0:
             return 0.0
@@ -169,7 +171,7 @@ class SpectrumQuality:
         noise_level = self.estimate_noise_level(df)
         min_prominence = max(self.peak_prominence, noise_level * 3)
 
-        peaks, _ = find_peaks(df['intensity'].values, prominence=min_prominence)
+        peaks, _ = find_peaks(df["intensity"].values, prominence=min_prominence)
         return len(peaks)
 
     def assess(self, df: pd.DataFrame) -> SpectrumQualityReport:
@@ -191,7 +193,7 @@ class SpectrumQuality:
 
         return SpectrumQualityReport(
             snr=snr,
-            total_ion_count=df['intensity'].sum(),
+            total_ion_count=df["intensity"].sum(),
             peak_count=self.count_peaks(df),
             baseline_fraction=self.estimate_baseline_fraction(df),
             noise_level=noise_level,
@@ -200,8 +202,7 @@ class SpectrumQuality:
 
 
 def estimate_snr(
-    df: pd.DataFrame,
-    noise_region: tuple[float, float] = (19500, 20000)
+    df: pd.DataFrame, noise_region: tuple[float, float] = (19500, 20000)
 ) -> float:
     """
     Estimate signal-to-noise ratio of a spectrum.
@@ -233,8 +234,8 @@ def estimate_snr(
     >>> snr = estimate_snr(spectrum_df)
     >>> print(f"SNR: {snr:.1f}")
     """
-    noise_mask = df['mass'].between(*noise_region)
-    noise = df.loc[noise_mask, 'intensity']
+    noise_mask = df["mass"].between(*noise_region)
+    noise = df.loc[noise_mask, "intensity"]
 
     if len(noise) == 0:
         return np.inf
@@ -242,6 +243,6 @@ def estimate_snr(
     mad = np.median(np.abs(noise - np.median(noise)))
     noise_std = 1.4826 * mad  # MAD to std conversion for normal distribution
 
-    signal = df['intensity'].max()
+    signal = df["intensity"].max()
 
     return signal / noise_std if noise_std > 0 else np.inf

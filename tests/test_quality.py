@@ -1,4 +1,5 @@
 """Unit tests for SpectrumQuality class."""
+
 import numpy as np
 import pandas as pd
 
@@ -28,10 +29,7 @@ class TestEstimateSNR:
 
     def test_estimate_snr_empty_noise_region(self):
         """Test SNR returns inf for empty noise region."""
-        df = pd.DataFrame({
-            "mass": [10000, 11000, 12000],
-            "intensity": [100, 200, 150]
-        })
+        df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
         snr = estimate_snr(df, noise_region=(2000, 3000))
 
         assert snr == np.inf
@@ -64,10 +62,7 @@ class TestSpectrumQuality:
 
     def test_estimate_noise_level_empty_region(self):
         """Test noise level returns 0 for empty region."""
-        df = pd.DataFrame({
-            "mass": [10000, 11000, 12000],
-            "intensity": [100, 200, 150]
-        })
+        df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
         qc = SpectrumQuality(noise_region=(2000, 3000))
         noise = qc.estimate_noise_level(df)
 
@@ -83,10 +78,7 @@ class TestSpectrumQuality:
 
     def test_estimate_baseline_fraction_empty_region(self):
         """Test baseline fraction returns 0 for empty noise region."""
-        df = pd.DataFrame({
-            "mass": [10000, 11000, 12000],
-            "intensity": [100, 200, 150]
-        })
+        df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
         qc = SpectrumQuality(noise_region=(2000, 3000))
         baseline_frac = qc.estimate_baseline_fraction(df)
 
@@ -102,10 +94,9 @@ class TestSpectrumQuality:
 
     def test_estimate_dynamic_range_constant_signal(self):
         """Test dynamic range with constant signal."""
-        df = pd.DataFrame({
-            "mass": np.linspace(2000, 20000, 1000),
-            "intensity": np.ones(1000) * 100
-        })
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.ones(1000) * 100}
+        )
         qc = SpectrumQuality()
         dr = qc.estimate_dynamic_range(df)
 

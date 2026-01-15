@@ -1,4 +1,5 @@
 """Peak detection algorithms for MALDI-TOF spectra."""
+
 from __future__ import annotations
 
 import gudhi
@@ -65,7 +66,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         binary: bool = True,
         persistence_threshold: float = 1e-6,
         n_jobs: int = 1,
-        **kwargs
+        **kwargs,
     ) -> MaldiPeakDetector:
         self.method = method
         self.binary = binary
@@ -75,8 +76,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
         if self.method not in ["local", "ph"]:
             raise ValueError(
-                f"Unknown method '{self.method}'. "
-                f"Must be one of: 'local', 'ph'"
+                f"Unknown method '{self.method}'. Must be one of: 'local', 'ph'"
             )
 
     def fit(self, X: pd.DataFrame, y=None):
@@ -239,11 +239,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         )
 
         # Reconstruct DataFrame from results
-        X_out = pd.DataFrame(
-            np.vstack(results),
-            index=X.index,
-            columns=X.columns
-        )
+        X_out = pd.DataFrame(np.vstack(results), index=X.index, columns=X.columns)
 
         if input_is_series:
             return X_out.iloc[0]
@@ -318,11 +314,13 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
                 mean_intensity = 0.0
                 max_intensity = 0.0
 
-            stats.append({
-                'n_peaks': n_peaks,
-                'mean_intensity': mean_intensity,
-                'max_intensity': max_intensity
-            })
+            stats.append(
+                {
+                    "n_peaks": n_peaks,
+                    "mean_intensity": mean_intensity,
+                    "max_intensity": max_intensity,
+                }
+            )
 
         return pd.DataFrame(stats, index=X.index)
 
@@ -332,7 +330,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         indices: int | list[int] | None = None,
         xlim: tuple[float, float] | None = None,
         figsize: tuple[float, float] = (14, 6),
-        alpha: float = 0.7
+        alpha: float = 0.7,
     ):
         """
         Plot detected peaks overlaid on original spectra.
@@ -393,29 +391,33 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
                 raise ValueError(f"Unknown method: {self.method}")
 
             ax.plot(
-                mz_axis, row,
-                color='black', linewidth=1, alpha=alpha, label='Spectrum'
+                mz_axis, row, color="black", linewidth=1, alpha=alpha, label="Spectrum"
             )
 
             if len(peaks) > 0:
                 ax.scatter(
-                    mz_axis[peaks], row[peaks],
-                    color='red', s=50, zorder=5,
-                    label=f'Peaks (n={len(peaks)})', marker='o'
+                    mz_axis[peaks],
+                    row[peaks],
+                    color="red",
+                    s=50,
+                    zorder=5,
+                    label=f"Peaks (n={len(peaks)})",
+                    marker="o",
                 )
 
                 for peak in peaks:
                     ax.axvline(
-                        mz_axis[peak], color='red', linestyle='--',
-                        alpha=0.3, linewidth=0.8
+                        mz_axis[peak],
+                        color="red",
+                        linestyle="--",
+                        alpha=0.3,
+                        linewidth=0.8,
                     )
 
-            ax.set_xlabel(
-                'm/z' if np.issubdtype(mz_axis.dtype, np.number) else 'Index'
-            )
-            ax.set_ylabel('Intensity')
-            ax.set_title(f'Peak Detection (method={self.method}, idx={spectrum_idx})')
-            ax.legend(loc='upper right')
+            ax.set_xlabel("m/z" if np.issubdtype(mz_axis.dtype, np.number) else "Index")
+            ax.set_ylabel("Intensity")
+            ax.set_title(f"Peak Detection (method={self.method}, idx={spectrum_idx})")
+            ax.legend(loc="upper right")
             ax.grid(True, alpha=0.3)
 
             if xlim:

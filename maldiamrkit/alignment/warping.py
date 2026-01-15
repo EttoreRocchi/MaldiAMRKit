@@ -1,4 +1,5 @@
 """Spectral alignment and warping transformers for binned spectra."""
+
 from __future__ import annotations
 
 import warnings
@@ -152,7 +153,7 @@ class Warping(BaseEstimator, TransformerMixin):
                 f"This may result in poor alignment quality. "
                 f"Consider adjusting peak detection parameters or "
                 f"choosing a different reference.",
-                UserWarning
+                UserWarning,
             )
 
     def _shift_only(self, row, peaks, ref_peaks):
@@ -234,14 +235,13 @@ class Warping(BaseEstimator, TransformerMixin):
 
         # Interpolate shifts across the spectrum
         shift_interp = np.interp(
-            mz_axis, seg_x, seg_shift,
-            left=seg_shift[0], right=seg_shift[-1]
+            mz_axis, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1]
         )
 
         # Apply Gaussian smoothing to reduce abrupt transitions
         if self.smooth_sigma > 0:
             shift_interp = gaussian_filter1d(
-                shift_interp, sigma=self.smooth_sigma, mode='nearest'
+                shift_interp, sigma=self.smooth_sigma, mode="nearest"
             )
 
         new_positions = mz_axis + shift_interp
@@ -289,9 +289,7 @@ class Warping(BaseEstimator, TransformerMixin):
         # Compute DTW alignment path with radius constraint
         # Use squared Euclidean distance for better intensity matching
         distance, path = fastdtw(
-            row, self.ref_spec_,
-            radius=self.dtw_radius,
-            dist=lambda a, b: (a - b) ** 2
+            row, self.ref_spec_, radius=self.dtw_radius, dist=lambda a, b: (a - b) ** 2
         )
 
         # Create aligned spectrum by following the warping path
@@ -344,7 +342,7 @@ class Warping(BaseEstimator, TransformerMixin):
         X_aligned : pd.DataFrame
             Aligned spectra with same shape as input.
         """
-        if not hasattr(self, 'ref_spec_'):
+        if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before transform")
 
         if X.shape[1] != len(self.ref_spec_):
@@ -366,8 +364,7 @@ class Warping(BaseEstimator, TransformerMixin):
         if self.method != "dtw":
             peaks_df = self.peak_detector.transform(X)
             peaks_list = [
-                peaks_df.iloc[i].to_numpy().nonzero()[0]
-                for i in range(len(X))
+                peaks_df.iloc[i].to_numpy().nonzero()[0] for i in range(len(X))
             ]
 
         # Use parallel processing with joblib
@@ -384,9 +381,7 @@ class Warping(BaseEstimator, TransformerMixin):
         return pd.DataFrame(aligned_rows, index=X.index, columns=X.columns)
 
     def get_alignment_quality(
-        self,
-        X_original: pd.DataFrame,
-        X_aligned: pd.DataFrame | None = None
+        self, X_original: pd.DataFrame, X_aligned: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """
         Compute alignment quality metrics.
@@ -408,7 +403,7 @@ class Warping(BaseEstimator, TransformerMixin):
             - rmse_before: RMSE with reference (before)
             - rmse_after: RMSE with reference (after)
         """
-        if not hasattr(self, 'ref_spec_'):
+        if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before computing quality")
 
         if X_aligned is None:
@@ -427,13 +422,15 @@ class Warping(BaseEstimator, TransformerMixin):
             rmse_before = np.sqrt(np.mean((original - self.ref_spec_) ** 2))
             rmse_after = np.sqrt(np.mean((aligned - self.ref_spec_) ** 2))
 
-            metrics.append({
-                'correlation_before': corr_before,
-                'correlation_after': corr_after,
-                'improvement': corr_after - corr_before,
-                'rmse_before': rmse_before,
-                'rmse_after': rmse_after
-            })
+            metrics.append(
+                {
+                    "correlation_before": corr_before,
+                    "correlation_after": corr_after,
+                    "improvement": corr_after - corr_before,
+                    "rmse_before": rmse_before,
+                    "rmse_after": rmse_after,
+                }
+            )
 
         return pd.DataFrame(metrics, index=X_original.index)
 
@@ -445,7 +442,7 @@ class Warping(BaseEstimator, TransformerMixin):
         show_peaks: bool = True,
         xlim: tuple[float, float] | None = None,
         figsize: tuple[float, float] = (14, 6),
-        alpha: float = 0.7
+        alpha: float = 0.7,
     ):
         """
         Plot comparison of original vs aligned spectra against reference.
@@ -474,7 +471,7 @@ class Warping(BaseEstimator, TransformerMixin):
         axes : array of matplotlib.axes.Axes
             The subplot axes.
         """
-        if not hasattr(self, 'ref_spec_'):
+        if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before plotting")
 
         # Compute aligned spectra if not provided
@@ -529,59 +526,71 @@ class Warping(BaseEstimator, TransformerMixin):
 
             # Plot before alignment
             ax_before.plot(
-                mz_axis, self.ref_spec_, label='Reference',
-                color='black', linewidth=1.5, alpha=alpha
+                mz_axis,
+                self.ref_spec_,
+                label="Reference",
+                color="black",
+                linewidth=1.5,
+                alpha=alpha,
             )
             ax_before.plot(
-                mz_axis, original, label=f'Original (idx={spectrum_idx})',
-                color='red', linewidth=1, alpha=alpha
+                mz_axis,
+                original,
+                label=f"Original (idx={spectrum_idx})",
+                color="red",
+                linewidth=1,
+                alpha=alpha,
             )
 
             if show_peaks and ref_peaks is not None:
                 for peak in ref_peaks:
                     ax_before.axvline(
-                        peak, color='black', linestyle='--',
-                        alpha=0.3, linewidth=0.8
+                        peak, color="black", linestyle="--", alpha=0.3, linewidth=0.8
                     )
                 if spectrum_idx in sample_peaks_dict:
                     for peak in sample_peaks_dict[spectrum_idx]:
                         ax_before.axvline(
-                            peak, color='red', linestyle='--',
-                            alpha=0.3, linewidth=0.8
+                            peak, color="red", linestyle="--", alpha=0.3, linewidth=0.8
                         )
 
-            ax_before.set_ylabel('Intensity')
-            ax_before.set_title(f'Before Alignment ({self.method} method)')
-            ax_before.legend(loc='upper right')
+            ax_before.set_ylabel("Intensity")
+            ax_before.set_title(f"Before Alignment ({self.method} method)")
+            ax_before.legend(loc="upper right")
             ax_before.grid(True, alpha=0.3)
             if xlim:
                 ax_before.set_xlim(xlim)
 
             # Plot after alignment
             ax_after.plot(
-                mz_axis, self.ref_spec_, label='Reference',
-                color='black', linewidth=1.5, alpha=alpha
+                mz_axis,
+                self.ref_spec_,
+                label="Reference",
+                color="black",
+                linewidth=1.5,
+                alpha=alpha,
             )
             ax_after.plot(
-                mz_axis, aligned, label=f'Aligned (idx={spectrum_idx})',
-                color='blue', linewidth=1, alpha=alpha
+                mz_axis,
+                aligned,
+                label=f"Aligned (idx={spectrum_idx})",
+                color="blue",
+                linewidth=1,
+                alpha=alpha,
             )
 
             if show_peaks and ref_peaks is not None:
                 for peak in ref_peaks:
                     ax_after.axvline(
-                        peak, color='black', linestyle='--',
-                        alpha=0.3, linewidth=0.8
+                        peak, color="black", linestyle="--", alpha=0.3, linewidth=0.8
                     )
                 if spectrum_idx in aligned_peaks_dict:
                     for peak in aligned_peaks_dict[spectrum_idx]:
                         ax_after.axvline(
-                            peak, color='blue', linestyle='--',
-                            alpha=0.3, linewidth=0.8
+                            peak, color="blue", linestyle="--", alpha=0.3, linewidth=0.8
                         )
 
-            ax_after.set_title(f'After Alignment ({self.method} method)')
-            ax_after.legend(loc='upper right')
+            ax_after.set_title(f"After Alignment ({self.method} method)")
+            ax_after.legend(loc="upper right")
             ax_after.grid(True, alpha=0.3)
             if xlim:
                 ax_after.set_xlim(xlim)

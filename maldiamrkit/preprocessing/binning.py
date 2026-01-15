@@ -1,4 +1,5 @@
 """Spectrum binning functions with multiple binning strategies."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -189,16 +190,12 @@ def _validate_custom_edges(
         )
 
     if edges[-1] < cfg.trim_to:
-        raise ValueError(
-            f"Last edge ({edges[-1]}) must be >= trim_to ({cfg.trim_to})."
-        )
+        raise ValueError(f"Last edge ({edges[-1]}) must be >= trim_to ({cfg.trim_to}).")
 
     # Check minimum bin width of 1 Da
     min_width = np.diff(edges).min()
     if min_width < 1.0:
-        raise ValueError(
-            f"Minimum bin width is 1 Dalton, but got {min_width:.3f}."
-        )
+        raise ValueError(f"Minimum bin width is 1 Dalton, but got {min_width:.3f}.")
 
     return edges
 
@@ -221,12 +218,14 @@ def get_bin_metadata(edges: np.ndarray) -> pd.DataFrame:
     bin_ends = edges[1:]
     bin_widths = bin_ends - bin_starts
 
-    return pd.DataFrame({
-        "bin_index": np.arange(len(bin_starts)),
-        "bin_start": bin_starts,
-        "bin_end": bin_ends,
-        "bin_width": bin_widths,
-    })
+    return pd.DataFrame(
+        {
+            "bin_index": np.arange(len(bin_starts)),
+            "bin_start": bin_starts,
+            "bin_end": bin_ends,
+            "bin_width": bin_widths,
+        }
+    )
 
 
 def bin_spectrum(
@@ -326,8 +325,7 @@ def bin_spectrum(
     # Perform binning
     labels = metadata["bin_start"].astype(str).values
     binned = (
-        df
-        .assign(bins=pd.cut(df.mass, edges, labels=labels, include_lowest=True))
+        df.assign(bins=pd.cut(df.mass, edges, labels=labels, include_lowest=True))
         .groupby("bins", observed=True)["intensity"]
         .sum()
         .reindex(labels, fill_value=0.0)

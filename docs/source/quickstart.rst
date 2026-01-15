@@ -31,14 +31,15 @@ Load multiple spectra with metadata:
 
    from maldiamrkit import MaldiSet
 
-   # Load from directory
+   # Load from directory (with parallel loading)
    data = MaldiSet.from_directory(
        spectra_dir="spectra/",
        meta_file="metadata.csv",
        aggregate_by=dict(
            antibiotics=["Ceftriaxone", "Ceftazidime"],
            species="Escherichia coli"
-       )
+       ),
+       n_jobs=-1  # Use all cores
    )
 
    # Access feature matrix and labels
@@ -60,10 +61,10 @@ Create scikit-learn compatible pipelines:
    from sklearn.ensemble import RandomForestClassifier
    from sklearn.model_selection import cross_val_score
 
-   # Define pipeline
+   # Define pipeline (with parallel processing)
    pipe = Pipeline([
-       ("peaks", MaldiPeakDetector(method="local", prominence=0.01)),
-       ("warp", Warping(method="shift")),
+       ("peaks", MaldiPeakDetector(method="local", prominence=0.01, n_jobs=-1)),
+       ("warp", Warping(method="shift", n_jobs=-1)),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier(n_estimators=100))
    ])
@@ -75,41 +76,52 @@ Create scikit-learn compatible pipelines:
 Using Raw Spectra Warping
 -------------------------
 
-For higher precision alignment, use RawWarping:
+For higher precision alignment, use RawWarping with ``create_raw_input()``:
 
 .. code-block:: python
 
-   from maldiamrkit import RawWarping
+   from maldiamrkit import RawWarping, create_raw_input
+   from sklearn.pipeline import Pipeline
+   from sklearn.preprocessing import StandardScaler
+   from sklearn.ensemble import RandomForestClassifier
+
+   # Create input DataFrame from directory (discovers all .txt files)
+   X_raw = create_raw_input("spectra/")
 
    # Create pipeline with raw warping
    pipe = Pipeline([
-       ("warp", RawWarping(
-           spectra_dir="spectra/",
-           method="piecewise",
-           bin_width=3
-       )),
+       ("warp", RawWarping(method="piecewise", bin_width=3, n_jobs=-1)),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier())
    ])
 
-   pipe.fit(X, y)
+   pipe.fit(X_raw, y)
 
 Quality Assessment
 ------------------
 
-Evaluate preprocessing quality:
+Evaluate preprocessing quality with comprehensive QC metrics:
 
 .. code-block:: python
 
-   from maldiamrkit import estimate_snr, Warping
+   from maldiamrkit import MaldiSpectrum, SpectrumQuality, estimate_snr, Warping
 
-   # Estimate signal-to-noise ratio
+   # Load and preprocess spectrum
    spec = MaldiSpectrum("spectrum.txt").preprocess()
+
+   # Quick SNR estimation
    snr = estimate_snr(spec.preprocessed)
    print(f"SNR: {snr:.1f}")
 
+   # Comprehensive quality assessment
+   qc = SpectrumQuality()
+   report = qc.assess(spec.preprocessed)
+   print(f"Peak count: {report.peak_count}")
+   print(f"Total ion count: {report.total_ion_count:.2e}")
+   print(f"Baseline fraction: {report.baseline_fraction:.2%}")
+
    # Evaluate alignment quality
-   warper = Warping(method="shift")
+   warper = Warping(method="shift", n_jobs=-1)
    warper.fit(X)
    X_aligned = warper.transform(X)
 

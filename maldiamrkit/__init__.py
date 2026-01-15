@@ -36,7 +36,7 @@ from maldiamrkit.preprocessing.quality import (
     estimate_snr,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

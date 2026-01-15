@@ -1,4 +1,5 @@
 """Raw spectra warping transformer operating at full m/z resolution."""
+
 from __future__ import annotations
 
 import warnings
@@ -242,8 +243,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
                     f"for {len(paths)} samples"
                 )
             ref_df = self._load_raw_spectrum(paths[self.reference])
-            ref_mz = ref_df['mass'].to_numpy()
-            ref_intensity = ref_df['intensity'].to_numpy()
+            ref_mz = ref_df["mass"].to_numpy()
+            ref_intensity = ref_df["intensity"].to_numpy()
 
         elif self.reference == "median":
             # Compute median spectrum on a common m/z grid
@@ -252,7 +253,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
             for path in paths:
                 spec_df = self._load_raw_spectrum(path)
-                all_mz.append(spec_df['mass'].to_numpy())
+                all_mz.append(spec_df["mass"].to_numpy())
                 all_specs.append(spec_df)
 
             # Create common grid based on min/max m/z
@@ -266,8 +267,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
             for spec_df in all_specs:
                 interp_int = np.interp(
                     common_mz,
-                    spec_df['mass'].to_numpy(),
-                    spec_df['intensity'].to_numpy()
+                    spec_df["mass"].to_numpy(),
+                    spec_df["intensity"].to_numpy(),
                 )
                 intensities.append(interp_int)
 
@@ -314,8 +315,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         # Validate method
         if self.method not in ["shift", "linear", "piecewise", "dtw"]:
             raise ValueError(
-                f"Unknown method: {self.method}. "
-                f"Use: shift, linear, piecewise, dtw"
+                f"Unknown method: {self.method}. Use: shift, linear, piecewise, dtw"
             )
 
         # Store preprocessing config
@@ -325,8 +325,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
         paths = X["path"].tolist()
 
         # Compute reference from raw spectra
-        self.ref_mz_, self.ref_intensity_, self.ref_peaks_mz_ = \
+        self.ref_mz_, self.ref_intensity_, self.ref_peaks_mz_ = (
             self._compute_raw_reference(paths)
+        )
 
         # Validate reference quality
         n_peaks = len(self.ref_peaks_mz_)
@@ -335,20 +336,17 @@ class RawWarping(BaseEstimator, TransformerMixin):
                 f"Reference spectrum has only {n_peaks} peaks. "
                 f"Expected at least {self.min_reference_peaks}. "
                 f"Alignment quality may be poor.",
-                UserWarning
+                UserWarning,
             )
 
         # Determine output columns by binning a sample spectrum
         sample_binned = self._bin_warped(self.ref_mz_, self.ref_intensity_)
-        self.output_columns_ = sample_binned.set_index('mass').index.astype(str)
+        self.output_columns_ = sample_binned.set_index("mass").index.astype(str)
 
         return self
 
     def _shift_raw(
-        self,
-        mz: np.ndarray,
-        intensity: np.ndarray,
-        peaks_mz: np.ndarray
+        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Apply global m/z shift based on peak matching."""
         if len(peaks_mz) == 0 or len(self.ref_peaks_mz_) == 0:
@@ -367,10 +365,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         return mz + shift_da, intensity
 
     def _linear_raw(
-        self,
-        mz: np.ndarray,
-        intensity: np.ndarray,
-        peaks_mz: np.ndarray
+        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Apply linear m/z transformation: mz' = a*mz + b."""
         if len(peaks_mz) < 2 or len(self.ref_peaks_mz_) < 2:
@@ -399,10 +394,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         return new_mz, intensity
 
     def _piecewise_raw(
-        self,
-        mz: np.ndarray,
-        intensity: np.ndarray,
-        peaks_mz: np.ndarray
+        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Apply piecewise m/z transformation with smoothing."""
         if len(peaks_mz) == 0 or len(self.ref_peaks_mz_) == 0:
@@ -427,14 +419,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         seg_x, seg_shift = [], []
         for q in range(self.n_segments):
             if q == self.n_segments - 1:
-                mask = (
-                    (sample_peaks >= boundaries[q]) &
-                    (sample_peaks <= boundaries[q + 1])
+                mask = (sample_peaks >= boundaries[q]) & (
+                    sample_peaks <= boundaries[q + 1]
                 )
             else:
-                mask = (
-                    (sample_peaks >= boundaries[q]) &
-                    (sample_peaks < boundaries[q + 1])
+                mask = (sample_peaks >= boundaries[q]) & (
+                    sample_peaks < boundaries[q + 1]
                 )
 
             if mask.sum() > 0:
@@ -446,8 +436,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Interpolate shifts across spectrum
         shift_interp = np.interp(
-            mz, seg_x, seg_shift,
-            left=seg_shift[0], right=seg_shift[-1]
+            mz, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1]
         )
 
         # Apply Gaussian smoothing
@@ -457,7 +446,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
             sigma_points = int(self.smooth_sigma / mz_spacing)
             if sigma_points > 1:
                 shift_interp = gaussian_filter1d(
-                    shift_interp, sigma=sigma_points, mode='nearest'
+                    shift_interp, sigma=sigma_points, mode="nearest"
                 )
 
         new_mz = mz + shift_interp
@@ -465,9 +454,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         return new_mz, intensity
 
     def _dtw_raw(
-        self,
-        mz: np.ndarray,
-        intensity: np.ndarray
+        self, mz: np.ndarray, intensity: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Apply DTW alignment on raw spectra."""
         # Resample query spectrum to reference m/z grid
@@ -475,9 +462,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Compute DTW
         distance, path = fastdtw(
-            query_intensity, self.ref_intensity_,
+            query_intensity,
+            self.ref_intensity_,
             radius=self.dtw_radius,
-            dist=lambda a, b: (a - b) ** 2
+            dist=lambda a, b: (a - b) ** 2,
         )
 
         # Create aligned intensity by following warping path
@@ -495,20 +483,16 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         return self.ref_mz_, aligned_intensity
 
-    def _bin_warped(
-        self,
-        mz: np.ndarray,
-        intensity: np.ndarray
-    ) -> pd.DataFrame:
+    def _bin_warped(self, mz: np.ndarray, intensity: np.ndarray) -> pd.DataFrame:
         """Bin warped raw spectrum to output grid."""
-        warped_df = pd.DataFrame({'mass': mz, 'intensity': intensity})
+        warped_df = pd.DataFrame({"mass": mz, "intensity": intensity})
         bin_kwargs = self.bin_kwargs or {}
         binned, _ = bin_spectrum(
             warped_df,
             self.preprocessing_cfg_,
             bin_width=self.bin_width,
             method=self.bin_method,
-            **bin_kwargs
+            **bin_kwargs,
         )
         return binned
 
@@ -516,8 +500,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
         """Process a single sample: load, warp, and bin."""
         # Load raw spectrum
         spec_df = self._load_raw_spectrum(path)
-        mz = spec_df['mass'].to_numpy()
-        intensity = spec_df['intensity'].to_numpy()
+        mz = spec_df["mass"].to_numpy()
+        intensity = spec_df["intensity"].to_numpy()
 
         # Detect peaks in raw spectrum
         peaks_mz = self._detect_peaks_mz(mz, intensity)
@@ -536,7 +520,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Bin to output grid
         binned = self._bin_warped(warped_mz, warped_int)
-        return binned.set_index('mass')['intensity'].to_numpy()
+        return binned.set_index("mass")["intensity"].to_numpy()
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -554,7 +538,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
             Aligned and binned spectra with sample IDs as index and
             m/z bin centers as columns.
         """
-        if not hasattr(self, 'ref_mz_'):
+        if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted before transform")
 
         if "path" not in X.columns:
@@ -568,23 +552,18 @@ class RawWarping(BaseEstimator, TransformerMixin):
         # Use parallel processing with joblib
         # "loky" backend works well for mixed I/O + CPU workloads
         aligned_rows = Parallel(n_jobs=self.n_jobs, backend="loky")(
-            delayed(self._process_single_sample)(path)
-            for path in paths
+            delayed(self._process_single_sample)(path) for path in paths
         )
 
         # Combine into DataFrame
         result = pd.DataFrame(
-            np.vstack(aligned_rows),
-            index=X.index,
-            columns=self.output_columns_
+            np.vstack(aligned_rows), index=X.index, columns=self.output_columns_
         )
 
         return result
 
     def get_alignment_quality(
-        self,
-        X: pd.DataFrame,
-        X_aligned: pd.DataFrame | None = None
+        self, X: pd.DataFrame, X_aligned: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """
         Compute alignment quality metrics.
@@ -604,7 +583,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
             - correlation_after: Pearson correlation with reference (after)
             - improvement: correlation_after - correlation_before
         """
-        if not hasattr(self, 'ref_mz_'):
+        if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted first")
 
         if X_aligned is None:
@@ -612,7 +591,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Bin reference for comparison
         ref_binned = self._bin_warped(self.ref_mz_, self.ref_intensity_)
-        ref_vec = ref_binned.set_index('mass')['intensity'].to_numpy()
+        ref_vec = ref_binned.set_index("mass")["intensity"].to_numpy()
 
         metrics = []
         paths = X["path"].tolist()
@@ -620,10 +599,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
             # Load and bin original spectrum for comparison
             spec_df = self._load_raw_spectrum(path)
             original_binned = self._bin_warped(
-                spec_df['mass'].to_numpy(),
-                spec_df['intensity'].to_numpy()
+                spec_df["mass"].to_numpy(), spec_df["intensity"].to_numpy()
             )
-            original = original_binned.set_index('mass')['intensity'].to_numpy()
+            original = original_binned.set_index("mass")["intensity"].to_numpy()
             aligned = X_aligned.loc[sample_id].to_numpy()
 
             # Ensure same length
@@ -636,10 +614,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
             corr_before = np.corrcoef(original, ref)[0, 1]
             corr_after = np.corrcoef(aligned, ref)[0, 1]
 
-            metrics.append({
-                'correlation_before': corr_before,
-                'correlation_after': corr_after,
-                'improvement': corr_after - corr_before,
-            })
+            metrics.append(
+                {
+                    "correlation_before": corr_before,
+                    "correlation_after": corr_after,
+                    "improvement": corr_after - corr_before,
+                }
+            )
 
         return pd.DataFrame(metrics, index=X.index)

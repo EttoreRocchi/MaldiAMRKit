@@ -1,4 +1,5 @@
 """Unit tests for preprocessing pipeline."""
+
 import numpy as np
 import pandas as pd
 
@@ -47,16 +48,17 @@ class TestPreprocess:
         assert result["mass"].min() >= 2000
         assert result["mass"].max() <= 20000
 
-    def test_preprocess_preserves_peak_positions(self, synthetic_spectrum: pd.DataFrame):
+    def test_preprocess_preserves_peak_positions(
+        self, synthetic_spectrum: pd.DataFrame
+    ):
         """Test that peak positions are preserved after preprocessing."""
         # The synthetic spectrum has peaks at 3000, 5000, 7500, 10000, 12500, 15000
         result = preprocess(synthetic_spectrum)
 
         # Find peak positions (local maxima)
         intensity = result["intensity"].values
-        peak_mask = (
-            (intensity[1:-1] > intensity[:-2]) &
-            (intensity[1:-1] > intensity[2:])
+        peak_mask = (intensity[1:-1] > intensity[:-2]) & (
+            intensity[1:-1] > intensity[2:]
         )
         peak_indices = np.where(peak_mask)[0] + 1
         peak_mz = result["mass"].iloc[peak_indices].values
@@ -81,10 +83,12 @@ class TestPreprocess:
     def test_preprocess_handles_empty_after_trim(self):
         """Test that preprocessing handles edge case of empty result."""
         # Create spectrum outside the default trim range
-        df = pd.DataFrame({
-            "mass": np.linspace(500, 1000, 1000),
-            "intensity": np.random.uniform(0, 100, 1000),
-        })
+        df = pd.DataFrame(
+            {
+                "mass": np.linspace(500, 1000, 1000),
+                "intensity": np.random.uniform(0, 100, 1000),
+            }
+        )
 
         result = preprocess(df)
 

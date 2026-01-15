@@ -15,7 +15,9 @@ Features
 - **Multiple peak detection methods** - Local maxima and persistent homology
 - **Spectral alignment** - Shift, linear, piecewise, and DTW warping
 - **Raw spectra warping** - Full m/z resolution alignment before binning
-- **Quality metrics** - SNR estimation and alignment quality assessment
+- **Parallel processing** - Multi-core support via ``n_jobs`` parameter
+- **Multiple binning strategies** - Uniform, logarithmic, adaptive, and custom binning
+- **Quality metrics** - SNR estimation, spectrum quality assessment, and alignment quality
 
 Quick Start
 -----------
@@ -27,15 +29,16 @@ Quick Start
    from sklearn.preprocessing import StandardScaler
    from sklearn.ensemble import RandomForestClassifier
 
-   # Load dataset
+   # Load dataset (with parallel loading)
    data = MaldiSet.from_directory(
        "spectra/", "metadata.csv",
-       aggregate_by=dict(antibiotics="Ceftriaxone")
+       aggregate_by=dict(antibiotics="Ceftriaxone"),
+       n_jobs=-1  # Use all cores
    )
 
-   # Create pipeline
+   # Create pipeline (with parallel warping)
    pipe = Pipeline([
-       ("warp", Warping(method="shift")),
+       ("warp", Warping(method="shift", n_jobs=-1)),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier())
    ])

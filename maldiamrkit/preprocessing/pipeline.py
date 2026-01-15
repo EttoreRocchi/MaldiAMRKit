@@ -1,4 +1,5 @@
 """Main preprocessing pipeline for MALDI-TOF spectra."""
+
 import numpy as np
 import pandas as pd
 from pybaselines import Baseline
@@ -8,8 +9,7 @@ from ..core.config import PreprocessingSettings
 
 
 def preprocess(
-    df: pd.DataFrame,
-    cfg: PreprocessingSettings = PreprocessingSettings()
+    df: pd.DataFrame, cfg: PreprocessingSettings = PreprocessingSettings()
 ) -> pd.DataFrame:
     """
     Apply preprocessing pipeline to a raw MALDI-TOF spectrum.
@@ -52,9 +52,7 @@ def preprocess(
     # Sqrt transform + smoothing
     intensity = np.sqrt(df["intensity"])
     intensity = savgol_filter(
-        intensity,
-        window_length=cfg.savgol_window,
-        polyorder=cfg.savgol_poly
+        intensity, window_length=cfg.savgol_window, polyorder=cfg.savgol_poly
     )
 
     # Baseline correction using SNIP algorithm
@@ -62,7 +60,7 @@ def preprocess(
         intensity,
         max_half_window=cfg.baseline_half_window,
         decreasing=True,
-        smooth_half_window=0
+        smooth_half_window=0,
     )[0]
     intensity -= bkg
     intensity[intensity < 0] = 0  # Remove any small negative values post-baseline

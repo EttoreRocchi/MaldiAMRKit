@@ -1,4 +1,5 @@
 """Unit tests for binning functions."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -71,7 +72,9 @@ class TestBinSpectrum:
 
         assert len(result) == len(edges) - 1
 
-    def test_bin_spectrum_preserves_intensity(self, preprocessed_spectrum: pd.DataFrame):
+    def test_bin_spectrum_preserves_intensity(
+        self, preprocessed_spectrum: pd.DataFrame
+    ):
         """Test that binning preserves total intensity."""
         cfg = PreprocessingSettings()
         original_sum = preprocessed_spectrum["intensity"].sum()
