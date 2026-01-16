@@ -30,13 +30,7 @@ pip install maldiamrkit
 ```bash
 git clone https://github.com/EttoreRocchi/MaldiAMRKit.git
 cd MaldiAMRKit
-pip install -e .
-```
-
-### Install with Documentation Dependencies
-
-```bash
-pip install -e ".[docs]"
+pip install -e .[dev]
 ```
 
 ## Features
