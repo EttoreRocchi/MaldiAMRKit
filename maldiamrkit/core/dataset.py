@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -38,11 +39,12 @@ class MaldiSet:
         List of spectrum objects.
     meta : pd.DataFrame
         Metadata DataFrame with 'ID' column matching spectrum IDs.
-    aggregate_by : dict
+    aggregate_by : dict, optional
         Dictionary specifying aggregation columns:
         - 'antibiotics' or 'antibiotic': str or list of antibiotic column names
         - 'species': str, species column name
         - 'other': str or list of additional column names
+        If None, all spectra are included without antibiotic/species filtering.
     bin_width : int, default=3
         Bin width for spectra.
     bin_method : str, default='uniform'
@@ -81,13 +83,15 @@ class MaldiSet:
         spectra: list[MaldiSpectrum],
         meta: pd.DataFrame,
         *,
-        aggregate_by: dict[str, str | list[str]],
+        aggregate_by: dict[str, str | list[str]] | None = None,
         bin_width: int = 3,
         bin_method: str = "uniform",
         bin_kwargs: dict | None = None,
         verbose: bool = False,
     ) -> MaldiSet:
         self.spectra = spectra
+
+        aggregate_by = aggregate_by or {}
 
         antibiotics = aggregate_by.get("antibiotics") or aggregate_by.get("antibiotic")
         if isinstance(antibiotics, str):
@@ -145,7 +149,7 @@ class MaldiSet:
         spectra_dir: str | Path,
         meta_file: str | Path,
         *,
-        aggregate_by: dict[str, str | list[str]],
+        aggregate_by: dict[str, str | list[str]] | None = None,
         cfg: PreprocessingSettings | None = None,
         bin_width: int = 3,
         bin_method: str = "uniform",
@@ -156,14 +160,22 @@ class MaldiSet:
         """
         Load spectra from a directory and metadata from a CSV file.
 
+        Only spectrum files whose filename stem matches an ID in the
+        metadata are loaded, avoiding unnecessary I/O and preprocessing.
+
         Parameters
         ----------
         spectra_dir : str or Path
             Directory containing spectrum .txt files.
         meta_file : str or Path
             Path to CSV file with metadata.
-        aggregate_by : dict
-            Aggregation specification (see class docstring).
+        aggregate_by : dict, optional
+            Dictionary specifying aggregation columns:
+            - 'antibiotics' or 'antibiotic': str or list of antibiotic column names
+            - 'species': str, species column name
+            - 'other': str or list of additional column names
+            If None, all spectra matching metadata are loaded without
+            antibiotic/species filtering.
         cfg : PreprocessingSettings, optional
             Preprocessing configuration.
         bin_width : int, default=3
@@ -191,11 +203,19 @@ class MaldiSet:
         spectra_dir = Path(spectra_dir)
         _bin_kwargs = bin_kwargs or {}
 
-        # Sort file list for reproducibility
-        spectrum_files = sorted(spectra_dir.glob("*.txt"))
+        meta = pd.read_csv(meta_file)
+        meta_ids = set(meta["ID"].astype(str))
 
+        # Sort file list for reproducibility, filter to metadata IDs
+        all_files = sorted(spectra_dir.glob("*.txt"))
+        spectrum_files = [f for f in all_files if f.stem in meta_ids]
+
+        n_skipped = len(all_files) - len(spectrum_files)
         if verbose:
-            print(f"INFO: Loading {len(spectrum_files)} spectra with n_jobs={n_jobs}")
+            print(
+                f"INFO: Loading {len(spectrum_files)} spectra "
+                f"({n_skipped} skipped, not in metadata) with n_jobs={n_jobs}"
+            )
 
         # Use parallel loading with joblib
         specs = Parallel(n_jobs=n_jobs, prefer="threads")(
@@ -203,7 +223,6 @@ class MaldiSet:
             for p in spectrum_files
         )
 
-        meta = pd.read_csv(meta_file)
         return cls(
             specs,
             meta,
@@ -270,8 +289,11 @@ class MaldiSet:
         rows = []
         for s in self.spectra:
             sid = s.id
-            if sid not in self.meta.index and self.verbose:
-                print(f"WARNING: ID {sid} missing in metadata - skipped.")
+            if sid not in self.meta.index:
+                warnings.warn(
+                    f"Spectrum ID '{sid}' not found in metadata - skipped.",
+                    UserWarning,
+                )
                 continue
             row = (
                 (
@@ -286,6 +308,12 @@ class MaldiSet:
             )
             rows.append(row)
 
+        if not rows:
+            raise ValueError(
+                "No spectra matched metadata IDs. "
+                "Check that spectrum file names match the 'ID' column in metadata."
+            )
+
         df = pd.concat(rows, axis=1).T
 
         df = df.join(self.meta, how="left")
@@ -299,6 +327,10 @@ class MaldiSet:
 
         if self.species:
             df = df[df["Species"] == self.species]
+            if len(df) == 0:
+                raise ValueError(
+                    f"No samples remaining after filtering by species='{self.species}'"
+                )
 
         to_drop = self.meta_cols
         return df.drop(columns=to_drop)

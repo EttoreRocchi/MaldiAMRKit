@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -188,6 +189,15 @@ class SpectrumQuality:
         SpectrumQualityReport
             Dataclass containing all quality metrics.
         """
+        mz_max = df["mass"].max()
+        if self.noise_region[0] > mz_max:
+            warnings.warn(
+                f"noise_region {self.noise_region} is outside spectrum range "
+                f"(max m/z={mz_max:.0f}). Quality metrics will be unreliable. "
+                f"Adjust noise_region to fall within the trimmed spectrum range.",
+                UserWarning,
+            )
+
         noise_level = self.estimate_noise_level(df)
         snr = estimate_snr(df, self.noise_region)
 

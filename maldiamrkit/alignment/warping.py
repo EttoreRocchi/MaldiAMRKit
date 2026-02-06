@@ -414,9 +414,18 @@ class Warping(BaseEstimator, TransformerMixin):
             original = X_original.iloc[i].to_numpy()
             aligned = X_aligned.iloc[i].to_numpy()
 
-            # Correlation with reference
+            # Correlation with reference (NaN when a signal has zero variance)
             corr_before = np.corrcoef(original, self.ref_spec_)[0, 1]
             corr_after = np.corrcoef(aligned, self.ref_spec_)[0, 1]
+
+            if np.isnan(corr_before) or np.isnan(corr_after):
+                warnings.warn(
+                    f"Correlation undefined for sample {X_original.index[i]} "
+                    f"(constant signal); defaulting to 0.0",
+                    UserWarning,
+                )
+                corr_before = 0.0 if np.isnan(corr_before) else corr_before
+                corr_after = 0.0 if np.isnan(corr_after) else corr_after
 
             # RMSE with reference
             rmse_before = np.sqrt(np.mean((original - self.ref_spec_) ** 2))

@@ -12,11 +12,11 @@ Examples
 >>> spec.plot()
 """
 
-# Core data structures
-from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
-
 # Alignment transformers
+from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
 from maldiamrkit.alignment.warping import Warping
+
+# Core data structures
 from maldiamrkit.core.config import PreprocessingSettings
 from maldiamrkit.core.dataset import MaldiSet
 from maldiamrkit.core.spectrum import MaldiSpectrum
@@ -36,7 +36,7 @@ from maldiamrkit.preprocessing.quality import (
     estimate_snr,
 )
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

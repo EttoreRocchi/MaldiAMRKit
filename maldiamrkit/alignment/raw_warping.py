@@ -443,7 +443,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         if self.smooth_sigma > 0:
             # Estimate appropriate sigma based on m/z spacing
             mz_spacing = np.median(np.diff(mz))
-            sigma_points = int(self.smooth_sigma / mz_spacing)
+            sigma_points = min(int(self.smooth_sigma / mz_spacing), len(mz) // 4)
             if sigma_points > 1:
                 shift_interp = gaussian_filter1d(
                     shift_interp, sigma=sigma_points, mode="nearest"
@@ -551,7 +551,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Use parallel processing with joblib
         # "loky" backend works well for mixed I/O + CPU workloads
-        aligned_rows = Parallel(n_jobs=self.n_jobs, backend="loky")(
+        aligned_rows = Parallel(n_jobs=self.n_jobs, prefer="processes")(
             delayed(self._process_single_sample)(path) for path in paths
         )
 
@@ -610,9 +610,18 @@ class RawWarping(BaseEstimator, TransformerMixin):
             aligned = aligned[:min_len]
             ref = ref_vec[:min_len]
 
-            # Correlation with reference
+            # Correlation with reference (NaN when a signal has zero variance)
             corr_before = np.corrcoef(original, ref)[0, 1]
             corr_after = np.corrcoef(aligned, ref)[0, 1]
+
+            if np.isnan(corr_before) or np.isnan(corr_after):
+                warnings.warn(
+                    f"Correlation undefined for sample {sample_id} "
+                    f"(constant signal); defaulting to 0.0",
+                    UserWarning,
+                )
+                corr_before = 0.0 if np.isnan(corr_before) else corr_before
+                corr_after = 0.0 if np.isnan(corr_after) else corr_after
 
             metrics.append(
                 {

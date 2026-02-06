@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import itertools
 from pathlib import Path
 
 import pandas as pd
@@ -25,9 +26,10 @@ def sniff_delimiter(path: str | Path, sample_lines: int = 10) -> str:
         Detected delimiter character.
     """
     with open(path, "r", newline="") as f:
-        dialect = csv.Sniffer().sniff(
-            "".join([next(f) for _ in range(sample_lines)]), delimiters=",;\t "
-        )
+        lines = list(itertools.islice(f, sample_lines))
+    if not lines:
+        raise csv.Error("File is empty, cannot detect delimiter")
+    dialect = csv.Sniffer().sniff("".join(lines), delimiters=",;\t ")
     return dialect.delimiter
 
 
@@ -59,7 +61,7 @@ def read_spectrum(path: str | Path) -> pd.DataFrame:
     """
     try:
         delim = sniff_delimiter(path)
-    except Exception:
+    except csv.Error:
         delim = r"\s+"
 
     df = pd.read_csv(

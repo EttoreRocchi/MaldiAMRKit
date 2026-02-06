@@ -42,6 +42,22 @@ class TestMaldiSetInit:
         assert ds.antibiotics == ["Drug"]
         assert ds.species == "taxon"
 
+    def test_init_no_aggregate_by(self, synthetic_spectrum: pd.DataFrame):
+        """Test initialization with aggregate_by=None."""
+        specs = [MaldiSpectrum(synthetic_spectrum.copy()).bin(3) for _ in range(2)]
+        specs[0].id = "1s"
+        specs[1].id = "2s"
+
+        meta = pd.DataFrame({"ID": ["1s", "2s"]})
+
+        ds = MaldiSet(specs, meta)
+
+        assert ds.antibiotics is None
+        assert ds.species is None
+        assert ds.other_key is None
+        X = ds.X
+        assert X.shape[0] == 2
+
     def test_init_antibiotics_as_list(self, synthetic_spectrum: pd.DataFrame):
         """Test initialization with antibiotics as a list."""
         specs = [MaldiSpectrum(synthetic_spectrum.copy()).bin(3)]
@@ -107,6 +123,45 @@ class TestMaldiSetFromDirectory:
         )
 
         assert ds.bin_method == "logarithmic"
+
+    def test_from_directory_skips_files_not_in_metadata(
+        self, spectra_dir: Path, metadata_file: Path, tmp_path: Path
+    ):
+        """Test that only spectra with IDs in metadata are loaded."""
+        import shutil
+
+        # Create a temp dir with real spectra + one extra file not in metadata
+        temp_dir = tmp_path / "spectra"
+        temp_dir.mkdir()
+        for f in sorted(spectra_dir.glob("*.txt"))[:3]:
+            shutil.copy(f, temp_dir / f.name)
+        # Write an extra file that is NOT in metadata
+        (temp_dir / "NONEXISTENT_ID.txt").write_text("2000\t100\n2001\t200\n")
+
+        ds = MaldiSet.from_directory(
+            temp_dir,
+            metadata_file,
+            aggregate_by={"antibiotics": "Drug"},
+        )
+
+        loaded_ids = {s.id for s in ds.spectra}
+        assert "NONEXISTENT_ID" not in loaded_ids
+
+    def test_from_directory_no_aggregate_by(
+        self, spectra_dir: Path, metadata_file: Path
+    ):
+        """Test from_directory with aggregate_by=None loads all matching spectra."""
+        ds = MaldiSet.from_directory(
+            spectra_dir,
+            metadata_file,
+        )
+
+        assert len(ds.spectra) > 0
+        assert ds.antibiotics is None
+        assert ds.species is None
+        # X should return all spectra without filtering
+        X = ds.X
+        assert X.shape[0] > 0
 
 
 class TestMaldiSetProperties:
