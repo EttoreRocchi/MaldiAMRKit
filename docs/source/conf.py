@@ -12,7 +12,7 @@ copyright = "2025, Ettore Rocchi"
 author = "Ettore Rocchi"
 
 # The full version, including alpha/beta/rc tags
-release = "0.6.1"
+release = "0.6.2"
 version = "0.6"
 
 # -- General configuration ---------------------------------------------------

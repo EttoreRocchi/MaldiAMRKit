@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">
-  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="450"/>
+  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="370"/>
 </p>
 
 <p align="center">
