@@ -1,5 +1,6 @@
 """Unit tests for the CLI."""
 
+import re
 from pathlib import Path
 
 import numpy as np
@@ -13,6 +14,13 @@ from maldiamrkit.preprocessing import PreprocessingPipeline
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 runner = CliRunner()
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from Rich/Typer output."""
+    return _ANSI_RE.sub("", text)
+
 
 class TestHelpOutput:
     """Tests for CLI help and subcommand discovery."""
@@ -20,22 +28,25 @@ class TestHelpOutput:
     def test_help_exits_zero(self):
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "preprocess" in result.output
-        assert "quality" in result.output
+        output = _strip_ansi(result.output)
+        assert "preprocess" in output
+        assert "quality" in output
 
     def test_preprocess_help(self):
         result = runner.invoke(app, ["preprocess", "--help"])
         assert result.exit_code == 0
-        assert "--input-dir" in result.output
-        assert "--output" in result.output
-        assert "--bin-width" in result.output
-        assert "--method" in result.output
+        output = _strip_ansi(result.output)
+        assert "--input-dir" in output
+        assert "--output" in output
+        assert "--bin-width" in output
+        assert "--method" in output
 
     def test_quality_help(self):
         result = runner.invoke(app, ["quality", "--help"])
         assert result.exit_code == 0
-        assert "--input-dir" in result.output
-        assert "--output" in result.output
+        output = _strip_ansi(result.output)
+        assert "--input-dir" in output
+        assert "--output" in output
 
 
 class TestPreprocessCommand:
