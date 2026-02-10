@@ -1,11 +1,16 @@
 # MaldiAMRKit
 
-[![PyPI Version](https://img.shields.io/pypi/v/maldiamrkit?cacheSeconds=300)](https://pypi.org/project/maldiamrkit/)
+[![CI](https://github.com/EttoreRocchi/MaldiAMRKit/actions/workflows/ci.yml/badge.svg)](https://github.com/EttoreRocchi/MaldiAMRKit/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/github/EttoreRocchi/MaldiAMRKit/branch/main/graph/badge.svg)](https://codecov.io/github/EttoreRocchi/MaldiAMRKit)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://maldiamrkit.readthedocs.io/)
+
+[![PyPI Version](https://img.shields.io/pypi/v/maldiamrkit)](https://pypi.org/project/maldiamrkit/)
+[![Python](https://img.shields.io/pypi/pyversions/maldiamrkit)](https://pypi.org/project/maldiamrkit/)
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">
-  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="370"/>
+  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="320"/>
 </p>
 
 <p align="center">
@@ -41,6 +46,14 @@ pip install -e .[dev]
 - **Spectral Alignment (Warping)**: Multiple alignment methods (shift, linear, piecewise, DTW)
 - **Raw Spectra Warping**: Full m/z resolution alignment before binning
 - **Quality Metrics**: SNR estimation, comprehensive quality reports, and alignment assessment
+- **Replicate Merging**: Mean/median/weighted merging of spectral replicates with correlation-based outlier detection
+- **Composable Preprocessing Pipeline**: Build custom `PreprocessingPipeline` from individual transformers, serializable to JSON/YAML
+- **Composable Filter System**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` with `&`/`|`/`~` operators for flexible dataset filtering
+- **Evaluation Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report`
+- **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
+- **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
+- **Spectrum Export**: Save individual spectra (raw, preprocessed, or binned) to CSV or TXT via `MaldiSet.save_spectra()`
+- **CLI**: `maldiamrkit preprocess` and `maldiamrkit quality` commands for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
 - **ML-Ready**: Direct integration with scikit-learn pipelines
 
@@ -73,7 +86,7 @@ from maldiamrkit import MaldiSet
 data = MaldiSet.from_directory(
     spectra_dir="data/spectra/",
     meta_file="data/metadata.csv",
-    aggregate_by=dict(antibiotics="Drug", species="Species"),
+    aggregate_by=dict(antibiotics="Drug", species="Escherichia coli"),
     bin_width=3
 )
 
@@ -123,7 +136,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
-from maldiamrkit import MaldiPeakDetector, Warping
+from maldiamrkit.alignment import Warping
+from maldiamrkit.detection import MaldiPeakDetector
 
 # Create ML pipeline
 pipe = Pipeline([
@@ -143,7 +157,7 @@ print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 Align spectra to correct for mass calibration drift:
 
 ```python
-from maldiamrkit import Warping
+from maldiamrkit.alignment import Warping
 
 # Create warping transformer
 warper = Warping(
@@ -169,7 +183,7 @@ warper.plot_alignment(X_test, X_aligned, indices=[0], show_peaks=True)
 For higher precision, use RawWarping which operates at full m/z resolution:
 
 ```python
-from maldiamrkit import RawWarping, create_raw_input
+from maldiamrkit.alignment import RawWarping, create_raw_input
 
 # Create input DataFrame from spectrum files
 X_raw = create_raw_input("data/spectra/")
@@ -196,19 +210,177 @@ X_aligned = warper.transform(X_raw)
 ### Quality Assessment
 
 ```python
-from maldiamrkit import estimate_snr, SpectrumQuality, MaldiSpectrum
+from maldiamrkit import MaldiSpectrum
+from maldiamrkit.preprocessing import estimate_snr, SpectrumQuality
 
 # Estimate signal-to-noise ratio
 spec = MaldiSpectrum("spectrum.txt").preprocess()
-snr = estimate_snr(spec.preprocessed)
+snr = estimate_snr(spec)
 print(f"SNR: {snr:.1f}")
 
 # Comprehensive quality report
 qc = SpectrumQuality()  # Uses high m/z region (19500-20000) by default
-report = qc.assess(spec.preprocessed)
+report = qc.assess(spec)
 print(f"SNR: {report.snr:.1f}")
 print(f"Peak count: {report.peak_count}")
 print(f"Dynamic range: {report.dynamic_range:.2f}")
+```
+
+### Replicate Merging
+
+Merge multiple spectral replicates per isolate into a single consensus spectrum:
+
+```python
+from maldiamrkit import MaldiSpectrum
+from maldiamrkit.preprocessing import merge_replicates, detect_outlier_replicates
+
+# Load replicates as MaldiSpectrum objects
+spectra = [MaldiSpectrum(f"data/isolate_rep{i}.txt") for i in range(1, 4)]
+
+# Detect and remove outlier replicates
+keep = detect_outlier_replicates(spectra)
+clean = [s for s, k in zip(spectra, keep) if k]
+
+# Merge into a single consensus spectrum
+merged = merge_replicates(clean, method="mean")
+```
+
+### Composable Preprocessing Pipeline
+
+Build a composable, serializable preprocessing pipeline:
+
+```python
+from maldiamrkit.preprocessing import (
+    PreprocessingPipeline,
+    ClipNegatives, SqrtTransform, SavitzkyGolaySmooth,
+    SNIPBaseline, MzTrimmer, TICNormalizer,
+)
+
+# Use the default pipeline
+pipe = PreprocessingPipeline.default()
+
+# Or build a custom pipeline
+pipe = PreprocessingPipeline([
+    ("clip", ClipNegatives()),
+    ("sqrt", SqrtTransform()),
+    ("smooth", SavitzkyGolaySmooth(window_length=15, polyorder=2)),
+    ("baseline", SNIPBaseline(half_window=30)),
+    ("trim", MzTrimmer(mz_min=2000, mz_max=20000)),
+    ("norm", TICNormalizer()),
+])
+
+# Serialize to JSON/YAML for reproducibility
+pipe.to_json("my_pipeline.json")
+pipe = PreprocessingPipeline.from_json("my_pipeline.json")
+
+# Apply to a spectrum
+spec = MaldiSpectrum("data/spectrum.txt", pipeline=pipe)
+spec.preprocess().bin(3)
+```
+
+### Dataset Filtering
+
+Use composable filters to select subsets of a `MaldiSet`:
+
+```python
+from maldiamrkit import MaldiSet
+from maldiamrkit.filters import SpeciesFilter, DrugFilter, QualityFilter, MetadataFilter
+
+data = MaldiSet.from_directory("spectra/", "metadata.csv",
+    aggregate_by=dict(antibiotics="Drug"))
+
+# Filter by species
+ecoli = data.filter(SpeciesFilter("Escherichia coli"))
+
+# Combine filters with & (and), | (or), ~ (not)
+f = SpeciesFilter("Escherichia coli") & QualityFilter(min_snr=5.0)
+high_quality_ecoli = data.filter(f)
+
+# Filter by antibiotic resistance status
+f = SpeciesFilter("Escherichia coli") & DrugFilter("Ceftriaxone", status="R")
+resistant_ecoli = data.filter(f)
+
+# Custom metadata filter
+f = MetadataFilter("batch_id", lambda v: v == "batch_1")
+batch1 = data.filter(f)
+```
+
+### Evaluation Metrics
+
+AMR-specific evaluation following EUCAST/CLSI conventions:
+
+```python
+from maldiamrkit.evaluation import (
+    very_major_error_rate, major_error_rate,
+    amr_classification_report, vme_scorer, me_scorer,
+    LabelEncoder,
+)
+
+# Encode R/I/S labels to binary
+enc = LabelEncoder(intermediate="susceptible")
+y_binary = enc.fit_transform(y_raw)
+
+# Compute individual metrics
+vme = very_major_error_rate(y_true, y_pred)
+me = major_error_rate(y_true, y_pred)
+
+# Full classification report
+report = amr_classification_report(y_true, y_pred)
+# {'vme': 0.1, 'me': 0.05, 'sensitivity': 0.9, 'specificity': 0.95, ...}
+
+# Use as sklearn scorers in cross-validation
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
+```
+
+### Stratified Splitting
+
+Prevent data leakage with species-aware and patient-grouped splits:
+
+```python
+from maldiamrkit.evaluation import (
+    stratified_species_drug_split,
+    case_based_split,
+    SpeciesDrugStratifiedKFold,
+    CaseGroupedKFold,
+)
+
+# Single split stratified by species + drug label
+X_train, X_test, y_train, y_test = stratified_species_drug_split(
+    X, y, species=species_labels, test_size=0.2, random_state=42
+)
+
+# Patient-grouped split (no patient in both train and test)
+X_train, X_test, y_train, y_test = case_based_split(
+    X, y, case_ids=patient_ids, test_size=0.2
+)
+
+# Cross-validation splitters (sklearn-compatible)
+cv = SpeciesDrugStratifiedKFold(n_splits=5)
+for train_idx, test_idx in cv.split(X, y, species=species_labels):
+    ...
+
+cv = CaseGroupedKFold(n_splits=5)
+for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
+    ...
+```
+
+### Command-Line Interface
+
+Batch preprocess spectra or generate quality reports from the terminal:
+
+```bash
+# Preprocess and bin to a CSV feature matrix
+maldiamrkit preprocess --input-dir data/ --output processed.csv --bin-width 3
+
+# Also save individual preprocessed spectra as TXT files
+maldiamrkit preprocess --input-dir data/ --output processed.csv --save-spectra-dir processed/
+
+# Use a custom pipeline config
+maldiamrkit preprocess --input-dir data/ --output processed.csv --pipeline config.yaml
+
+# Generate quality report
+maldiamrkit quality --input-dir data/ --output report.csv
 ```
 
 ### Parallel Processing
@@ -216,7 +388,9 @@ print(f"Dynamic range: {report.dynamic_range:.2f}")
 Use `n_jobs` parameter for multi-core processing:
 
 ```python
-from maldiamrkit import MaldiSet, MaldiPeakDetector, Warping
+from maldiamrkit import MaldiSet
+from maldiamrkit.alignment import Warping
+from maldiamrkit.detection import MaldiPeakDetector
 
 # Parallel dataset loading
 data = MaldiSet.from_directory("spectra/", "meta.csv", n_jobs=-1)
@@ -230,18 +404,6 @@ warper = Warping(method="piecewise", n_jobs=-1)
 X_aligned = warper.fit_transform(X)
 ```
 
-## Project Structure
-
-```
-maldiamrkit/
-├── core/           # Core data structures (MaldiSpectrum, MaldiSet)
-├── preprocessing/  # Preprocessing functions (pipeline, binning, quality)
-├── alignment/      # Warping transformers (Warping, RawWarping)
-├── detection/      # Peak detection (MaldiPeakDetector)
-├── io/             # File I/O utilities
-└── utils/          # Validation and plotting helpers
-```
-
 ## Tutorials
 
 For more detailed examples, see the notebooks:
@@ -249,6 +411,7 @@ For more detailed examples, see the notebooks:
 - [Quick Start](notebooks/01_quick_start.ipynb) - Loading, preprocessing, binning, and quality assessment
 - [Peak Detection](notebooks/02_peak_detection.ipynb) - Local maxima and persistent homology methods
 - [Alignment](notebooks/03_alignment.ipynb) - Warping methods and alignment quality
+- [Evaluation](notebooks/04_evaluation.ipynb) - AMR metrics, label encoding, and stratified splitting
 
 ## Contributing
 
