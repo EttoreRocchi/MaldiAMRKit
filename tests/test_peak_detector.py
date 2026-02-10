@@ -8,7 +8,7 @@ import pytest
 matplotlib.use("Agg")  # Use non-interactive backend for tests
 import matplotlib.pyplot as plt
 
-from maldiamrkit import MaldiPeakDetector
+from maldiamrkit.detection import MaldiPeakDetector
 
 
 class TestMaldiPeakDetectorInit:

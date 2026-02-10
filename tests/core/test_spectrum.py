@@ -1,13 +1,18 @@
 """Unit tests for MaldiSpectrum class."""
 
+import logging
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 from maldiamrkit import MaldiSpectrum
-from maldiamrkit.core.config import PreprocessingSettings
+from maldiamrkit.preprocessing import MzTrimmer, PreprocessingPipeline
 
 
 class TestMaldiSpectrumInit:
@@ -38,13 +43,16 @@ class TestMaldiSpectrumInit:
         assert spec.id == real_spectrum_path.stem
         assert spec.path == real_spectrum_path
 
-    def test_init_with_custom_config(self, synthetic_spectrum: pd.DataFrame):
-        """Test initialization with custom preprocessing settings."""
-        cfg = PreprocessingSettings(trim_from=3000, trim_to=15000)
-        spec = MaldiSpectrum(synthetic_spectrum, cfg=cfg)
+    def test_init_with_custom_pipeline(self, synthetic_spectrum: pd.DataFrame):
+        """Test initialization with custom preprocessing pipeline."""
+        pipe = PreprocessingPipeline.default()
+        pipe.steps = [
+            (n, s) if not isinstance(s, MzTrimmer) else (n, MzTrimmer(3000, 15000))
+            for n, s in pipe.steps
+        ]
+        spec = MaldiSpectrum(synthetic_spectrum, pipeline=pipe)
 
-        assert spec.cfg.trim_from == 3000
-        assert spec.cfg.trim_to == 15000
+        assert spec.pipeline.mz_range == (3000, 15000)
 
     def test_init_invalid_source_raises(self):
         """Test that invalid source type raises TypeError."""
@@ -60,6 +68,26 @@ class TestMaldiSpectrumInit:
         assert raw1 is not raw2
         raw1.loc[0, "intensity"] = -999
         assert spec.raw.loc[0, "intensity"] != -999
+
+
+class TestMaldiSpectrumValidation:
+    """Tests for MaldiSpectrum DataFrame validation."""
+
+    def test_empty_dataframe_raises(self):
+        with pytest.raises(ValueError, match="empty"):
+            MaldiSpectrum(pd.DataFrame())
+
+    def test_missing_columns_raises(self):
+        with pytest.raises(ValueError, match="missing"):
+            MaldiSpectrum(pd.DataFrame({"x": [1]}))
+
+    def test_non_numeric_mass_raises(self):
+        with pytest.raises(TypeError, match="numeric"):
+            MaldiSpectrum(pd.DataFrame({"mass": ["a"], "intensity": [1]}))
+
+    def test_non_numeric_intensity_raises(self):
+        with pytest.raises(TypeError, match="numeric"):
+            MaldiSpectrum(pd.DataFrame({"mass": [1], "intensity": ["a"]}))
 
 
 class TestMaldiSpectrumPreprocess:
@@ -83,8 +111,12 @@ class TestMaldiSpectrumPreprocess:
 
     def test_preprocess_trims_range(self, synthetic_spectrum: pd.DataFrame):
         """Test that preprocessing trims to configured m/z range."""
-        cfg = PreprocessingSettings(trim_from=3000, trim_to=15000)
-        spec = MaldiSpectrum(synthetic_spectrum, cfg=cfg).preprocess()
+        pipe = PreprocessingPipeline.default()
+        pipe.steps = [
+            (n, s) if not isinstance(s, MzTrimmer) else (n, MzTrimmer(3000, 15000))
+            for n, s in pipe.steps
+        ]
+        spec = MaldiSpectrum(synthetic_spectrum, pipeline=pipe).preprocess()
 
         assert spec.preprocessed["mass"].min() >= 3000
         assert spec.preprocessed["mass"].max() <= 15000
@@ -220,3 +252,103 @@ class TestMaldiSpectrumReproducibility:
         spec2 = MaldiSpectrum(synthetic_spectrum.copy()).preprocess().bin(3)
 
         pd.testing.assert_frame_equal(spec1.binned, spec2.binned)
+
+
+class TestMaldiSpectrumSave:
+    """Tests for the save method."""
+
+    def test_save_csv(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
+        """Test saving as CSV."""
+        spec = MaldiSpectrum(synthetic_spectrum).preprocess().bin(3)
+        out = tmp_path / "spec.csv"
+        spec.save(out, stage="binned", fmt="csv")
+
+        assert out.exists()
+        df = pd.read_csv(out)
+        assert list(df.columns) == ["mass", "intensity"]
+        assert len(df) > 0
+
+    def test_save_txt(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
+        """Test saving as tab-separated TXT."""
+        spec = MaldiSpectrum(synthetic_spectrum).preprocess()
+        out = tmp_path / "spec.txt"
+        spec.save(out, stage="preprocessed", fmt="txt")
+
+        assert out.exists()
+        df = pd.read_csv(out, sep="\t")
+        assert list(df.columns) == ["mass", "intensity"]
+        assert len(df) > 0
+
+    def test_save_invalid_fmt(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
+        """Test that invalid format raises ValueError."""
+        spec = MaldiSpectrum(synthetic_spectrum)
+        with pytest.raises(ValueError, match="Invalid fmt"):
+            spec.save(tmp_path / "spec.dat", stage="raw", fmt="dat")
+
+
+class TestMaldiSpectrumRepr:
+    """Tests for __repr__."""
+
+    def test_repr_raw(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        assert "raw" in repr(spec)
+        assert "in-memory" in repr(spec)
+
+    def test_repr_preprocessed(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        spec.preprocess()
+        assert "preprocessed" in repr(spec)
+
+    def test_repr_binned(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        spec.bin(3)
+        assert "binned" in repr(spec)
+        assert "preprocessed" in repr(spec)
+
+
+class TestMaldiSpectrumVerbose:
+    """Tests for verbose logging."""
+
+    def test_preprocess_verbose(self, synthetic_spectrum: pd.DataFrame, caplog):
+        spec = MaldiSpectrum(synthetic_spectrum, verbose=True)
+        with caplog.at_level(logging.INFO):
+            spec.preprocess()
+        assert "Preprocessed spectrum" in caplog.text
+
+    def test_bin_verbose(self, synthetic_spectrum: pd.DataFrame, caplog):
+        spec = MaldiSpectrum(synthetic_spectrum, verbose=True)
+        with caplog.at_level(logging.INFO):
+            spec.bin(3)
+        assert "Binned spectrum" in caplog.text
+
+
+class TestMaldiSpectrumPlot:
+    """Tests for the plot method."""
+
+    def test_plot_binned(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        spec.bin(3)
+        ax = spec.plot()
+        assert ax is not None
+        plt.close("all")
+
+    def test_plot_raw(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        ax = spec.plot(binned=False)
+        assert ax is not None
+        plt.close("all")
+
+    def test_plot_preprocessed(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        spec.preprocess()
+        ax = spec.plot(binned=False)
+        assert ax is not None
+        plt.close("all")
+
+    def test_plot_with_ax(self, synthetic_spectrum: pd.DataFrame):
+        spec = MaldiSpectrum(synthetic_spectrum)
+        spec.bin(3)
+        fig, ax = plt.subplots()
+        returned = spec.plot(ax=ax)
+        assert returned is ax
+        plt.close(fig)

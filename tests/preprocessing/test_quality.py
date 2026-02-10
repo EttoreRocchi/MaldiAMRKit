@@ -2,27 +2,35 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from maldiamrkit.preprocessing.quality import (
+from maldiamrkit import MaldiSpectrum
+from maldiamrkit.preprocessing import (
     SpectrumQuality,
     SpectrumQualityReport,
     estimate_snr,
 )
 
 
+@pytest.fixture
+def synthetic_maldi(synthetic_spectrum: pd.DataFrame) -> MaldiSpectrum:
+    """Wrap the synthetic spectrum DataFrame in a MaldiSpectrum."""
+    return MaldiSpectrum(synthetic_spectrum)
+
+
 class TestEstimateSNR:
     """Tests for estimate_snr function."""
 
-    def test_estimate_snr_basic(self, synthetic_spectrum: pd.DataFrame):
+    def test_estimate_snr_basic(self, synthetic_maldi):
         """Test basic SNR estimation."""
-        snr = estimate_snr(synthetic_spectrum)
+        snr = estimate_snr(synthetic_maldi)
 
         assert isinstance(snr, float)
         assert snr > 0
 
-    def test_estimate_snr_custom_noise_region(self, synthetic_spectrum: pd.DataFrame):
+    def test_estimate_snr_custom_noise_region(self, synthetic_maldi):
         """Test SNR with custom noise region."""
-        snr = estimate_snr(synthetic_spectrum, noise_region=(3000, 4000))
+        snr = estimate_snr(synthetic_maldi, noise_region=(3000, 4000))
 
         assert isinstance(snr, float)
         assert snr > 0
@@ -30,9 +38,39 @@ class TestEstimateSNR:
     def test_estimate_snr_empty_noise_region(self):
         """Test SNR returns inf for empty noise region."""
         df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
-        snr = estimate_snr(df, noise_region=(2000, 3000))
+        snr = estimate_snr(MaldiSpectrum(df), noise_region=(2000, 3000))
 
         assert snr == np.inf
+
+    def test_estimate_snr_median_peaks(self, synthetic_maldi):
+        """Test SNR with median_peaks signal method."""
+        snr = estimate_snr(synthetic_maldi, signal_method="median_peaks")
+
+        assert isinstance(snr, float)
+        assert snr > 0
+
+    def test_estimate_snr_median_peaks_no_peaks(self):
+        """Test median_peaks falls back to max when no peaks found."""
+        # Constant spectrum has no peaks
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.ones(1000)}
+        )
+        snr = estimate_snr(MaldiSpectrum(df), signal_method="median_peaks")
+        assert isinstance(snr, float)
+
+    def test_signal_methods_differ(self, synthetic_maldi):
+        """Test that max and median_peaks give different results."""
+        snr_max = estimate_snr(synthetic_maldi, signal_method="max")
+        snr_median = estimate_snr(synthetic_maldi, signal_method="median_peaks")
+
+        # max uses the single highest point; median_peaks uses top-N median
+        # They should differ unless all peaks are the same height
+        assert snr_max != snr_median
+
+    def test_estimate_snr_invalid_method(self, synthetic_maldi):
+        """Test that invalid signal_method raises ValueError."""
+        with pytest.raises(ValueError, match="signal_method"):
+            estimate_snr(synthetic_maldi, signal_method="invalid")
 
 
 class TestSpectrumQuality:
@@ -44,6 +82,8 @@ class TestSpectrumQuality:
 
         assert qc.noise_region == (19500, 20000)
         assert qc.peak_prominence == 1e-4
+        assert qc.signal_method == "max"
+        assert qc.n_top_peaks == 10
 
     def test_custom_init(self):
         """Test custom initialization."""
@@ -52,76 +92,85 @@ class TestSpectrumQuality:
         assert qc.noise_region == (3000, 4000)
         assert qc.peak_prominence == 1e-3
 
-    def test_estimate_noise_level(self, synthetic_spectrum: pd.DataFrame):
+    def test_estimate_noise_level(self, synthetic_maldi):
         """Test noise level estimation."""
         qc = SpectrumQuality()
-        noise = qc.estimate_noise_level(synthetic_spectrum)
+        noise = qc.estimate_noise_level(synthetic_maldi)
 
         assert isinstance(noise, float)
         assert noise >= 0
 
     def test_estimate_noise_level_empty_region(self):
         """Test noise level returns 0 for empty region."""
-        df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
+        spec = MaldiSpectrum(
+            pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
+        )
         qc = SpectrumQuality(noise_region=(2000, 3000))
-        noise = qc.estimate_noise_level(df)
+        noise = qc.estimate_noise_level(spec)
 
         assert noise == 0.0
 
-    def test_estimate_baseline_fraction(self, synthetic_spectrum: pd.DataFrame):
+    def test_estimate_baseline_fraction(self, synthetic_maldi):
         """Test baseline fraction estimation."""
         qc = SpectrumQuality()
-        baseline_frac = qc.estimate_baseline_fraction(synthetic_spectrum)
+        baseline_frac = qc.estimate_baseline_fraction(synthetic_maldi)
 
         assert isinstance(baseline_frac, float)
         assert 0 <= baseline_frac <= 1
 
     def test_estimate_baseline_fraction_empty_region(self):
         """Test baseline fraction returns 0 for empty noise region."""
-        df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
+        spec = MaldiSpectrum(
+            pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
+        )
         qc = SpectrumQuality(noise_region=(2000, 3000))
-        baseline_frac = qc.estimate_baseline_fraction(df)
+        baseline_frac = qc.estimate_baseline_fraction(spec)
 
         assert baseline_frac == 0.0
 
-    def test_estimate_dynamic_range(self, synthetic_spectrum: pd.DataFrame):
+    def test_estimate_dynamic_range(self, synthetic_maldi):
         """Test dynamic range estimation."""
         qc = SpectrumQuality()
-        dr = qc.estimate_dynamic_range(synthetic_spectrum)
+        dr = qc.estimate_dynamic_range(synthetic_maldi)
 
         assert isinstance(dr, float)
         assert dr >= 0
 
     def test_estimate_dynamic_range_constant_signal(self):
         """Test dynamic range with constant signal."""
-        df = pd.DataFrame(
-            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.ones(1000) * 100}
+        spec = MaldiSpectrum(
+            pd.DataFrame(
+                {
+                    "mass": np.linspace(2000, 20000, 1000),
+                    "intensity": np.ones(1000) * 100,
+                }
+            )
         )
         qc = SpectrumQuality()
-        dr = qc.estimate_dynamic_range(df)
+        dr = qc.estimate_dynamic_range(spec)
 
         # Constant signal should have 0 dynamic range
         assert dr == 0.0
 
-    def test_count_peaks(self, synthetic_spectrum: pd.DataFrame):
+    def test_count_peaks(self, synthetic_maldi):
         """Test peak counting."""
         qc = SpectrumQuality()
-        count = qc.count_peaks(synthetic_spectrum)
+        count = qc.count_peaks(synthetic_maldi)
 
         assert isinstance(count, int)
         assert count >= 0
 
-    def test_assess_returns_report(self, synthetic_spectrum: pd.DataFrame):
+    def test_assess_returns_report(self, synthetic_maldi):
         """Test that assess returns a SpectrumQualityReport."""
         qc = SpectrumQuality()
-        report = qc.assess(synthetic_spectrum)
+        report = qc.assess(synthetic_maldi)
 
         assert isinstance(report, SpectrumQualityReport)
 
-    def test_assess_report_fields(self, synthetic_spectrum: pd.DataFrame):
+    def test_assess_report_fields(self, synthetic_maldi):
         """Test that report contains all expected fields."""
         qc = SpectrumQuality()
-        report = qc.assess(synthetic_spectrum)
+        report = qc.assess(synthetic_maldi)
 
         assert hasattr(report, "snr")
         assert hasattr(report, "total_ion_count")
@@ -130,10 +179,10 @@ class TestSpectrumQuality:
         assert hasattr(report, "noise_level")
         assert hasattr(report, "dynamic_range")
 
-    def test_assess_report_values(self, synthetic_spectrum: pd.DataFrame):
+    def test_assess_report_values(self, synthetic_maldi):
         """Test that report values are valid."""
         qc = SpectrumQuality()
-        report = qc.assess(synthetic_spectrum)
+        report = qc.assess(synthetic_maldi)
 
         assert report.snr > 0
         assert report.total_ion_count > 0
@@ -168,12 +217,12 @@ class TestSpectrumQualityReport:
 class TestSpectrumQualityReproducibility:
     """Tests for reproducibility of quality metrics."""
 
-    def test_same_input_same_output(self, synthetic_spectrum: pd.DataFrame):
+    def test_same_input_same_output(self, synthetic_maldi):
         """Test that same input produces same output."""
         qc = SpectrumQuality()
 
-        report1 = qc.assess(synthetic_spectrum.copy())
-        report2 = qc.assess(synthetic_spectrum.copy())
+        report1 = qc.assess(synthetic_maldi)
+        report2 = qc.assess(synthetic_maldi)
 
         assert report1.snr == report2.snr
         assert report1.total_ion_count == report2.total_ion_count

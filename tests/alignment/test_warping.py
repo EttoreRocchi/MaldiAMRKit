@@ -1,5 +1,7 @@
 """Unit tests for Warping class."""
 
+import warnings
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -8,7 +10,7 @@ import pytest
 matplotlib.use("Agg")  # Use non-interactive backend for tests
 import matplotlib.pyplot as plt
 
-from maldiamrkit import Warping
+from maldiamrkit.alignment import Warping
 
 
 class TestWarpingInit:
@@ -259,3 +261,41 @@ class TestWarpingSklearn:
         result = pipe.fit_transform(binned_dataset)
 
         assert result.shape == binned_dataset.shape
+
+
+class TestWarpingValidation:
+    """Tests for input validation and error handling."""
+
+    def test_fit_empty_dataframe(self):
+        w = Warping(method="shift")
+        with pytest.raises(ValueError, match="empty"):
+            w.fit(pd.DataFrame())
+
+    def test_fit_invalid_reference_type(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift", reference="invalid")
+        with pytest.raises(ValueError, match="Unsupported reference"):
+            w.fit(binned_dataset)
+
+    def test_fit_invalid_n_segments(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="piecewise", n_segments=0)
+        with pytest.raises(ValueError, match="n_segments"):
+            w.fit(binned_dataset)
+
+    def test_fit_invalid_max_shift(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift", max_shift=-1)
+        with pytest.raises(ValueError, match="max_shift"):
+            w.fit(binned_dataset)
+
+    def test_transform_unknown_method(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift")
+        w.fit(binned_dataset)
+        w.method = "nonexistent"
+        with pytest.raises(ValueError, match="Unknown"):
+            w.transform(binned_dataset)
+
+    def test_reference_quality_warning(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift", min_reference_peaks=9999)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with pytest.raises(UserWarning, match="peaks detected"):
+                w.fit(binned_dataset)

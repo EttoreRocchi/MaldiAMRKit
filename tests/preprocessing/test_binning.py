@@ -4,11 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from maldiamrkit.core.config import PreprocessingSettings
-from maldiamrkit.preprocessing.binning import (
-    bin_spectrum,
-)
-from maldiamrkit.preprocessing.pipeline import preprocess
+from maldiamrkit.preprocessing import bin_spectrum, preprocess
 
 
 class TestBinSpectrum:
@@ -21,9 +17,8 @@ class TestBinSpectrum:
 
     def test_bin_spectrum_uniform(self, preprocessed_spectrum: pd.DataFrame):
         """Test uniform binning."""
-        cfg = PreprocessingSettings()
         result, metadata = bin_spectrum(
-            preprocessed_spectrum, cfg, bin_width=3, method="uniform"
+            preprocessed_spectrum, bin_width=3, method="uniform"
         )
 
         assert isinstance(result, pd.DataFrame)
@@ -31,30 +26,27 @@ class TestBinSpectrum:
         assert "intensity" in result.columns
 
         # Check expected number of bins
-        expected_bins = (cfg.trim_to - cfg.trim_from) // 3
+        expected_bins = (20000 - 2000) // 3
         assert len(result) == expected_bins
 
     def test_bin_spectrum_logarithmic(self, preprocessed_spectrum: pd.DataFrame):
         """Test logarithmic binning."""
-        cfg = PreprocessingSettings()
         result, metadata = bin_spectrum(
-            preprocessed_spectrum, cfg, bin_width=3, method="logarithmic"
+            preprocessed_spectrum, bin_width=3, method="logarithmic"
         )
 
         assert len(result) > 0
         # Logarithmic binning should have fewer bins than uniform (bins grow)
         uniform_result, _ = bin_spectrum(
-            preprocessed_spectrum, cfg, bin_width=3, method="uniform"
+            preprocessed_spectrum, bin_width=3, method="uniform"
         )
         # Log bins grow, so we get fewer bins with same starting width
         assert len(result) < len(uniform_result)
 
     def test_bin_spectrum_adaptive(self, preprocessed_spectrum: pd.DataFrame):
         """Test adaptive binning."""
-        cfg = PreprocessingSettings()
         result, metadata = bin_spectrum(
             preprocessed_spectrum,
-            cfg,
             method="adaptive",
             adaptive_min_width=1.0,
             adaptive_max_width=10.0,
@@ -64,10 +56,9 @@ class TestBinSpectrum:
 
     def test_bin_spectrum_custom(self, preprocessed_spectrum: pd.DataFrame):
         """Test custom binning."""
-        cfg = PreprocessingSettings()
         edges = [2000, 5000, 10000, 15000, 20000]
         result, metadata = bin_spectrum(
-            preprocessed_spectrum, cfg, method="custom", custom_edges=edges
+            preprocessed_spectrum, method="custom", custom_edges=edges
         )
 
         assert len(result) == len(edges) - 1
@@ -76,10 +67,9 @@ class TestBinSpectrum:
         self, preprocessed_spectrum: pd.DataFrame
     ):
         """Test that binning preserves total intensity."""
-        cfg = PreprocessingSettings()
         original_sum = preprocessed_spectrum["intensity"].sum()
 
-        result, _ = bin_spectrum(preprocessed_spectrum, cfg, bin_width=3)
+        result, _ = bin_spectrum(preprocessed_spectrum, bin_width=3)
         binned_sum = result["intensity"].sum()
 
         # Allow small numerical tolerance
@@ -89,19 +79,73 @@ class TestBinSpectrum:
         self, preprocessed_spectrum: pd.DataFrame
     ):
         """Test that invalid method raises ValueError."""
-        cfg = PreprocessingSettings()
-
         with pytest.raises(ValueError, match="Invalid method"):
-            bin_spectrum(preprocessed_spectrum, cfg, method="invalid")
+            bin_spectrum(preprocessed_spectrum, method="invalid")
 
     def test_bin_spectrum_custom_without_edges_raises(
         self, preprocessed_spectrum: pd.DataFrame
     ):
         """Test that custom method without edges raises ValueError."""
-        cfg = PreprocessingSettings()
-
         with pytest.raises(ValueError, match="custom_edges"):
-            bin_spectrum(preprocessed_spectrum, cfg, method="custom")
+            bin_spectrum(preprocessed_spectrum, method="custom")
+
+    def test_bin_spectrum_invalid_mz_range(self, preprocessed_spectrum: pd.DataFrame):
+        """Test that mz_min >= mz_max raises ValueError."""
+        with pytest.raises(ValueError, match="must be less than"):
+            bin_spectrum(preprocessed_spectrum, mz_min=20000, mz_max=2000)
+
+    def test_adaptive_custom_prominence(self, preprocessed_spectrum: pd.DataFrame):
+        """Test that explicit prominence changes bin count."""
+        result_default, _ = bin_spectrum(
+            preprocessed_spectrum,
+            method="adaptive",
+            adaptive_min_width=1.0,
+            adaptive_max_width=10.0,
+        )
+        # Very high prominence → no peaks detected → uniform fallback
+        result_high, _ = bin_spectrum(
+            preprocessed_spectrum,
+            method="adaptive",
+            adaptive_min_width=1.0,
+            adaptive_max_width=10.0,
+            adaptive_peak_prominence=1e10,
+        )
+        # With no peaks, falls back to uniform with max_width=10
+        assert len(result_default) != len(result_high)
+
+    def test_adaptive_custom_bandwidth(self, preprocessed_spectrum: pd.DataFrame):
+        """Test that explicit bandwidth changes bin distribution."""
+        _, meta_narrow = bin_spectrum(
+            preprocessed_spectrum,
+            method="adaptive",
+            adaptive_min_width=1.0,
+            adaptive_max_width=10.0,
+            adaptive_kde_bandwidth=100.0,
+        )
+        _, meta_wide = bin_spectrum(
+            preprocessed_spectrum,
+            method="adaptive",
+            adaptive_min_width=1.0,
+            adaptive_max_width=10.0,
+            adaptive_kde_bandwidth=5000.0,
+        )
+        # Different bandwidths should produce different bin distributions
+        assert not np.array_equal(
+            meta_narrow["bin_width"].values, meta_wide["bin_width"].values
+        )
+
+    def test_adaptive_silverman_default(self, preprocessed_spectrum: pd.DataFrame):
+        """Test that default (None) parameters run without error."""
+        result, metadata = bin_spectrum(
+            preprocessed_spectrum,
+            method="adaptive",
+            adaptive_min_width=1.0,
+            adaptive_max_width=10.0,
+            adaptive_peak_prominence=None,
+            adaptive_kde_bandwidth=None,
+        )
+        assert len(result) > 0
+        assert len(metadata) > 0
 
 
 class TestBinMetadata:
@@ -114,8 +158,7 @@ class TestBinMetadata:
 
     def test_bin_metadata_columns(self, preprocessed_spectrum: pd.DataFrame):
         """Test that bin metadata has expected columns."""
-        cfg = PreprocessingSettings()
-        _, metadata = bin_spectrum(preprocessed_spectrum, cfg, bin_width=3)
+        _, metadata = bin_spectrum(preprocessed_spectrum, bin_width=3)
 
         assert "bin_index" in metadata.columns
         assert "bin_start" in metadata.columns
@@ -124,10 +167,7 @@ class TestBinMetadata:
 
     def test_bin_metadata_uniform_width(self, preprocessed_spectrum: pd.DataFrame):
         """Test that uniform binning has consistent bin widths."""
-        cfg = PreprocessingSettings()
-        _, metadata = bin_spectrum(
-            preprocessed_spectrum, cfg, bin_width=3, method="uniform"
-        )
+        _, metadata = bin_spectrum(preprocessed_spectrum, bin_width=3, method="uniform")
 
         # All bins should have width 3
         assert np.allclose(metadata["bin_width"], 3.0)
@@ -136,9 +176,8 @@ class TestBinMetadata:
         self, preprocessed_spectrum: pd.DataFrame
     ):
         """Test that logarithmic binning has increasing bin widths."""
-        cfg = PreprocessingSettings()
         _, metadata = bin_spectrum(
-            preprocessed_spectrum, cfg, bin_width=3, method="logarithmic"
+            preprocessed_spectrum, bin_width=3, method="logarithmic"
         )
 
         widths = metadata["bin_width"].values
@@ -156,10 +195,8 @@ class TestBinningReproducibility:
 
     def test_same_input_same_output(self, preprocessed_spectrum: pd.DataFrame):
         """Test that same input produces same output."""
-        cfg = PreprocessingSettings()
-
-        result1, meta1 = bin_spectrum(preprocessed_spectrum.copy(), cfg, bin_width=3)
-        result2, meta2 = bin_spectrum(preprocessed_spectrum.copy(), cfg, bin_width=3)
+        result1, meta1 = bin_spectrum(preprocessed_spectrum.copy(), bin_width=3)
+        result2, meta2 = bin_spectrum(preprocessed_spectrum.copy(), bin_width=3)
 
         pd.testing.assert_frame_equal(result1, result2)
         pd.testing.assert_frame_equal(meta1, meta2)
@@ -169,17 +206,15 @@ class TestBinningReproducibility:
         self, preprocessed_spectrum: pd.DataFrame, method: str
     ):
         """Test that all methods produce reproducible results."""
-        cfg = PreprocessingSettings()
-
         kwargs = {}
         if method == "adaptive":
             kwargs = {"adaptive_min_width": 1.0, "adaptive_max_width": 10.0}
 
         result1, _ = bin_spectrum(
-            preprocessed_spectrum.copy(), cfg, bin_width=3, method=method, **kwargs
+            preprocessed_spectrum.copy(), bin_width=3, method=method, **kwargs
         )
         result2, _ = bin_spectrum(
-            preprocessed_spectrum.copy(), cfg, bin_width=3, method=method, **kwargs
+            preprocessed_spectrum.copy(), bin_width=3, method=method, **kwargs
         )
 
         pd.testing.assert_frame_equal(result1, result2)

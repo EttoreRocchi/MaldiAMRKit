@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from maldiamrkit.alignment.raw_warping import RawWarping, create_raw_input
+from maldiamrkit.alignment import RawWarping, create_raw_input
 
 
 class TestCreateRawInput:
@@ -104,7 +104,7 @@ class TestRawWarpingFitTransform:
             sample_id = f"sample_{i}"
             path = tmp_path / f"{sample_id}.txt"
             with open(path, "w") as f:
-                for m, inten in zip(mz, intensity):
+                for m, inten in zip(mz, intensity, strict=True):
                     f.write(f"{m}\t{inten}\n")
             sample_ids.append(sample_id)
 
@@ -219,7 +219,7 @@ class TestRawWarpingPipelineCompatibility:
 
             path = tmp_path / f"sample_{i}.txt"
             with open(path, "w") as f:
-                for m, inten in zip(mz, intensity):
+                for m, inten in zip(mz, intensity, strict=True):
                     f.write(f"{m}\t{inten}\n")
 
         X = create_raw_input(tmp_path)
@@ -265,7 +265,7 @@ class TestRawWarpingParallelization:
 
             path = tmp_path / f"sample_{i}.txt"
             with open(path, "w") as f:
-                for m, inten in zip(mz, intensity):
+                for m, inten in zip(mz, intensity, strict=True):
                     f.write(f"{m}\t{inten}\n")
 
         X = create_raw_input(tmp_path)

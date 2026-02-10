@@ -7,7 +7,7 @@ import csv
 import pandas as pd
 import pytest
 
-from maldiamrkit.io.readers import read_spectrum, sniff_delimiter
+from maldiamrkit.io import read_spectrum, sniff_delimiter
 
 
 class TestSniffDelimiter:

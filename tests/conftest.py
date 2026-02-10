@@ -62,7 +62,7 @@ def _generate_synthetic_spectrum(
         peak_heights = [1000.0] * len(peak_positions)
 
     # Add Gaussian peaks
-    for pos, height in zip(peak_positions, peak_heights):
+    for pos, height in zip(peak_positions, peak_heights, strict=True):
         idx = np.argmin(np.abs(mz - pos))
         intensity += height * np.exp(-0.5 * ((mz - mz[idx]) / peak_width) ** 2)
 

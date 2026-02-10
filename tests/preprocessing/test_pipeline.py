@@ -3,8 +3,12 @@
 import numpy as np
 import pandas as pd
 
-from maldiamrkit.core.config import PreprocessingSettings
-from maldiamrkit.preprocessing.pipeline import preprocess
+from maldiamrkit.preprocessing import (
+    MzTrimmer,
+    PreprocessingPipeline,
+    SavitzkyGolaySmooth,
+    preprocess,
+)
 
 
 class TestPreprocess:
@@ -35,8 +39,13 @@ class TestPreprocess:
 
     def test_preprocess_trims_range(self, synthetic_spectrum: pd.DataFrame):
         """Test that spectrum is trimmed to configured range."""
-        cfg = PreprocessingSettings(trim_from=3000, trim_to=15000)
-        result = preprocess(synthetic_spectrum, cfg)
+        pipe = PreprocessingPipeline.default()
+        # Replace the MzTrimmer step
+        pipe.steps = [
+            (n, s) if not isinstance(s, MzTrimmer) else (n, MzTrimmer(3000, 15000))
+            for n, s in pipe.steps
+        ]
+        result = preprocess(synthetic_spectrum, pipe)
 
         assert result["mass"].min() >= 3000
         assert result["mass"].max() <= 15000
@@ -74,8 +83,14 @@ class TestPreprocess:
 
     def test_preprocess_custom_savgol_params(self, synthetic_spectrum: pd.DataFrame):
         """Test preprocessing with custom Savitzky-Golay parameters."""
-        cfg = PreprocessingSettings(savgol_window=30, savgol_poly=3)
-        result = preprocess(synthetic_spectrum, cfg)
+        pipe = PreprocessingPipeline.default()
+        pipe.steps = [
+            (n, s)
+            if not isinstance(s, SavitzkyGolaySmooth)
+            else (n, SavitzkyGolaySmooth(window_length=30, polyorder=3))
+            for n, s in pipe.steps
+        ]
+        result = preprocess(synthetic_spectrum, pipe)
 
         assert (result["intensity"] >= 0).all()
         assert np.isclose(result["intensity"].sum(), 1.0, atol=1e-6)
@@ -103,42 +118,67 @@ class TestPreprocess:
         pd.testing.assert_frame_equal(synthetic_spectrum, original)
 
 
-class TestPreprocessingSettings:
-    """Tests for PreprocessingSettings configuration."""
+class TestPreprocessingPipeline:
+    """Tests for PreprocessingPipeline."""
 
-    def test_default_settings(self):
-        """Test default preprocessing settings."""
-        cfg = PreprocessingSettings()
+    def test_default_pipeline_has_6_steps(self):
+        """Test that default pipeline has 6 steps."""
+        pipe = PreprocessingPipeline.default()
+        assert len(pipe) == 6
 
-        assert cfg.trim_from == 2000
-        assert cfg.trim_to == 20000
-        assert cfg.savgol_window == 20
-        assert cfg.savgol_poly == 2
-        assert cfg.baseline_half_window == 40
+    def test_default_step_names(self):
+        """Test default pipeline step names."""
+        pipe = PreprocessingPipeline.default()
+        assert pipe.step_names == [
+            "clip",
+            "sqrt",
+            "smooth",
+            "baseline",
+            "trim",
+            "normalize",
+        ]
 
-    def test_custom_settings(self):
-        """Test custom preprocessing settings."""
-        cfg = PreprocessingSettings(
-            trim_from=3000,
-            trim_to=15000,
-            savgol_window=30,
-            savgol_poly=3,
-            baseline_half_window=50,
+    def test_mz_range(self):
+        """Test mz_range property."""
+        pipe = PreprocessingPipeline.default()
+        assert pipe.mz_range == (2000, 20000)
+
+    def test_custom_mz_range(self):
+        """Test custom mz_range."""
+        pipe = PreprocessingPipeline(
+            [
+                ("trim", MzTrimmer(mz_min=3000, mz_max=15000)),
+            ]
         )
+        assert pipe.mz_range == (3000, 15000)
 
-        assert cfg.trim_from == 3000
-        assert cfg.trim_to == 15000
-        assert cfg.savgol_window == 30
-        assert cfg.savgol_poly == 3
-        assert cfg.baseline_half_window == 50
+    def test_get_step(self):
+        """Test get_step method."""
+        pipe = PreprocessingPipeline.default()
+        trim = pipe.get_step("trim")
+        assert isinstance(trim, MzTrimmer)
 
-    def test_as_dict(self):
-        """Test as_dict method."""
-        cfg = PreprocessingSettings(trim_from=3000)
-        d = cfg.as_dict()
+    def test_get_step_missing_raises(self):
+        """Test that get_step raises for missing step."""
+        pipe = PreprocessingPipeline.default()
+        with pytest.raises(KeyError, match="nonexistent"):
+            pipe.get_step("nonexistent")
 
-        assert isinstance(d, dict)
-        assert d["trim_from"] == 3000
+    def test_repr(self):
+        """Test repr is informative."""
+        pipe = PreprocessingPipeline.default()
+        r = repr(pipe)
+        assert "PreprocessingPipeline" in r
+        assert "clip" in r
+
+    def test_to_dict_from_dict_roundtrip(self):
+        """Test serialization round-trip."""
+        pipe = PreprocessingPipeline.default()
+        d = pipe.to_dict()
+        pipe2 = PreprocessingPipeline.from_dict(d)
+
+        assert pipe.step_names == pipe2.step_names
+        assert pipe.mz_range == pipe2.mz_range
 
 
 class TestPreprocessReproducibility:
@@ -151,11 +191,20 @@ class TestPreprocessReproducibility:
 
         pd.testing.assert_frame_equal(result1, result2)
 
-    def test_deterministic_with_cfg(self, synthetic_spectrum: pd.DataFrame):
-        """Test that preprocessing is deterministic with same config."""
-        cfg = PreprocessingSettings(trim_from=3000, trim_to=15000)
+    def test_deterministic_with_pipeline(self, synthetic_spectrum: pd.DataFrame):
+        """Test that preprocessing is deterministic with same pipeline."""
+        pipe = PreprocessingPipeline.default()
+        # Custom MzTrimmer
+        pipe.steps = [
+            (n, s) if not isinstance(s, MzTrimmer) else (n, MzTrimmer(3000, 15000))
+            for n, s in pipe.steps
+        ]
 
-        result1 = preprocess(synthetic_spectrum.copy(), cfg)
-        result2 = preprocess(synthetic_spectrum.copy(), cfg)
+        result1 = preprocess(synthetic_spectrum.copy(), pipe)
+        result2 = preprocess(synthetic_spectrum.copy(), pipe)
 
         pd.testing.assert_frame_equal(result1, result2)
+
+
+# Need pytest for raises
+import pytest  # noqa: E402
