@@ -13,4 +13,14 @@ pybaselines>=1.0.0
 gudhi>=3.5.0
 
 # Dynamic time warping
-fastdtw>=0.3.4
+tslearn>=0.6.0
+
+# YAML serialization
+pyyaml>=6.0
+
+# Parquet I/O
+pyarrow>=14.0.0
+
+# CLI
+typer>=0.9.0
+rich>=13.0.0

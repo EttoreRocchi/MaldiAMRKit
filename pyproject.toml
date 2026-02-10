@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "MaldiAMRKit"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 description = "A comprehensive toolkit for MALDI-TOF mass spectrometry data preprocessing for antimicrobial resistance (AMR) prediction purposes"
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
   { name = "Ettore Rocchi", email = "ettore.rocchi3@unibo.it" }
 ]
@@ -19,11 +19,15 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Operating System :: OS Independent",
 ]
+
+[project.scripts]
+maldiamrkit = "maldiamrkit.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/EttoreRocchi/MaldiAMRKit"
@@ -57,8 +61,14 @@ line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
-ignore = ["E501"]
+select = ["E", "F", "W", "I", "D", "B"]
+ignore = ["E501", "D100", "D104", "D105", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.ruff.lint.isort]
 known-first-party = ["maldiamrkit"]
