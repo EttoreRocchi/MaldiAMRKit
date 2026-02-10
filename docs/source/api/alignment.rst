@@ -9,7 +9,7 @@ Use ``n_jobs=-1`` to utilize all available CPU cores.
 Warping (Binned Spectra)
 ------------------------
 
-.. autoclass:: maldiamrkit.alignment.warping.Warping
+.. autoclass:: maldiamrkit.alignment.Warping
    :members:
    :undoc-members:
    :show-inheritance:
@@ -17,7 +17,7 @@ Warping (Binned Spectra)
 RawWarping (Full Resolution)
 ----------------------------
 
-.. autoclass:: maldiamrkit.alignment.raw_warping.RawWarping
+.. autoclass:: maldiamrkit.alignment.RawWarping
    :members:
    :undoc-members:
    :show-inheritance:
@@ -25,14 +25,14 @@ RawWarping (Full Resolution)
 Utility Functions
 -----------------
 
-.. autofunction:: maldiamrkit.alignment.raw_warping.create_raw_input
+.. autofunction:: maldiamrkit.alignment.create_raw_input
 
 Example Usage
 -------------
 
 .. code-block:: python
 
-    from maldiamrkit import Warping, RawWarping, create_raw_input
+    from maldiamrkit.alignment import Warping, RawWarping, create_raw_input
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 

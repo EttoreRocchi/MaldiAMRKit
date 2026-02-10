@@ -12,8 +12,8 @@ copyright = "2025, Ettore Rocchi"
 author = "Ettore Rocchi"
 
 # The full version, including alpha/beta/rc tags
-release = "0.6.2"
-version = "0.6"
+release = "0.7.0"
+version = "0.7"
 
 # -- General configuration ---------------------------------------------------
 
@@ -25,6 +25,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
     "nbsphinx",
+    "sphinx_design",
 ]
 
 # Napoleon settings for NumPy-style docstrings
@@ -76,16 +77,55 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
+html_css_files = ["css/custom.css"]
 html_logo = "_static/maldiamrkit.png"
 
 html_theme_options = {
-    "logo_only": False,
-    "display_version": True,
-    "navigation_depth": 4,
-    "titles_only": False,
-    "collapse_navigation": False,
+    # Logo configuration
+    "logo": {
+        "text": "MaldiAMRKit",
+        "image_light": "_static/maldiamrkit.png",
+        "image_dark": "_static/maldiamrkit.png",
+    },
+    # Top navigation bar layout
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "header_links_before_dropdown": 4,
+    # Icon links (GitHub, PyPI)
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/EttoreRocchi/MaldiAMRKit",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/MaldiAMRKit/",
+            "icon": "fa-brands fa-python",
+            "type": "fontawesome",
+        },
+    ],
+    # Sidebar behaviour
+    "show_toc_level": 2,
+    "navigation_depth": 3,
+    "show_nav_level": 1,
+    "collapse_navigation": True,
+    # Footer
+    "footer_start": ["copyright"],
+    "footer_end": ["last-updated"],
+    # Syntax highlighting
+    "pygments_light_style": "default",
+    "pygments_dark_style": "monokai",
+}
+
+# Sidebar configuration: no left sidebar on the landing page
+html_sidebars = {
+    "**": ["sidebar-nav-bs"],
+    "index": [],
 }
 
 # -- nbsphinx configuration --------------------------------------------------

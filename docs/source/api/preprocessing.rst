@@ -3,17 +3,79 @@ Preprocessing Module
 
 Functions for preprocessing MALDI-TOF spectra.
 
-Pipeline
---------
+PreprocessingPipeline
+---------------------
 
-.. autofunction:: maldiamrkit.preprocessing.pipeline.preprocess
+.. autoclass:: maldiamrkit.preprocessing.PreprocessingPipeline
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+The ``preprocess()`` function is a convenience wrapper around the pipeline:
+
+.. autofunction:: maldiamrkit.preprocessing.preprocess
+
+Individual Transformers
+-----------------------
+
+Each transformer is a callable operating on a DataFrame with ``mass`` and
+``intensity`` columns. They can be composed via :class:`PreprocessingPipeline`.
+
+.. autoclass:: maldiamrkit.preprocessing.ClipNegatives
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.SqrtTransform
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.LogTransform
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.SavitzkyGolaySmooth
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.SNIPBaseline
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.MzTrimmer
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.TICNormalizer
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.MedianNormalizer
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.PQNNormalizer
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.MzMultiTrimmer
+   :members:
+
+Pipeline Serialization
+~~~~~~~~~~~~~~~~~~~~~~
+
+Save and load pipeline configurations for reproducibility:
+
+.. code-block:: python
+
+    from maldiamrkit.preprocessing import PreprocessingPipeline
+
+    pipe = PreprocessingPipeline.default()
+
+    # Save to JSON
+    pipe.to_json("pipeline.json")
+    pipe = PreprocessingPipeline.from_json("pipeline.json")
+
+    # Save to YAML (requires pyyaml)
+    pipe.to_yaml("pipeline.yaml")
+    pipe = PreprocessingPipeline.from_yaml("pipeline.yaml")
 
 Binning
 -------
 
-.. autofunction:: maldiamrkit.preprocessing.binning.bin_spectrum
+.. autofunction:: maldiamrkit.preprocessing.bin_spectrum
 
-.. autofunction:: maldiamrkit.preprocessing.binning.get_bin_metadata
+.. autofunction:: maldiamrkit.preprocessing.get_bin_metadata
 
 Binning Methods
 ~~~~~~~~~~~~~~~
@@ -55,16 +117,15 @@ Bin metadata is available via the ``bin_metadata`` attribute:
 Quality Metrics
 ---------------
 
-.. autofunction:: maldiamrkit.preprocessing.quality.estimate_snr
+.. autofunction:: maldiamrkit.preprocessing.estimate_snr
 
-.. autoclass:: maldiamrkit.preprocessing.quality.SpectrumQuality
+.. autoclass:: maldiamrkit.preprocessing.SpectrumQuality
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: maldiamrkit.preprocessing.quality.SpectrumQualityReport
-   :members:
-   :undoc-members:
+.. autoclass:: maldiamrkit.preprocessing.SpectrumQualityReport
+   :no-index:
    :show-inheritance:
 
 Usage Example
@@ -72,15 +133,23 @@ Usage Example
 
 .. code-block:: python
 
-    from maldiamrkit import SpectrumQuality, MaldiSpectrum
+    from maldiamrkit import MaldiSpectrum
+    from maldiamrkit.preprocessing import SpectrumQuality
 
     # Assess spectrum quality
     spec = MaldiSpectrum("spectrum.txt").preprocess()
     qc = SpectrumQuality()  # Uses high m/z region (19500-20000) by default
-    report = qc.assess(spec.preprocessed)
+    report = qc.assess(spec)
 
     print(f"SNR: {report.snr:.1f}")
     print(f"Peak count: {report.peak_count}")
     print(f"Total ion count: {report.total_ion_count:.2e}")
     print(f"Baseline fraction: {report.baseline_fraction:.2%}")
     print(f"Dynamic range: {report.dynamic_range:.2f}")
+
+Replicate Merging
+-----------------
+
+.. autofunction:: maldiamrkit.preprocessing.merge_replicates
+
+.. autofunction:: maldiamrkit.preprocessing.detect_outlier_replicates

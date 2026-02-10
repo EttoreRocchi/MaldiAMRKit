@@ -9,7 +9,7 @@ Use ``n_jobs=-1`` to utilize all available CPU cores.
 MaldiPeakDetector
 -----------------
 
-.. autoclass:: maldiamrkit.detection.peak_detector.MaldiPeakDetector
+.. autoclass:: maldiamrkit.detection.MaldiPeakDetector
    :members:
    :undoc-members:
    :show-inheritance:
@@ -19,7 +19,7 @@ Parallel Processing Example
 
 .. code-block:: python
 
-    from maldiamrkit import MaldiPeakDetector
+    from maldiamrkit.detection import MaldiPeakDetector
 
     # Parallel peak detection
     detector = MaldiPeakDetector(

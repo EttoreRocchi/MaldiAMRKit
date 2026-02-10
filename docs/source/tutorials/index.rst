@@ -14,6 +14,7 @@ The following Jupyter notebooks are available in the ``notebooks/`` directory:
 - **01_quick_start.ipynb** - Loading, preprocessing, binning, and quality assessment
 - **02_peak_detection.ipynb** - Local maxima and persistent homology methods
 - **03_alignment.ipynb** - Warping methods and alignment quality
+- **04_evaluation.ipynb** - AMR metrics, label encoding, and stratified splitting
 
 To view the notebooks, navigate to the ``notebooks/`` directory and start Jupyter:
 
@@ -63,20 +64,14 @@ Raw Spectra Alignment
 
 .. code-block:: python
 
-   from maldiamrkit import RawWarping
+   from maldiamrkit import RawWarping, create_raw_input
+
+   # Build input DataFrame from spectrum directory
+   X_raw = create_raw_input("spectra/")
 
    # Use raw warping for better alignment
-   warper = RawWarping(
-       spectra_dir="spectra/",
-       method="piecewise",
-       bin_width=3,
-       max_shift_da=10.0
-   )
+   warper = RawWarping(method="piecewise", bin_width=3, max_shift_da=10.0)
 
    # Fit and transform
-   warper.fit(data.X)
-   X_aligned = warper.transform(data.X)
-
-   # Check quality
-   quality = warper.get_alignment_quality(data.X, X_aligned)
-   print(f"Mean improvement: {quality['improvement'].mean():.4f}")
+   warper.fit(X_raw)
+   X_aligned = warper.transform(X_raw)

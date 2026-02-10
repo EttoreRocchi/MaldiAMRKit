@@ -1,0 +1,128 @@
+/*
+ * MaldiAMRKit custom theme overrides for pydata-sphinx-theme.
+ *
+ * The logo uses a teal (#0097A7) to blue (#1976D2) gradient.
+ * Primary accent: #4A9BD9 (rgb 74, 155, 217) - a lighter blue that
+ * sits between the teal and blue in the logo palette.
+ *
+ * pydata-sphinx-theme expects --pst-color-primary as "R, G, B" (no rgb()).
+ */
+
+/* ---- Light mode ---- */
+html[data-theme="light"],
+body[data-theme="light"] {
+    --pst-color-primary: 74, 155, 217;
+    --pst-color-primary-highlight: 56, 132, 191;
+    --pst-color-primary-bg: 235, 245, 253;
+}
+
+/* ---- Dark mode ---- */
+html[data-theme="dark"],
+body[data-theme="dark"] {
+    --pst-color-primary: 100, 181, 240;
+    --pst-color-primary-highlight: 130, 200, 250;
+    --pst-color-primary-bg: 20, 35, 55;
+}
+
+/* ---- Navbar ---- */
+.bd-header {
+    border-bottom: 2px solid rgba(74, 155, 217, 0.2);
+}
+
+.navbar-brand img {
+    max-height: 48px;
+    width: auto;
+}
+
+/* ---- Sidebar active link ---- */
+.bd-sidebar .nav-link.active {
+    border-left-color: rgb(74, 155, 217);
+    font-weight: 600;
+}
+
+/* ---- sphinx-design cards ---- */
+.sd-card {
+    border-radius: 8px;
+    border: 1px solid rgba(74, 155, 217, 0.15);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sd-card:hover {
+    box-shadow: 0 4px 16px rgba(74, 155, 217, 0.15);
+    transform: translateY(-2px);
+}
+
+.sd-card .sd-card-header {
+    background-color: rgba(74, 155, 217, 0.06);
+    border-bottom: 1px solid rgba(74, 155, 217, 0.1);
+    font-weight: 600;
+}
+
+/* ---- Code blocks ---- */
+div.highlight {
+    border-left: 3px solid rgb(74, 155, 217);
+    border-radius: 4px;
+}
+
+/* ---- Admonitions ---- */
+.admonition.note {
+    border-left-color: rgb(74, 155, 217);
+}
+
+/* ---- Hero section (landing page) ---- */
+.hero-section {
+    text-align: center;
+    padding: 2rem 1rem 3rem;
+}
+
+/* Reset centering for subsections (Key Features, Quick Example, etc.) */
+.hero-section section {
+    text-align: left;
+}
+
+.hero-section img {
+    max-width: 280px;
+    margin-bottom: 1rem;
+}
+
+.hero-section p {
+    font-size: 1.15rem;
+    color: #555;
+    max-width: 700px;
+    margin: 0 auto 2rem;
+}
+
+html[data-theme="dark"] .hero-section p {
+    color: #bbb;
+}
+
+/* ---- Feature grid card titles ---- */
+.feature-grid .sd-card-title {
+    font-size: 1rem;
+    color: rgb(74, 155, 217);
+}
+
+html[data-theme="dark"] .feature-grid .sd-card-title {
+    color: rgb(100, 181, 240);
+}
+
+/* ---- Buttons ---- */
+.sd-btn-primary {
+    background-color: rgb(74, 155, 217) !important;
+    border-color: rgb(74, 155, 217) !important;
+}
+
+.sd-btn-primary:hover {
+    background-color: rgb(56, 132, 191) !important;
+    border-color: rgb(56, 132, 191) !important;
+}
+
+.sd-btn-outline-primary {
+    color: rgb(74, 155, 217) !important;
+    border-color: rgb(74, 155, 217) !important;
+}
+
+.sd-btn-outline-primary:hover {
+    background-color: rgb(74, 155, 217) !important;
+    color: #fff !important;
+}
