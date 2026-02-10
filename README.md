@@ -421,9 +421,15 @@ Pull requests, bug reports, and feature ideas are welcome: feel free to open a P
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
+## Papers
+
+Publications using `MaldiAMRKit`:
+
+> Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). https://doi.org/10.1186/s12866-025-04657-2
+
 ## Acknowledgements
 
-This toolkit is inspired by and builds upon the methodology described in:
+This toolkit is inspired by:
 
 > **Weis, C., Cuénod, A., Rieck, B., et al.** (2022). *Direct antimicrobial resistance prediction from clinical MALDI-TOF mass spectra using machine learning*. **Nature Medicine**, 28, 164–174. [https://doi.org/10.1038/s41591-021-01619-9](https://doi.org/10.1038/s41591-021-01619-9)
 

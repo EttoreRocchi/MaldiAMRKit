@@ -153,4 +153,5 @@ Quick Example
    quickstart
    api/index
    tutorials/index
+   papers
    changelog
