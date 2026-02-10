@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from pathlib import Path
 
@@ -10,20 +11,25 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
-from ..preprocessing.binning import _uniform_edges, get_bin_metadata
-from .config import PreprocessingSettings
+from .filters import SpectrumFilter
+from .preprocessing.binning import _uniform_edges, get_bin_metadata
+from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .spectrum import MaldiSpectrum
+
+logger = logging.getLogger(__name__)
 
 
 def _load_single_spectrum(
     path: Path,
-    cfg: PreprocessingSettings | None,
+    pipeline: PreprocessingPipeline | None,
     bin_width: int,
     bin_method: str,
     bin_kwargs: dict,
 ) -> MaldiSpectrum:
     """Load and process a single spectrum (helper for parallel loading)."""
-    return MaldiSpectrum(path, cfg=cfg).bin(bin_width, method=bin_method, **bin_kwargs)
+    return MaldiSpectrum(path, pipeline=pipeline).bin(
+        bin_width, method=bin_method, **bin_kwargs
+    )
 
 
 class MaldiSet:
@@ -41,9 +47,12 @@ class MaldiSet:
         Metadata DataFrame with 'ID' column matching spectrum IDs.
     aggregate_by : dict, optional
         Dictionary specifying aggregation columns:
+
         - 'antibiotics' or 'antibiotic': str or list of antibiotic column names
-        - 'species': str, species column name
-        - 'other': str or list of additional column names
+        - 'species': str, species value to filter by
+          (metadata must have a column named 'Species')
+
+        All metadata columns are retained regardless of ``aggregate_by``.
         If None, all spectra are included without antibiotic/species filtering.
     bin_width : int, default=3
         Bin width for spectra.
@@ -61,9 +70,9 @@ class MaldiSet:
     antibiotics : list of str or None
         Antibiotic column names.
     species : str or None
-        Species column name.
+        Species value to filter by.
     meta : pd.DataFrame
-        Filtered metadata indexed by ID.
+        Metadata indexed by ID (all columns retained).
 
     Examples
     --------
@@ -72,7 +81,6 @@ class MaldiSet:
     ...     aggregate_by=dict(
     ...         antibiotics=["Ceftriaxone", "Ceftazidime"],
     ...         species="Escherichia coli",
-    ...         other="batch_id"
     ...     )
     ... )
     >>> ds.X.shape, ds.y.shape
@@ -88,7 +96,7 @@ class MaldiSet:
         bin_method: str = "uniform",
         bin_kwargs: dict | None = None,
         verbose: bool = False,
-    ) -> MaldiSet:
+    ) -> None:
         self.spectra = spectra
 
         aggregate_by = aggregate_by or {}
@@ -105,29 +113,18 @@ class MaldiSet:
 
         self.species = aggregate_by.get("species")
 
-        other_key = aggregate_by.get("other")
-        if isinstance(other_key, str):
-            self.other_key = [other_key]
-        elif isinstance(other_key, list):
-            self.other_key = other_key
-        else:
-            self.other_key = None
-
-        columns_to_keep = ["ID"]
+        # Validate that aggregate_by columns exist
+        required_columns: list[str] = []
         if self.antibiotics:
-            columns_to_keep.extend(self.antibiotics)
+            required_columns.extend(self.antibiotics)
         if self.species:
-            columns_to_keep.append("Species")
-        if self.other_key:
-            columns_to_keep.extend(self.other_key)
-        columns_to_keep = list(dict.fromkeys(columns_to_keep))
+            required_columns.append("Species")
 
-        available_columns = [col for col in columns_to_keep if col in meta.columns]
-        missing_columns = [col for col in columns_to_keep if col not in meta.columns]
+        missing_columns = [col for col in required_columns if col not in meta.columns]
         if missing_columns and verbose:
-            print(f"WARNING: Columns {missing_columns} not found in metadata")
+            logger.warning("Columns %s not found in metadata", missing_columns)
 
-        self.meta = meta[available_columns].set_index("ID")
+        self.meta = meta.set_index("ID")
         self.meta_cols = self.meta.columns.tolist()
 
         self.bin_width = bin_width
@@ -137,11 +134,9 @@ class MaldiSet:
 
         self.verbose = verbose
         if verbose:
-            print(f"INFO: Dataset created: {len(self.spectra)} spectra")
+            logger.info("Dataset created: %d spectra", len(self.spectra))
             if self.antibiotics:
-                print(f"INFO: Tracking antibiotics: {self.antibiotics}")
-            if self.other_key:
-                print(f"INFO: Additional aggregation by: {self.other_key}")
+                logger.info("Tracking antibiotics: %s", self.antibiotics)
 
     @classmethod
     def from_directory(
@@ -150,7 +145,7 @@ class MaldiSet:
         meta_file: str | Path,
         *,
         aggregate_by: dict[str, str | list[str]] | None = None,
-        cfg: PreprocessingSettings | None = None,
+        pipeline: PreprocessingPipeline | None = None,
         bin_width: int = 3,
         bin_method: str = "uniform",
         bin_kwargs: dict | None = None,
@@ -171,13 +166,16 @@ class MaldiSet:
             Path to CSV file with metadata.
         aggregate_by : dict, optional
             Dictionary specifying aggregation columns:
+
             - 'antibiotics' or 'antibiotic': str or list of antibiotic column names
-            - 'species': str, species column name
-            - 'other': str or list of additional column names
+            - 'species': str, species value to filter by
+              (metadata must have a column named 'Species')
+
+            All metadata columns are retained regardless of ``aggregate_by``.
             If None, all spectra matching metadata are loaded without
             antibiotic/species filtering.
-        cfg : PreprocessingSettings, optional
-            Preprocessing configuration.
+        pipeline : PreprocessingPipeline, optional
+            Preprocessing pipeline. If None, uses the default pipeline.
         bin_width : int, default=3
             Bin width for spectra.
         bin_method : str, default='uniform'
@@ -212,14 +210,18 @@ class MaldiSet:
 
         n_skipped = len(all_files) - len(spectrum_files)
         if verbose:
-            print(
-                f"INFO: Loading {len(spectrum_files)} spectra "
-                f"({n_skipped} skipped, not in metadata) with n_jobs={n_jobs}"
+            logger.info(
+                "Loading %d spectra (%d skipped, not in metadata) with n_jobs=%d",
+                len(spectrum_files),
+                n_skipped,
+                n_jobs,
             )
 
         # Use parallel loading with joblib
         specs = Parallel(n_jobs=n_jobs, prefer="threads")(
-            delayed(_load_single_spectrum)(p, cfg, bin_width, bin_method, _bin_kwargs)
+            delayed(_load_single_spectrum)(
+                p, pipeline, bin_width, bin_method, _bin_kwargs
+            )
             for p in spectrum_files
         )
 
@@ -268,8 +270,11 @@ class MaldiSet:
 
         # Compute from stored parameters if no spectrum has metadata
         if self._bin_metadata is None:
-            cfg = self.spectra[0].cfg if self.spectra else PreprocessingSettings()
-            edges = _uniform_edges(cfg, self.bin_width)
+            if self.spectra:
+                mz_min, mz_max = self.spectra[0].pipeline.mz_range
+            else:
+                mz_min, mz_max = 2000, 20000
+            edges = _uniform_edges(mz_min, mz_max, self.bin_width)
             self._bin_metadata = get_bin_metadata(edges)
 
         return self._bin_metadata.copy()
@@ -284,6 +289,12 @@ class MaldiSet:
         pd.DataFrame
             Feature matrix with samples as rows and m/z bins as columns.
             Filtered to configured subset (antibiotics, species).
+
+        Raises
+        ------
+        ValueError
+            If no spectra match metadata IDs, or if no samples remain
+            after filtering by species.
         """
         bin_kwargs = self.bin_kwargs or {}
         rows = []
@@ -293,6 +304,7 @@ class MaldiSet:
                 warnings.warn(
                     f"Spectrum ID '{sid}' not found in metadata - skipped.",
                     UserWarning,
+                    stacklevel=2,
                 )
                 continue
             row = (
@@ -316,7 +328,8 @@ class MaldiSet:
 
         df = pd.concat(rows, axis=1).T
 
-        df = df.join(self.meta, how="left")
+        if not self.meta.columns.empty:
+            df = df.join(self.meta, how="left")
 
         if self.antibiotics:
             antibiotic_mask = pd.Series(False, index=df.index)
@@ -363,29 +376,53 @@ class MaldiSet:
 
         return self.meta.loc[self.X.index, available_antibiotics]
 
-    @property
-    def other(self) -> pd.Series:
-        """
-        Return additional aggregation variables.
+    def filter(self, *filters: SpectrumFilter) -> MaldiSet:
+        """Return a new MaldiSet keeping only samples that pass all filters.
+
+        Filters are applied to the metadata rows (indexed by spectrum ID).
+        Multiple filters can be combined with logical operators.
+
+        Parameters
+        ----------
+        *filters : SpectrumFilter
+            One or more filter objects. Use ``&``, ``|``, ``~`` to compose
+            complex predicates before passing them in.
 
         Returns
         -------
-        pd.Series or pd.DataFrame
-            Additional metadata columns.
+        MaldiSet
+            A new dataset containing only the matching spectra.
 
-        Raises
-        ------
-        ValueError
-            If no other_key specified or column not found.
+        Examples
+        --------
+        >>> from maldiamrkit.filters import SpeciesFilter, QualityFilter
+        >>> ds.filter(SpeciesFilter("Escherichia coli"))
+        >>> ds.filter(SpeciesFilter("E. coli") & QualityFilter(min_snr=5.0))
         """
-        if not self.other_key:
-            raise ValueError("No additional aggregation key specified")
+        keep_ids = set()
+        for sid, row in self.meta.iterrows():
+            if all(f(row) for f in filters):
+                keep_ids.add(sid)
 
-        for o_k in self.other_key:
-            if o_k not in self.meta.columns:
-                raise ValueError(f"Column '{o_k}' not found in metadata")
+        kept_spectra = [s for s in self.spectra if s.id in keep_ids]
 
-        return self.meta.loc[self.X.index, self.other_key]
+        # Rebuild metadata with original columns (un-indexed)
+        new_meta = self.meta.loc[self.meta.index.isin(keep_ids)].reset_index()
+
+        aggregate_by: dict[str, str | list[str]] = {}
+        if self.antibiotics:
+            aggregate_by["antibiotics"] = self.antibiotics
+        if self.species:
+            aggregate_by["species"] = self.species
+        return MaldiSet(
+            kept_spectra,
+            new_meta,
+            aggregate_by=aggregate_by or None,
+            bin_width=self.bin_width,
+            bin_method=self.bin_method,
+            bin_kwargs=self.bin_kwargs,
+            verbose=self.verbose,
+        )
 
     def get_y_single(self, antibiotic: str | None = None) -> pd.Series:
         """
@@ -415,6 +452,78 @@ class MaldiSet:
 
         return self.meta.loc[self.X.index, antibiotic]
 
+    def to_csv(self, path: str | Path) -> None:
+        """Export the feature matrix to CSV.
+
+        Parameters
+        ----------
+        path : str or Path
+            Output file path.
+        """
+        self.X.to_csv(path)
+
+    def to_parquet(self, path: str | Path) -> None:
+        """Export the feature matrix to Parquet.
+
+        Parameters
+        ----------
+        path : str or Path
+            Output file path.
+        """
+        self.X.to_parquet(path)
+
+    def save_spectra(
+        self,
+        output_dir: str | Path,
+        *,
+        stage: str = "preprocessed",
+        fmt: str = "txt",
+    ) -> None:
+        """Save individual spectra to a directory.
+
+        Parameters
+        ----------
+        output_dir : str or Path
+            Directory where spectra will be saved. Created if it does not
+            exist.
+        stage : str, default="preprocessed"
+            Which processing stage to save. One of ``"raw"``,
+            ``"preprocessed"``, ``"binned"``.
+        fmt : str, default="txt"
+            Output format. ``"csv"`` for comma-separated, ``"txt"`` for
+            tab-separated.
+
+        Raises
+        ------
+        ValueError
+            If ``stage`` or ``fmt`` is invalid.
+
+        Examples
+        --------
+        >>> data = MaldiSet.from_directory("spectra/", "metadata.csv")
+        >>> data.save_spectra("processed/", stage="preprocessed", fmt="txt")
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ext = fmt
+        saved = 0
+        for spec in self.spectra:
+            try:
+                spec.save(output_dir / f"{spec.id}.{ext}", stage=stage, fmt=fmt)
+                saved += 1
+            except RuntimeError:
+                logger.warning("Spectrum %s has no '%s' data - skipped", spec.id, stage)
+        if self.verbose:
+            logger.info("Saved %d spectra to %s", saved, output_dir)
+
+    def __repr__(self) -> str:
+        n = len(self.spectra)
+        antibiotics = self.antibiotics or []
+        species = self.species or "all"
+        return (
+            f"MaldiSet(n_spectra={n}, species={species!r}, antibiotics={antibiotics!r})"
+        )
+
     def plot_pseudogel(
         self,
         *,
@@ -428,7 +537,7 @@ class MaldiSet:
         sort_by_intensity: bool = True,
         title: str | None = None,
         show: bool = True,
-    ):
+    ) -> tuple[plt.Figure, np.ndarray]:
         """
         Display a pseudogel heatmap of the spectra.
 
@@ -461,6 +570,13 @@ class MaldiSet:
             The figure object.
         axes : ndarray of Axes
             The subplot axes.
+
+        Raises
+        ------
+        ValueError
+            If antibiotic column is not defined, if a region has
+            min_mz > max_mz, or if no m/z values are found in a
+            specified region.
         """
         if antibiotic is None:
             antibiotic = self.antibiotic
@@ -519,7 +635,7 @@ class MaldiSet:
         cmap_obj.set_bad(color="white", alpha=1.0)
 
         for ax, (label, idx) in zip(
-            axes, sorted(groups.items(), key=lambda t: str(t[0]))
+            axes, sorted(groups.items(), key=lambda t: str(t[0])), strict=True
         ):
             M = X.loc[idx].to_numpy()
             if sort_by_intensity:

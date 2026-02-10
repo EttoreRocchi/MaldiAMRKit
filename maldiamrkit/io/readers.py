@@ -24,6 +24,11 @@ def sniff_delimiter(path: str | Path, sample_lines: int = 10) -> str:
     -------
     str
         Detected delimiter character.
+
+    Raises
+    ------
+    csv.Error
+        If the file is empty and the delimiter cannot be detected.
     """
     with open(path, "r", newline="") as f:
         lines = list(itertools.islice(f, sample_lines))

@@ -7,16 +7,16 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from fastdtw import fastdtw
 from joblib import Parallel, delayed
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
+from tslearn.metrics import dtw_path
 
-from ..core.config import PreprocessingSettings
 from ..detection.peak_detector import MaldiPeakDetector
 from ..io.readers import read_spectrum
 from ..preprocessing.binning import bin_spectrum
 from ..preprocessing.pipeline import preprocess
+from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
 
 
 def create_raw_input(
@@ -47,6 +47,11 @@ def create_raw_input(
         DataFrame with:
         - Index: sample IDs
         - Column "path": full paths to spectrum files
+
+    Raises
+    ------
+    ValueError
+        If no files with the specified extension are found in the directory.
 
     Examples
     --------
@@ -118,7 +123,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Gaussian smoothing for piecewise transitions.
     reference : str or int, default="median"
         Reference selection: "median" or int index.
-    preprocessing_cfg : PreprocessingSettings, optional
+    pipeline : PreprocessingPipeline, optional
         Settings for preprocessing raw spectra.
     peak_detector : MaldiPeakDetector, optional
         Peak detector used to find peaks in spectra. If None, a default
@@ -139,7 +144,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Peak m/z positions in reference spectrum.
     output_columns_ : pd.Index
         Column names for output DataFrame (m/z bin centers).
-    preprocessing_cfg_ : PreprocessingSettings
+    pipeline_ : PreprocessingPipeline
         Preprocessing configuration used.
 
     Examples
@@ -179,11 +184,11 @@ class RawWarping(BaseEstimator, TransformerMixin):
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
         reference: str | int = "median",
-        preprocessing_cfg: PreprocessingSettings | None = None,
+        pipeline: PreprocessingPipeline | None = None,
         peak_detector: MaldiPeakDetector | None = None,
         min_reference_peaks: int = 5,
         n_jobs: int = 1,
-    ) -> RawWarping:
+    ) -> None:
         self.method = method
         self.bin_width = bin_width
         self.bin_method = bin_method
@@ -193,7 +198,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         self.dtw_radius = dtw_radius
         self.smooth_sigma = smooth_sigma
         self.reference = reference
-        self.preprocessing_cfg = preprocessing_cfg
+        self.pipeline = pipeline
         self.peak_detector = peak_detector or MaldiPeakDetector(
             binary=True, prominence=1e-5
         )
@@ -209,7 +214,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
                 f"Ensure paths in input DataFrame are correct."
             )
         raw = read_spectrum(path)
-        return preprocess(raw, self.preprocessing_cfg_)
+        return preprocess(raw, self.pipeline_)
 
     def _detect_peaks_mz(self, mz: np.ndarray, intensity: np.ndarray) -> np.ndarray:
         """Detect peaks and return their m/z positions using the peak detector."""
@@ -302,6 +307,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         -------
         self : RawWarping
             Fitted transformer.
+
+        Raises
+        ------
+        ValueError
+            If the input DataFrame is empty, lacks a 'path' column,
+            or uses an unknown warping method.
         """
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
@@ -319,7 +330,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
             )
 
         # Store preprocessing config
-        self.preprocessing_cfg_ = self.preprocessing_cfg or PreprocessingSettings()
+        self.pipeline_ = self.pipeline or PreprocessingPipeline.default()
 
         # Get paths from DataFrame
         paths = X["path"].tolist()
@@ -337,6 +348,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
                 f"Expected at least {self.min_reference_peaks}. "
                 f"Alignment quality may be poor.",
                 UserWarning,
+                stacklevel=2,
             )
 
         # Determine output columns by binning a sample spectrum
@@ -461,11 +473,11 @@ class RawWarping(BaseEstimator, TransformerMixin):
         query_intensity = np.interp(self.ref_mz_, mz, intensity)
 
         # Compute DTW
-        distance, path = fastdtw(
+        path, distance = dtw_path(
             query_intensity,
             self.ref_intensity_,
-            radius=self.dtw_radius,
-            dist=lambda a, b: (a - b) ** 2,
+            global_constraint="sakoe_chiba",
+            sakoe_chiba_radius=self.dtw_radius,
         )
 
         # Create aligned intensity by following warping path
@@ -487,9 +499,11 @@ class RawWarping(BaseEstimator, TransformerMixin):
         """Bin warped raw spectrum to output grid."""
         warped_df = pd.DataFrame({"mass": mz, "intensity": intensity})
         bin_kwargs = self.bin_kwargs or {}
+        mz_min, mz_max = self.pipeline_.mz_range
         binned, _ = bin_spectrum(
             warped_df,
-            self.preprocessing_cfg_,
+            mz_min=mz_min,
+            mz_max=mz_max,
             bin_width=self.bin_width,
             method=self.bin_method,
             **bin_kwargs,
@@ -537,6 +551,13 @@ class RawWarping(BaseEstimator, TransformerMixin):
         X_aligned : pd.DataFrame
             Aligned and binned spectra with sample IDs as index and
             m/z bin centers as columns.
+
+        Raises
+        ------
+        RuntimeError
+            If the transformer has not been fitted.
+        ValueError
+            If the input DataFrame lacks a 'path' column.
         """
         if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted before transform")
@@ -582,6 +603,11 @@ class RawWarping(BaseEstimator, TransformerMixin):
             - correlation_before: Pearson correlation with reference (before)
             - correlation_after: Pearson correlation with reference (after)
             - improvement: correlation_after - correlation_before
+
+        Raises
+        ------
+        RuntimeError
+            If the transformer has not been fitted.
         """
         if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted first")
@@ -595,7 +621,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         metrics = []
         paths = X["path"].tolist()
-        for i, (sample_id, path) in enumerate(zip(X.index, paths)):
+        for sample_id, path in zip(X.index, paths, strict=True):
             # Load and bin original spectrum for comparison
             spec_df = self._load_raw_spectrum(path)
             original_binned = self._bin_warped(
@@ -619,6 +645,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
                     f"Correlation undefined for sample {sample_id} "
                     f"(constant signal); defaulting to 0.0",
                     UserWarning,
+                    stacklevel=2,
                 )
                 corr_before = 0.0 if np.isnan(corr_before) else corr_before
                 corr_after = 0.0 if np.isnan(corr_after) else corr_after

@@ -7,10 +7,10 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from fastdtw import fastdtw
 from joblib import Parallel, delayed
 from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
+from tslearn.metrics import dtw_path
 
 from ..detection.peak_detector import MaldiPeakDetector
 
@@ -76,7 +76,7 @@ class Warping(BaseEstimator, TransformerMixin):
         smooth_sigma: float = 2.0,
         min_reference_peaks: int = 5,
         n_jobs: int = 1,
-    ) -> Warping:
+    ) -> None:
         self.peak_detector = peak_detector or MaldiPeakDetector(
             binary=True, prominence=1e-5
         )
@@ -104,6 +104,13 @@ class Warping(BaseEstimator, TransformerMixin):
         -------
         self : Warping
             Fitted transformer.
+
+        Raises
+        ------
+        ValueError
+            If the input DataFrame is empty, the reference index is out of
+            bounds, the reference specifier is unsupported, the warping
+            method is unknown, or parameters are invalid.
         """
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
@@ -154,6 +161,7 @@ class Warping(BaseEstimator, TransformerMixin):
                 f"Consider adjusting peak detection parameters or "
                 f"choosing a different reference.",
                 UserWarning,
+                stacklevel=2,
             )
 
     def _shift_only(self, row, peaks, ref_peaks):
@@ -260,6 +268,15 @@ class Warping(BaseEstimator, TransformerMixin):
         if np.all(np.diff(new_positions) > 0):
             return np.interp(mz_axis, new_positions, row, left=0.0, right=0.0)
 
+        warnings.warn(
+            "Warping produced non-monotonic m/z mapping for a sample. "
+            "This may indicate poor alignment quality. "
+            "Consider adjusting alignment parameters (e.g., reduce max_shift_da "
+            "or increase n_segments).",
+            UserWarning,
+            stacklevel=3,
+        )
+
         # Sort to enforce monotonicity
         sort_idx = np.argsort(new_positions)
         new_positions_sorted = new_positions[sort_idx]
@@ -288,8 +305,11 @@ class Warping(BaseEstimator, TransformerMixin):
         """
         # Compute DTW alignment path with radius constraint
         # Use squared Euclidean distance for better intensity matching
-        distance, path = fastdtw(
-            row, self.ref_spec_, radius=self.dtw_radius, dist=lambda a, b: (a - b) ** 2
+        path, distance = dtw_path(
+            row,
+            self.ref_spec_,
+            global_constraint="sakoe_chiba",
+            sakoe_chiba_radius=self.dtw_radius,
         )
 
         # Create aligned spectrum by following the warping path
@@ -341,6 +361,14 @@ class Warping(BaseEstimator, TransformerMixin):
         -------
         X_aligned : pd.DataFrame
             Aligned spectra with same shape as input.
+
+        Raises
+        ------
+        RuntimeError
+            If the transformer has not been fitted.
+        ValueError
+            If the number of features in X does not match the reference
+            spectrum length.
         """
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before transform")
@@ -402,6 +430,11 @@ class Warping(BaseEstimator, TransformerMixin):
             - improvement: correlation_after - correlation_before
             - rmse_before: RMSE with reference (before)
             - rmse_after: RMSE with reference (after)
+
+        Raises
+        ------
+        RuntimeError
+            If the transformer has not been fitted.
         """
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before computing quality")
@@ -423,6 +456,7 @@ class Warping(BaseEstimator, TransformerMixin):
                     f"Correlation undefined for sample {X_original.index[i]} "
                     f"(constant signal); defaulting to 0.0",
                     UserWarning,
+                    stacklevel=2,
                 )
                 corr_before = 0.0 if np.isnan(corr_before) else corr_before
                 corr_after = 0.0 if np.isnan(corr_after) else corr_after
@@ -479,6 +513,13 @@ class Warping(BaseEstimator, TransformerMixin):
             The generated figure.
         axes : array of matplotlib.axes.Axes
             The subplot axes.
+
+        Raises
+        ------
+        RuntimeError
+            If the transformer has not been fitted.
+        ValueError
+            If any index is out of bounds for the data.
         """
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before plotting")

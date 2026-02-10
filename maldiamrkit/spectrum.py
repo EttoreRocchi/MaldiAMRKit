@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from ..io.readers import read_spectrum
-from ..preprocessing.binning import bin_spectrum
-from ..preprocessing.pipeline import preprocess
-from .config import PreprocessingSettings
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
+
+from .io.readers import read_spectrum
+from .preprocessing.binning import bin_spectrum
+from .preprocessing.pipeline import preprocess
+from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
+
+logger = logging.getLogger(__name__)
 
 
 class MaldiSpectrum:
@@ -25,8 +32,8 @@ class MaldiSpectrum:
     source : str, Path, or pd.DataFrame
         Source of the spectrum data. Can be a file path or a DataFrame
         with columns 'mass' and 'intensity'.
-    cfg : PreprocessingSettings, optional
-        Configuration for preprocessing. If None, uses default settings.
+    pipeline : PreprocessingPipeline, optional
+        Preprocessing pipeline. If None, uses the default pipeline.
     verbose : bool, default=False
         If True, print progress messages.
 
@@ -36,8 +43,17 @@ class MaldiSpectrum:
         Path to the source file, if loaded from file.
     id : str
         Identifier for the spectrum (filename stem or 'in-memory').
-    cfg : PreprocessingSettings
-        Preprocessing configuration.
+    pipeline : PreprocessingPipeline
+        Preprocessing pipeline.
+
+    Raises
+    ------
+    ValueError
+        If the source DataFrame is empty or missing required columns
+        ('mass', 'intensity').
+    TypeError
+        If the 'mass' or 'intensity' columns are not numeric, or if
+        ``source`` is not a supported type.
 
     Examples
     --------
@@ -51,10 +67,10 @@ class MaldiSpectrum:
         self,
         source: str | Path | pd.DataFrame,
         *,
-        cfg: PreprocessingSettings | None = None,
+        pipeline: PreprocessingPipeline | None = None,
         verbose: bool = False,
-    ) -> MaldiSpectrum:
-        self.cfg = cfg or PreprocessingSettings()
+    ) -> None:
+        self.pipeline = pipeline or PreprocessingPipeline.default()
         self._raw: pd.DataFrame
         self._preprocessed: pd.DataFrame | None = None
         self._binned: pd.DataFrame | None = None
@@ -68,6 +84,18 @@ class MaldiSpectrum:
             self._raw = read_spectrum(self.path)
             self.id = self.path.stem
         elif isinstance(source, pd.DataFrame):
+            if source.empty:
+                raise ValueError("Cannot create MaldiSpectrum from an empty DataFrame.")
+            missing = {"mass", "intensity"} - set(source.columns)
+            if missing:
+                raise ValueError(
+                    f"DataFrame missing required columns: {missing}. "
+                    f"Expected 'mass' and 'intensity'."
+                )
+            if not pd.api.types.is_numeric_dtype(source["mass"]):
+                raise TypeError("Column 'mass' must be numeric.")
+            if not pd.api.types.is_numeric_dtype(source["intensity"]):
+                raise TypeError("Column 'intensity' must be numeric.")
             self.path = None
             self._raw = source.copy()
             self.id = "in-memory"
@@ -136,30 +164,18 @@ class MaldiSpectrum:
             raise RuntimeError("Call .bin() before accessing this property.")
         return self._binned.copy()
 
-    def preprocess(self, **override) -> MaldiSpectrum:
+    def preprocess(self) -> MaldiSpectrum:
         """
         Run preprocessing pipeline on the raw spectrum.
-
-        Applies baseline correction, smoothing, normalization, and trimming.
-
-        Parameters
-        ----------
-        **override : dict
-            Override parameters from the current PreprocessingSettings.
 
         Returns
         -------
         MaldiSpectrum
             Self, for method chaining.
         """
-        cfg = (
-            self.cfg
-            if not override
-            else self.cfg.__class__(**{**self.cfg.as_dict(), **override})
-        )
-        self._preprocessed = preprocess(self._raw, cfg)
+        self._preprocessed = preprocess(self._raw, self.pipeline)
         if self.verbose:
-            print(f"INFO: Preprocessed spectrum {self.id}")
+            logger.info("Preprocessed spectrum %s", self.id)
         return self
 
     def bin(
@@ -208,19 +224,77 @@ class MaldiSpectrum:
         if self._preprocessed is None:
             self.preprocess()
 
+        mz_min, mz_max = self.pipeline.mz_range
+
         self._binned, self._bin_metadata = bin_spectrum(
             self._preprocessed,
-            self.cfg,
+            mz_min=mz_min,
+            mz_max=mz_max,
             bin_width=bin_width,
             method=method,
             custom_edges=custom_edges,
             **kwargs,
         )
         if self.verbose:
-            print(f"INFO: Binned spectrum {self.id} (method={method}, w={bin_width})")
+            logger.info(
+                "Binned spectrum %s (method=%s, w=%s)", self.id, method, bin_width
+            )
         return self
 
-    def plot(self, binned: bool = True, ax=None, **kwargs):
+    def save(
+        self, path: str | Path, *, stage: str = "binned", fmt: str = "csv"
+    ) -> None:
+        """Save spectrum data to a file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Output file path.
+        stage : str, default="binned"
+            Which processing stage to save. One of ``"raw"``,
+            ``"preprocessed"``, ``"binned"``.
+        fmt : str, default="csv"
+            Output format. ``"csv"`` for comma-separated, ``"txt"`` for
+            tab-separated.
+
+        Raises
+        ------
+        ValueError
+            If ``stage`` is not one of 'raw', 'preprocessed', or 'binned',
+            or if ``fmt`` is not one of 'csv' or 'txt'.
+        RuntimeError
+            If the requested stage has not been computed yet.
+        """
+        if stage == "raw":
+            df = self.raw
+        elif stage == "preprocessed":
+            df = self.preprocessed
+        elif stage == "binned":
+            df = self.binned
+        else:
+            raise ValueError(
+                f"Invalid stage '{stage}'. Use 'raw', 'preprocessed', or 'binned'."
+            )
+        if fmt == "csv":
+            df.to_csv(path, index=False)
+        elif fmt == "txt":
+            df.to_csv(path, sep="\t", index=False)
+        else:
+            raise ValueError(f"Invalid fmt '{fmt}'. Use 'csv' or 'txt'.")
+
+    def __repr__(self) -> str:
+        status = []
+        if self._preprocessed is not None:
+            status.append("preprocessed")
+        if self._binned is not None:
+            n = len(self._binned)
+            status.append(f"binned({n} bins)")
+        state = ", ".join(status) if status else "raw"
+        return f"MaldiSpectrum(id={self.id!r}, {state})"
+
+    def plot(
+        self, binned: bool = True, ax: plt.Axes | None = None, **kwargs
+    ) -> plt.Axes:
         """
         Plot the spectrum.
 

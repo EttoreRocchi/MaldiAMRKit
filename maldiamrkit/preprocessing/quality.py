@@ -4,10 +4,21 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+
+if TYPE_CHECKING:
+    from maldiamrkit.spectrum import MaldiSpectrum
+
+
+def _get_spectrum_df(spectrum: MaldiSpectrum) -> pd.DataFrame:
+    """Return preprocessed data if available, otherwise raw."""
+    if spectrum._preprocessed is not None:
+        return spectrum.preprocessed
+    return spectrum.raw
 
 
 @dataclass
@@ -54,12 +65,24 @@ class SpectrumQuality:
         with minimal peaks (typically high m/z range).
     peak_prominence : float, default=1e-4
         Minimum prominence for peak detection.
+    signal_method : str, default="max"
+        How to estimate the signal level for SNR calculation:
+
+        - ``"max"``: use the maximum intensity (standard, but
+          sensitive to single outlier peaks).
+        - ``"median_peaks"``: use the median intensity of the top
+          *n_top_peaks* detected peaks (more robust).
+    n_top_peaks : int, default=10
+        Number of top peaks to consider when
+        ``signal_method="median_peaks"``.
 
     Examples
     --------
+    >>> from maldiamrkit import MaldiSpectrum
     >>> from maldiamrkit.preprocessing.quality import SpectrumQuality
+    >>> spec = MaldiSpectrum("spectrum.txt").preprocess()
     >>> qc = SpectrumQuality(noise_region=(19500, 20000))
-    >>> report = qc.assess(spectrum_df)
+    >>> report = qc.assess(spec)
     >>> print(f"SNR: {report.snr:.1f}")
     >>> print(f"TIC: {report.total_ion_count:.2e}")
     >>> print(f"Peaks: {report.peak_count}")
@@ -69,18 +92,23 @@ class SpectrumQuality:
         self,
         noise_region: tuple[float, float] = (19500, 20000),
         peak_prominence: float = 1e-4,
+        signal_method: str = "max",
+        n_top_peaks: int = 10,
     ):
         self.noise_region = noise_region
         self.peak_prominence = peak_prominence
+        self.signal_method = signal_method
+        self.n_top_peaks = n_top_peaks
 
-    def estimate_noise_level(self, df: pd.DataFrame) -> float:
+    def estimate_noise_level(self, spectrum: MaldiSpectrum) -> float:
         """
         Estimate noise level using MAD in noise region.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Spectrum with columns 'mass' and 'intensity'.
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
 
         Returns
         -------
@@ -88,6 +116,7 @@ class SpectrumQuality:
             Estimated noise standard deviation. Returns 0 if noise region
             is empty.
         """
+        df = _get_spectrum_df(spectrum)
         noise_mask = df["mass"].between(*self.noise_region)
         noise = df.loc[noise_mask, "intensity"]
 
@@ -97,7 +126,7 @@ class SpectrumQuality:
         mad = np.median(np.abs(noise - np.median(noise)))
         return 1.4826 * mad  # MAD to std conversion
 
-    def estimate_baseline_fraction(self, df: pd.DataFrame) -> float:
+    def estimate_baseline_fraction(self, spectrum: MaldiSpectrum) -> float:
         """
         Estimate fraction of intensity below noise floor.
 
@@ -107,15 +136,17 @@ class SpectrumQuality:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Spectrum with columns 'mass' and 'intensity'.
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
 
         Returns
         -------
         float
             Fraction of data points below 2x noise level (0 to 1).
         """
-        noise_level = self.estimate_noise_level(df)
+        df = _get_spectrum_df(spectrum)
+        noise_level = self.estimate_noise_level(spectrum)
         if noise_level == 0:
             return 0.0
 
@@ -123,7 +154,7 @@ class SpectrumQuality:
         baseline_points = (df["intensity"] < baseline_threshold).sum()
         return baseline_points / len(df)
 
-    def estimate_dynamic_range(self, df: pd.DataFrame) -> float:
+    def estimate_dynamic_range(self, spectrum: MaldiSpectrum) -> float:
         """
         Estimate dynamic range as log10 ratio of max to median signal.
 
@@ -132,8 +163,9 @@ class SpectrumQuality:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Spectrum with columns 'mass' and 'intensity'.
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
 
         Returns
         -------
@@ -141,6 +173,7 @@ class SpectrumQuality:
             Log10 ratio of max to median intensity. Returns 0 if
             median is zero.
         """
+        df = _get_spectrum_df(spectrum)
         # Exclude very low values (likely noise/baseline)
         signal_mask = df["intensity"] > df["intensity"].quantile(0.1)
 
@@ -155,40 +188,44 @@ class SpectrumQuality:
 
         return np.log10(max_signal / median_signal)
 
-    def count_peaks(self, df: pd.DataFrame) -> int:
+    def count_peaks(self, spectrum: MaldiSpectrum) -> int:
         """
         Count the number of peaks in the spectrum.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Spectrum with columns 'mass' and 'intensity'.
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
 
         Returns
         -------
         int
             Number of detected peaks.
         """
-        noise_level = self.estimate_noise_level(df)
+        df = _get_spectrum_df(spectrum)
+        noise_level = self.estimate_noise_level(spectrum)
         min_prominence = max(self.peak_prominence, noise_level * 3)
 
         peaks, _ = find_peaks(df["intensity"].values, prominence=min_prominence)
         return len(peaks)
 
-    def assess(self, df: pd.DataFrame) -> SpectrumQualityReport:
+    def assess(self, spectrum: MaldiSpectrum) -> SpectrumQualityReport:
         """
         Perform full quality assessment of a spectrum.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Spectrum with columns 'mass' and 'intensity'.
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
 
         Returns
         -------
         SpectrumQualityReport
             Dataclass containing all quality metrics.
         """
+        df = _get_spectrum_df(spectrum)
         mz_max = df["mass"].max()
         if self.noise_region[0] > mz_max:
             warnings.warn(
@@ -196,42 +233,67 @@ class SpectrumQuality:
                 f"(max m/z={mz_max:.0f}). Quality metrics will be unreliable. "
                 f"Adjust noise_region to fall within the trimmed spectrum range.",
                 UserWarning,
+                stacklevel=2,
             )
 
-        noise_level = self.estimate_noise_level(df)
-        snr = estimate_snr(df, self.noise_region)
+        noise_level = self.estimate_noise_level(spectrum)
+        snr = estimate_snr(
+            spectrum,
+            self.noise_region,
+            signal_method=self.signal_method,
+            n_top_peaks=self.n_top_peaks,
+        )
 
         return SpectrumQualityReport(
             snr=snr,
             total_ion_count=df["intensity"].sum(),
-            peak_count=self.count_peaks(df),
-            baseline_fraction=self.estimate_baseline_fraction(df),
+            peak_count=self.count_peaks(spectrum),
+            baseline_fraction=self.estimate_baseline_fraction(spectrum),
             noise_level=noise_level,
-            dynamic_range=self.estimate_dynamic_range(df),
+            dynamic_range=self.estimate_dynamic_range(spectrum),
         )
 
 
 def estimate_snr(
-    df: pd.DataFrame, noise_region: tuple[float, float] = (19500, 20000)
+    spectrum: MaldiSpectrum,
+    noise_region: tuple[float, float] = (19500, 20000),
+    signal_method: str = "max",
+    n_top_peaks: int = 10,
 ) -> float:
     """
     Estimate signal-to-noise ratio of a spectrum.
 
     Uses median absolute deviation (MAD) in a noise region to estimate
-    noise level, and the maximum intensity as the signal level.
+    noise level.  The signal level is determined by *signal_method*.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Spectrum with columns 'mass' and 'intensity'.
+    spectrum : MaldiSpectrum
+        Spectrum to assess. Uses preprocessed data if available,
+        otherwise raw.
     noise_region : tuple of (float, float), default=(19500, 20000)
         m/z range to use for noise estimation. Should be a region
         with minimal peaks (typically high m/z range).
+    signal_method : str, default="max"
+        How to estimate the signal level:
+
+        - ``"max"``: maximum intensity (standard approach).
+        - ``"median_peaks"``: median intensity of the top
+          *n_top_peaks* detected peaks.  More robust to single
+          outlier peaks.
+    n_top_peaks : int, default=10
+        Number of top peaks to consider when
+        ``signal_method="median_peaks"``.
 
     Returns
     -------
     float
         Estimated signal-to-noise ratio. Returns inf if noise is zero.
+
+    Raises
+    ------
+    ValueError
+        If ``signal_method`` is not one of 'max' or 'median_peaks'.
 
     Notes
     -----
@@ -240,10 +302,21 @@ def estimate_snr(
 
     Examples
     --------
+    >>> from maldiamrkit import MaldiSpectrum
     >>> from maldiamrkit.preprocessing import estimate_snr
-    >>> snr = estimate_snr(spectrum_df)
+    >>> spec = MaldiSpectrum("spectrum.txt").preprocess()
+    >>> snr = estimate_snr(spec)
     >>> print(f"SNR: {snr:.1f}")
+    >>> snr_robust = estimate_snr(spec, signal_method="median_peaks")
     """
+    valid_methods = ("max", "median_peaks")
+    if signal_method not in valid_methods:
+        raise ValueError(
+            f"signal_method must be one of {valid_methods}, got {signal_method!r}."
+        )
+
+    df = _get_spectrum_df(spectrum)
+
     noise_mask = df["mass"].between(*noise_region)
     noise = df.loc[noise_mask, "intensity"]
 
@@ -253,6 +326,15 @@ def estimate_snr(
     mad = np.median(np.abs(noise - np.median(noise)))
     noise_std = 1.4826 * mad  # MAD to std conversion for normal distribution
 
-    signal = df["intensity"].max()
+    if signal_method == "max":
+        signal = df["intensity"].max()
+    else:  # median_peaks
+        peaks, _ = find_peaks(df["intensity"].values)
+        if len(peaks) == 0:
+            signal = df["intensity"].max()
+        else:
+            peak_intensities = df["intensity"].values[peaks]
+            top_n = np.sort(peak_intensities)[-n_top_peaks:]
+            signal = np.median(top_n)
 
     return signal / noise_std if noise_std > 0 else np.inf

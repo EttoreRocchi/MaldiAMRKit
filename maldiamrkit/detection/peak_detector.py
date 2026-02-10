@@ -49,6 +49,11 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     - prominence=1e-5 to 1e-3 typically works well for local maxima
     - persistence_threshold=1e-6 to 1e-4 for persistent homology
 
+    Raises
+    ------
+    ValueError
+        If ``method`` is not one of 'local' or 'ph'.
+
     Examples
     --------
     >>> # Local maxima detection with prominence filter
@@ -67,7 +72,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         persistence_threshold: float = 1e-6,
         n_jobs: int = 1,
         **kwargs,
-    ) -> MaldiPeakDetector:
+    ) -> None:
         self.method = method
         self.binary = binary
         self.persistence_threshold = persistence_threshold
@@ -94,6 +99,11 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         -------
         self : MaldiPeakDetector
             Fitted transformer.
+
+        Raises
+        ------
+        ValueError
+            If the input DataFrame is empty.
         """
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
