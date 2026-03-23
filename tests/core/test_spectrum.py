@@ -323,32 +323,40 @@ class TestMaldiSpectrumVerbose:
 
 
 class TestMaldiSpectrumPlot:
-    """Tests for the plot method."""
+    """Tests for the plot_spectrum function."""
 
     def test_plot_binned(self, synthetic_spectrum: pd.DataFrame):
+        from maldiamrkit.visualization import plot_spectrum
+
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.bin(3)
-        ax = spec.plot()
+        ax = plot_spectrum(spec)
         assert ax is not None
         plt.close("all")
 
     def test_plot_raw(self, synthetic_spectrum: pd.DataFrame):
+        from maldiamrkit.visualization import plot_spectrum
+
         spec = MaldiSpectrum(synthetic_spectrum)
-        ax = spec.plot(binned=False)
+        ax = plot_spectrum(spec, binned=False)
         assert ax is not None
         plt.close("all")
 
     def test_plot_preprocessed(self, synthetic_spectrum: pd.DataFrame):
+        from maldiamrkit.visualization import plot_spectrum
+
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.preprocess()
-        ax = spec.plot(binned=False)
+        ax = plot_spectrum(spec, binned=False)
         assert ax is not None
         plt.close("all")
 
     def test_plot_with_ax(self, synthetic_spectrum: pd.DataFrame):
+        from maldiamrkit.visualization import plot_spectrum
+
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.bin(3)
         fig, ax = plt.subplots()
-        returned = spec.plot(ax=ax)
+        returned = plot_spectrum(spec, ax=ax)
         assert returned is ax
         plt.close(fig)

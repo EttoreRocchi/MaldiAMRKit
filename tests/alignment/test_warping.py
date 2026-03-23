@@ -197,41 +197,49 @@ class TestWarpingQuality:
 
 
 class TestWarpingPlot:
-    """Tests for plot_alignment method."""
+    """Tests for the plot_alignment function."""
 
     def test_plot_alignment_basic(self, binned_dataset: pd.DataFrame):
         """Test basic alignment plot."""
+        from maldiamrkit.visualization import plot_alignment
+
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
         X_aligned = warper.transform(binned_dataset)
-        fig, axes = warper.plot_alignment(binned_dataset, X_aligned, indices=[0, 1])
+        fig, axes = plot_alignment(warper, binned_dataset, X_aligned, indices=[0, 1])
         assert fig is not None
         assert axes.shape == (2, 2)
         plt.close(fig)
 
     def test_plot_alignment_single_index(self, binned_dataset: pd.DataFrame):
         """Test plot with single index."""
+        from maldiamrkit.visualization import plot_alignment
+
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
         X_aligned = warper.transform(binned_dataset)
-        fig, axes = warper.plot_alignment(binned_dataset, X_aligned, indices=[0])
+        fig, axes = plot_alignment(warper, binned_dataset, X_aligned, indices=[0])
         assert fig is not None
         plt.close(fig)
 
     def test_plot_alignment_without_aligned(self, binned_dataset: pd.DataFrame):
         """Test plot when X_aligned is None (auto-transform)."""
+        from maldiamrkit.visualization import plot_alignment
+
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
-        fig, axes = warper.plot_alignment(binned_dataset, indices=[0])
+        fig, axes = plot_alignment(warper, binned_dataset, indices=[0])
         assert fig is not None
         plt.close(fig)
 
     def test_plot_alignment_invalid_index(self, binned_dataset: pd.DataFrame):
         """Test plot with invalid index raises ValueError."""
+        from maldiamrkit.visualization import plot_alignment
+
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
         with pytest.raises(ValueError, match="out of bounds"):
-            warper.plot_alignment(binned_dataset, indices=[999])
+            plot_alignment(warper, binned_dataset, indices=[999])
 
 
 class TestWarpingSklearn:
@@ -299,3 +307,13 @@ class TestWarpingValidation:
             warnings.simplefilter("error")
             with pytest.raises(UserWarning, match="peaks detected"):
                 w.fit(binned_dataset)
+
+    def test_fit_with_int_reference(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift", reference=0)
+        w.fit(binned_dataset)
+        np.testing.assert_array_equal(w.ref_spec_, binned_dataset.iloc[0].to_numpy())
+
+    def test_get_alignment_quality_unfitted_raises(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift")
+        with pytest.raises(RuntimeError, match="fitted"):
+            w.get_alignment_quality(binned_dataset)

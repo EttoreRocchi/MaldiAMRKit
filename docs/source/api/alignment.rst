@@ -22,6 +22,12 @@ RawWarping (Full Resolution)
    :undoc-members:
    :show-inheritance:
 
+Alignment Strategies
+--------------------
+
+.. autoclass:: maldiamrkit.alignment.AlignmentStrategy
+   :members:
+
 Utility Functions
 -----------------
 

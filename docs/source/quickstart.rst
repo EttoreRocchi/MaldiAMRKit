@@ -20,7 +20,8 @@ Load and preprocess a single spectrum:
    spec.preprocess().bin(bin_width=3)
 
    # Visualize
-   spec.plot()
+   from maldiamrkit.visualization import plot_spectrum
+   plot_spectrum(spec)
 
 Loading a Dataset
 -----------------
@@ -46,7 +47,8 @@ Load multiple spectra with metadata:
    X, y = data.X, data.y
 
    # Visualize as pseudogel
-   data.plot_pseudogel(antibiotic="Ceftriaxone")
+   from maldiamrkit.visualization import plot_pseudogel
+   plot_pseudogel(data, antibiotic="Ceftriaxone")
 
 Building ML Pipelines
 ---------------------
@@ -244,6 +246,64 @@ Prevent data leakage with species-aware splits:
    for train_idx, test_idx in cv.split(X, y, species=species_labels):
        pass
 
+Building DRIAMS-like Datasets
+-----------------------------
+
+Create a standardised DRIAMS-like dataset directory from raw spectra and a
+metadata CSV:
+
+.. code-block:: python
+
+   from maldiamrkit import build_driams_dataset, ProcessingHandler
+
+   # Basic: produces raw/, preprocessed/, binned_6000/, id/
+   report = build_driams_dataset(
+       spectra_dir="spectra/",
+       metadata_csv="metadata.csv",
+       output_dir="output/my_dataset",
+   )
+   print(f"Processed {report.succeeded}/{report.total} spectra")
+
+With year-based subfolders (requires a date or year column in the metadata):
+
+.. code-block:: python
+
+   report = build_driams_dataset(
+       "spectra/", "metadata.csv", "output/my_dataset",
+       year_column="acquisition_date",
+   )
+
+Add extra processing variants alongside the defaults using
+``ProcessingHandler``:
+
+.. code-block:: python
+
+   from maldiamrkit.preprocessing import PreprocessingPipeline
+
+   sqrt_pipeline = PreprocessingPipeline.from_yaml("sqrt_pipeline.yaml")
+
+   report = build_driams_dataset(
+       "spectra/", "metadata.csv", "output/my_dataset",
+       year_column="acquisition_date",
+       extra_handlers=[
+           ProcessingHandler("preprocessed_sqrt", "preprocessed",
+                             pipeline=sqrt_pipeline),
+           ProcessingHandler("binned_3000", "binned", bin_width=6),
+       ],
+   )
+
+The output structure follows the DRIAMS convention:
+
+.. code-block:: text
+
+   my_dataset/
+   ├── raw/{year}/
+   ├── preprocessed/{year}/
+   ├── preprocessed_sqrt/{year}/
+   ├── binned_6000/{year}/
+   ├── binned_3000/{year}/
+   └── id/{year}/{year}_clean.csv
+
 Command-Line Interface
 ----------------------
 
@@ -262,3 +322,14 @@ MaldiAMRKit provides CLI commands for batch processing:
 
    # Use a custom pipeline config
    maldiamrkit preprocess --input-dir data/ --output features.csv --pipeline config.yaml
+
+   # Build a DRIAMS-like dataset
+   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
+
+   # With year-based subfolders
+   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
+     --year-column acquisition_date
+
+   # With extra processing handlers (JSON/YAML config file)
+   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
+     --extra-handlers handlers.yaml

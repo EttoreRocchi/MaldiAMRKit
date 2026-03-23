@@ -69,3 +69,8 @@ class TestLabelEncoder:
         enc = LabelEncoder()
         result = enc.fit_transform([])
         assert len(result) == 0
+
+    def test_unrecognized_label_raises(self):
+        enc = LabelEncoder()
+        with pytest.raises(ValueError, match="Unrecognized"):
+            enc.transform(["R", "X", "unknown"])

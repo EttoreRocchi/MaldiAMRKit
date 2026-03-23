@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/EttoreRocchi/MaldiAMRKit/actions/workflows/ci.yml/badge.svg)](https://github.com/EttoreRocchi/MaldiAMRKit/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/github/EttoreRocchi/MaldiAMRKit/branch/main/graph/badge.svg)](https://codecov.io/github/EttoreRocchi/MaldiAMRKit)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://maldiamrkit.readthedocs.io/)
 
 [![PyPI Version](https://img.shields.io/pypi/v/maldiamrkit)](https://pypi.org/project/maldiamrkit/)
@@ -52,8 +51,9 @@ pip install -e .[dev]
 - **Evaluation Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report`
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
 - **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
+- **DRIAMS Dataset Building**: Build DRIAMS-like dataset directories from raw spectra and metadata via `build_driams_dataset()`, with year-based subfolders and custom processing handlers
 - **Spectrum Export**: Save individual spectra (raw, preprocessed, or binned) to CSV or TXT via `MaldiSet.save_spectra()`
-- **CLI**: `maldiamrkit preprocess` and `maldiamrkit quality` commands for batch processing
+- **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` commands for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
 - **ML-Ready**: Direct integration with scikit-learn pipelines
 
@@ -74,7 +74,8 @@ spec.preprocess()
 spec.bin(bin_width=3)  # 3 Da bins
 
 # Visualize
-spec.plot(binned=True)
+from maldiamrkit.visualization import plot_spectrum
+plot_spectrum(spec, binned=True)
 ```
 
 ### Build a Dataset from Multiple Spectra
@@ -93,6 +94,44 @@ data = MaldiSet.from_directory(
 # Access features and labels
 X = data.X  # Feature matrix
 y = data.get_y_single("Drug")  # Target labels
+```
+
+### Build a DRIAMS-like Dataset
+
+Create a standardised dataset directory from raw spectra and a metadata CSV:
+
+```python
+from maldiamrkit import build_driams_dataset, ProcessingHandler
+
+# Basic: produces raw/, preprocessed/, binned_6000/, id/
+report = build_driams_dataset(
+    spectra_dir="data/spectra/",
+    metadata_csv="data/metadata.csv",
+    output_dir="output/my_dataset",
+)
+
+# With year-based subfolders and extra processing variants
+report = build_driams_dataset(
+    "data/spectra/", "data/metadata.csv", "output/my_dataset",
+    year_column="acquisition_date",
+    extra_handlers=[
+        ProcessingHandler("preprocessed_sqrt", "preprocessed",
+                          pipeline=sqrt_pipeline),
+        ProcessingHandler("binned_3000", "binned", bin_width=6),
+    ],
+)
+print(f"Processed {report.succeeded}/{report.total} spectra")
+```
+
+Output structure:
+```
+my_dataset/
+├── raw/{year}/              # Raw spectra
+├── preprocessed/{year}/     # Default preprocessing
+├── preprocessed_sqrt/{year}/ # Extra handler output
+├── binned_6000/{year}/      # Default binning (3 Da)
+├── binned_3000/{year}/      # Extra handler output (6 Da)
+└── id/{year}/               # Metadata CSVs
 ```
 
 ### Binning Methods
@@ -175,7 +214,8 @@ quality = warper.get_alignment_quality(X_test, X_aligned)
 print(f"Mean improvement: {quality['improvement'].mean():.4f}")
 
 # Visualize
-warper.plot_alignment(X_test, X_aligned, indices=[0], show_peaks=True)
+from maldiamrkit.visualization import plot_alignment
+plot_alignment(warper, X_test, X_aligned, indices=[0], show_peaks=True)
 ```
 
 ### Raw Spectra Warping
@@ -381,6 +421,17 @@ maldiamrkit preprocess --input-dir data/ --output processed.csv --pipeline confi
 
 # Generate quality report
 maldiamrkit quality --input-dir data/ --output report.csv
+
+# Build a DRIAMS-like dataset
+maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
+
+# With year-based subfolders
+maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
+  --year-column acquisition_date
+
+# With extra processing handlers (JSON/YAML config)
+maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
+  --extra-handlers handlers.yaml
 ```
 
 ### Parallel Processing

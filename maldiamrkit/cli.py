@@ -1,9 +1,10 @@
 """Command-line interface for MaldiAMRKit.
 
-Provides two subcommands:
+Provides three subcommands:
 
 - ``preprocess``: Batch preprocess and bin spectra, outputting a CSV feature matrix.
 - ``quality``: Compute quality metrics (SNR, TIC, peak count, etc.) for all spectra.
+- ``build-driams``: Build a DRIAMS-like dataset directory from raw spectra and metadata.
 
 Examples
 --------
@@ -11,6 +12,7 @@ Examples
 
     maldiamrkit preprocess --input-dir data/ --output processed.csv --bin-width 3
     maldiamrkit quality --input-dir data/ --output report.csv
+    maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from .builder import ProcessingHandler, build_driams_dataset
 from .io.readers import read_spectrum
 from .preprocessing.pipeline import preprocess as preprocess_spectrum
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
@@ -42,6 +45,15 @@ app = typer.Typer(
     add_completion=False,
     rich_markup_mode="rich",
 )
+
+
+def _load_pipeline(path: Path | None) -> PreprocessingPipeline:
+    """Load a preprocessing pipeline from file, or return the default."""
+    if path is None:
+        return PreprocessingPipeline.default()
+    if path.suffix in (".yaml", ".yml"):
+        return PreprocessingPipeline.from_yaml(path)
+    return PreprocessingPipeline.from_json(path)
 
 
 class BinningMethod(str, Enum):
@@ -72,14 +84,7 @@ def preprocess(
     ] = None,
 ) -> None:
     """Batch preprocess and bin spectra to a CSV feature matrix."""
-    if pipeline is not None:
-        pipeline_path = Path(pipeline)
-        if pipeline_path.suffix in (".yaml", ".yml"):
-            pipe = PreprocessingPipeline.from_yaml(pipeline_path)
-        else:
-            pipe = PreprocessingPipeline.from_json(pipeline_path)
-    else:
-        pipe = PreprocessingPipeline.default()
+    pipe = _load_pipeline(pipeline)
 
     spectrum_files = sorted(input_dir.glob("*.txt"))
     if not spectrum_files:
@@ -200,6 +205,128 @@ def quality(
     table.add_row("Failed", str(n_failed))
     table.add_row("Output", str(output))
     console.print(table)
+
+
+def _load_extra_handlers(path: Path) -> list[ProcessingHandler]:
+    """Load extra handlers from a JSON or YAML config file."""
+    file_size = path.stat().st_size
+    if file_size > 1_000_000:
+        raise typer.BadParameter(f"Config file too large ({file_size} bytes, max 1 MB)")
+
+    if path.suffix in (".yaml", ".yml"):
+        import yaml
+
+        with open(path) as f:
+            data = yaml.safe_load(f)
+    else:
+        import json
+
+        with open(path) as f:
+            data = json.load(f)
+
+    if not isinstance(data, list):
+        raise typer.BadParameter(
+            f"Extra handlers config must be a YAML/JSON list, got {type(data).__name__}"
+        )
+
+    handlers = []
+    for entry in data:
+        # Resolve relative pipeline paths against the config file directory
+        if isinstance(entry.get("pipeline"), str):
+            pipeline_path = Path(entry["pipeline"])
+            if not pipeline_path.is_absolute():
+                entry["pipeline"] = str(path.parent / pipeline_path)
+        handlers.append(ProcessingHandler.from_dict(entry))
+    return handlers
+
+
+@app.command("build-driams")
+def build_driams(
+    spectra_dir: Annotated[
+        Path, typer.Option(help="Directory containing raw .txt spectrum files.")
+    ],
+    metadata: Annotated[
+        Path, typer.Option(help="Metadata CSV file (must have 'ID' column).")
+    ],
+    output_dir: Annotated[
+        Path, typer.Option(help="Output directory for the DRIAMS-like dataset.")
+    ],
+    name: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Dataset name (for metadata filename). Defaults to output dir name."
+        ),
+    ] = None,
+    id_column: Annotated[
+        str, typer.Option(help="Column name for spectrum IDs in output metadata.")
+    ] = "code",
+    year_column: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Metadata column to extract year from for year-based subfolders."
+        ),
+    ] = None,
+    bin_width: Annotated[int, typer.Option(help="Bin width in Daltons.")] = 3,
+    pipeline: Annotated[
+        Optional[Path], typer.Option(help="JSON/YAML pipeline config.")
+    ] = None,
+    extra_handlers: Annotated[
+        Optional[Path],
+        typer.Option(help="JSON/YAML config file defining extra processing handlers."),
+    ] = None,
+    n_jobs: Annotated[int, typer.Option(help="Parallel jobs (-1 = all cores).")] = -1,
+) -> None:
+    """Build a DRIAMS-like dataset directory from raw spectra and metadata."""
+    pipe = _load_pipeline(pipeline)
+
+    # Parse extra handlers
+    handlers = None
+    if extra_handlers is not None:
+        try:
+            handlers = _load_extra_handlers(Path(extra_handlers))
+        except Exception as exc:
+            console.print(f"[red]Error loading extra handlers:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        progress.add_task("Building DRIAMS-like dataset...", total=None)
+        try:
+            report = build_driams_dataset(
+                spectra_dir=spectra_dir,
+                metadata_csv=metadata,
+                output_dir=output_dir,
+                name=name,
+                id_column=id_column,
+                year_column=year_column,
+                pipeline=pipe,
+                bin_width=bin_width,
+                extra_handlers=handlers,
+                n_jobs=n_jobs,
+            )
+        except ValueError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+
+    # Summary
+    console.print()
+    table = Table(title="DRIAMS Build Summary", show_lines=False)
+    table.add_column("Metric", style="bold")
+    table.add_column("Value", justify="right")
+    table.add_row("Spectra processed", str(report.succeeded))
+    table.add_row("Failed", str(report.failed))
+    table.add_row("Folders created", ", ".join(report.folders_created))
+    table.add_row("Output", str(report.output_dir))
+    console.print(table)
+
+    if report.failed > 0:
+        console.print(
+            f"\n[yellow]Warning:[/yellow] {report.failed} spectra failed. "
+            f"Check logs for details."
+        )
 
 
 if __name__ == "__main__":

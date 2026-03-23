@@ -31,7 +31,9 @@ Basic Classification Pipeline
 
 .. code-block:: python
 
-   from maldiamrkit import MaldiSet, Warping, MaldiPeakDetector
+   from maldiamrkit import MaldiSet
+   from maldiamrkit.alignment import Warping
+   from maldiamrkit.detection import MaldiPeakDetector
    from sklearn.pipeline import Pipeline
    from sklearn.preprocessing import StandardScaler
    from sklearn.ensemble import RandomForestClassifier
@@ -64,7 +66,7 @@ Raw Spectra Alignment
 
 .. code-block:: python
 
-   from maldiamrkit import RawWarping, create_raw_input
+   from maldiamrkit.alignment import RawWarping, create_raw_input
 
    # Build input DataFrame from spectrum directory
    X_raw = create_raw_input("spectra/")
@@ -75,3 +77,33 @@ Raw Spectra Alignment
    # Fit and transform
    warper.fit(X_raw)
    X_aligned = warper.transform(X_raw)
+
+Building DRIAMS-like Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from maldiamrkit import build_driams_dataset, ProcessingHandler
+   from maldiamrkit.preprocessing import PreprocessingPipeline
+
+   # Build a DRIAMS-like dataset with year-based subfolders
+   report = build_driams_dataset(
+       spectra_dir="spectra/",
+       metadata_csv="metadata.csv",
+       output_dir="output/my_dataset",
+       year_column="acquisition_date",
+   )
+   print(f"Processed {report.succeeded}/{report.total} spectra")
+   print(f"Folders: {report.folders_created}")
+
+   # Add extra processing variants
+   sqrt_pipe = PreprocessingPipeline.from_yaml("sqrt_pipeline.yaml")
+   report = build_driams_dataset(
+       "spectra/", "metadata.csv", "output/my_dataset",
+       year_column="acquisition_date",
+       extra_handlers=[
+           ProcessingHandler("preprocessed_sqrt", "preprocessed",
+                             pipeline=sqrt_pipe),
+           ProcessingHandler("binned_3000", "binned", bin_width=6),
+       ],
+   )

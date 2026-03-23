@@ -6,14 +6,16 @@ import sys
 # Add the project root to the path
 sys.path.insert(0, os.path.abspath("../.."))
 
+from maldiamrkit import __version__
+
 # Project information
 project = "MaldiAMRKit"
 copyright = "2025, Ettore Rocchi"
 author = "Ettore Rocchi"
 
 # The full version, including alpha/beta/rc tags
-release = "0.7.0"
-version = "0.7"
+release = __version__
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 

@@ -1,5 +1,6 @@
 """Unit tests for the CLI."""
 
+import json
 import re
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from typer.testing import CliRunner
 
 from maldiamrkit.cli import app
 from maldiamrkit.preprocessing import PreprocessingPipeline
+from tests.conftest import _generate_synthetic_spectrum
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 runner = CliRunner()
@@ -31,6 +33,7 @@ class TestHelpOutput:
         output = _strip_ansi(result.output)
         assert "preprocess" in output
         assert "quality" in output
+        assert "build-driams" in output
 
     def test_preprocess_help(self):
         result = runner.invoke(app, ["preprocess", "--help"])
@@ -215,6 +218,126 @@ class TestQualityCommand:
                 str(tmp_path),
                 "--output",
                 str(output),
+            ],
+        )
+        assert result.exit_code == 1
+
+
+def _setup_synthetic_build_data(tmp_path: Path) -> tuple[Path, Path]:
+    """Create synthetic spectra dir and metadata for build-driams tests."""
+    spectra_dir = tmp_path / "spectra"
+    spectra_dir.mkdir()
+    ids = []
+    for i in range(3):
+        df = _generate_synthetic_spectrum(random_state=42 + i)
+        name = f"s{i}"
+        ids.append(name)
+        np.savetxt(
+            spectra_dir / f"{name}.txt",
+            df[["mass", "intensity"]].values,
+            header="mass intensity",
+            comments="# ",
+            fmt="%.6f",
+        )
+    meta = pd.DataFrame({"ID": ids, "Species": ["E. coli"] * 3})
+    meta_path = tmp_path / "meta.csv"
+    meta.to_csv(meta_path, index=False)
+    return spectra_dir, meta_path
+
+
+class TestBuildDRIAMSCommand:
+    """Tests for the build-driams CLI subcommand."""
+
+    def test_build_driams_help(self):
+        result = runner.invoke(app, ["build-driams", "--help"])
+        assert result.exit_code == 0
+        output = _strip_ansi(result.output)
+        for opt in [
+            "--spectra-dir",
+            "--metadata",
+            "--output-dir",
+            "--name",
+            "--id-column",
+            "--year-column",
+            "--bin-width",
+            "--pipeline",
+            "--extra-handlers",
+            "--n-jobs",
+        ]:
+            assert opt in output, f"Missing option: {opt}"
+
+    def test_build_driams_end_to_end(self, tmp_path: Path):
+        spectra_dir, meta_path = _setup_synthetic_build_data(tmp_path)
+        out = tmp_path / "driams_out"
+        result = runner.invoke(
+            app,
+            [
+                "build-driams",
+                "--spectra-dir",
+                str(spectra_dir),
+                "--metadata",
+                str(meta_path),
+                "--output-dir",
+                str(out),
+                "--name",
+                "test",
+                "--n-jobs",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out / "raw").is_dir()
+        assert (out / "preprocessed").is_dir()
+        assert (out / "binned_6000").is_dir()
+        assert (out / "id" / "test_clean.csv").exists()
+
+    def test_build_driams_with_extra_handlers(self, tmp_path: Path):
+        spectra_dir, meta_path = _setup_synthetic_build_data(tmp_path)
+        # Write an extra-handlers config
+        config = [
+            {"folder_name": "binned_3000", "kind": "binned", "bin_width": 6},
+        ]
+        config_path = tmp_path / "handlers.json"
+        config_path.write_text(json.dumps(config))
+
+        out = tmp_path / "driams_out"
+        result = runner.invoke(
+            app,
+            [
+                "build-driams",
+                "--spectra-dir",
+                str(spectra_dir),
+                "--metadata",
+                str(meta_path),
+                "--output-dir",
+                str(out),
+                "--extra-handlers",
+                str(config_path),
+                "--n-jobs",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out / "binned_3000").is_dir()
+        binned = list((out / "binned_3000").glob("*.txt"))
+        assert len(binned) == 3
+
+    def test_build_driams_empty_dir_exits(self, tmp_path: Path):
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+        meta = pd.DataFrame({"ID": ["x"], "Species": ["E. coli"]})
+        meta_path = tmp_path / "meta.csv"
+        meta.to_csv(meta_path, index=False)
+        result = runner.invoke(
+            app,
+            [
+                "build-driams",
+                "--spectra-dir",
+                str(empty_dir),
+                "--metadata",
+                str(meta_path),
+                "--output-dir",
+                str(tmp_path / "out"),
             ],
         )
         assert result.exit_code == 1

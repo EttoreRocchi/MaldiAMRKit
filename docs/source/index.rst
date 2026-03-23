@@ -106,12 +106,19 @@ Key Features
       Species-drug stratified and case-based (patient-grouped) splits
       to prevent data leakage.
 
+   .. grid-item-card:: DRIAMS Dataset Builder
+      :link: quickstart.html#building-driams-like-datasets
+      :link-type: url
+
+      Build DRIAMS-like dataset directories from raw spectra and metadata
+      with year-based subfolders and custom processing handlers.
+
    .. grid-item-card:: CLI & Export
       :link: quickstart.html#command-line-interface
       :link-type: url
 
-      ``maldiamrkit preprocess`` and ``maldiamrkit quality`` for batch
-      processing. Export to CSV/Parquet.
+      ``maldiamrkit preprocess``, ``maldiamrkit quality``, and
+      ``maldiamrkit build-driams`` for batch processing. Export to CSV/Parquet.
 
 ----
 

@@ -149,3 +149,29 @@ class TestCaseGroupedKFold:
         cv = CaseGroupedKFold(n_splits=3)
         with pytest.raises(ValueError, match="groups"):
             list(cv.split(X, y))
+
+
+class TestBuildStrataRareMerging:
+    """Test rare strata merging in _build_strata."""
+
+    def test_rare_strata_merged(self):
+        from maldiamrkit.evaluation.splitting import _build_strata
+
+        y = np.array(["R", "R", "R", "R", "S"])
+        species = np.array(["A", "A", "A", "A", "B"])
+        strata = _build_strata(y, species, min_count=2)
+        assert "__rare__" in strata
+
+
+class TestCaseBasedSplitNumpy:
+    """Test case_based_split with numpy array X."""
+
+    def test_numpy_array_input(self, amr_data):
+        X, y, _, case_ids = amr_data
+        X_np = X.values if hasattr(X, "values") else np.array(X)
+        from maldiamrkit.evaluation.splitting import case_based_split
+
+        X_train, X_test, y_train, y_test = case_based_split(
+            X_np, y, case_ids, test_size=0.2, random_state=42
+        )
+        assert len(X_train) + len(X_test) == len(X_np)

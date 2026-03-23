@@ -50,6 +50,12 @@ def _get_confusion_values(
             fp = np.sum(y_pred == resistant_label)
             return 0, tn, fp, 0
 
+    if len(labels) > 2:
+        raise ValueError(
+            f"Expected binary labels, got {len(labels)} unique values: {labels}. "
+            f"Encode labels to binary before using AMR metrics."
+        )
+
     if resistant_label not in labels:
         # resistant_label never appears - treat as all-susceptible
         tn = len(y_true)

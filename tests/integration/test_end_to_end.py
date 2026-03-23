@@ -1,11 +1,14 @@
 """End-to-end integration tests for the full MALDI-TOF preprocessing pipeline."""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from maldiamrkit import MaldiSpectrum
 from maldiamrkit.alignment import Warping
+from maldiamrkit.builder import ProcessingHandler, build_driams_dataset
 from maldiamrkit.detection import MaldiPeakDetector
 from maldiamrkit.preprocessing import (
     SpectrumQuality,
@@ -33,7 +36,7 @@ class TestEndToEnd:
     """Integration tests combining multiple pipeline steps."""
 
     def test_full_pipeline_synthetic(self):
-        """Test: generate → preprocess → bin → valid output."""
+        """Test: generate -> preprocess -> bin -> valid output."""
         raw = _make_spectrum(seed=42)
         preprocessed = preprocess(raw)
         binned, metadata = bin_spectrum(preprocessed, bin_width=3, method="uniform")
@@ -47,7 +50,7 @@ class TestEndToEnd:
         assert len(binned) == expected_bins
 
     def test_full_pipeline_with_quality(self):
-        """Test: generate → quality assess + preprocess → bin → valid output."""
+        """Test: generate -> quality assess + preprocess -> bin -> valid output."""
         raw = _make_spectrum(seed=42)
         spec = MaldiSpectrum(raw)
 
@@ -68,7 +71,7 @@ class TestEndToEnd:
         assert not binned["intensity"].isna().any()
 
     def test_full_pipeline_with_merging(self):
-        """Test: generate replicates → outlier detect → merge → preprocess → bin."""
+        """Test: generate replicates -> outlier detect -> merge -> preprocess -> bin."""
         spectra = [MaldiSpectrum(_make_spectrum(seed=i)) for i in range(3)]
 
         # Outlier detection - all similar, so all should be kept
@@ -89,7 +92,7 @@ class TestEndToEnd:
         assert (binned["intensity"] >= 0).all()
 
     def test_preprocess_bin_align(self):
-        """Test: build binned matrix → align with Warping → valid output."""
+        """Test: build binned matrix -> align with Warping -> valid output."""
         # Generate a small binned dataset (5 samples)
         rng = np.random.default_rng(42)
         n_samples, n_bins = 5, 100
@@ -106,7 +109,7 @@ class TestEndToEnd:
         assert not aligned.isna().any().any()
 
     def test_preprocess_bin_detect_peaks(self):
-        """Test: generate → preprocess → bin → detect peaks → valid output."""
+        """Test: generate -> preprocess -> bin -> detect peaks -> valid output."""
         raw = _make_spectrum(seed=42)
         preprocessed = preprocess(raw)
         binned, _ = bin_spectrum(preprocessed, bin_width=3)
@@ -123,3 +126,74 @@ class TestEndToEnd:
         # Binary mode: values should be 0 or 1
         unique_vals = np.unique(peaks.values)
         assert all(v in (0.0, 1.0) for v in unique_vals)
+
+    def test_build_driams_end_to_end(self, tmp_path: Path):
+        """Test: generate spectra -> build DRIAMS dataset -> validate structure."""
+        # Create synthetic spectra files
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        ids = []
+        for i in range(3):
+            raw = _make_spectrum(seed=42 + i)
+            name = f"spec_{i}"
+            ids.append(name)
+            np.savetxt(
+                spectra_dir / f"{name}.txt",
+                raw[["mass", "intensity"]].values,
+                header="mass intensity",
+                comments="# ",
+                fmt="%.6f",
+            )
+
+        # Create metadata with year column
+        meta = pd.DataFrame(
+            {
+                "ID": ids,
+                "Species": ["E. coli"] * 3,
+                "Drug": ["S", "R", "S"],
+                "acquisition_date": ["2015-01-10", "2016-03-20", "2015-06-15"],
+            }
+        )
+        meta_path = tmp_path / "meta.csv"
+        meta.to_csv(meta_path, index=False)
+
+        # Build with year split and an extra handler
+        out = tmp_path / "driams"
+        report = build_driams_dataset(
+            spectra_dir,
+            meta_path,
+            out,
+            year_column="acquisition_date",
+            extra_handlers=[
+                ProcessingHandler("binned_3000", "binned", bin_width=6),
+            ],
+            n_jobs=1,
+        )
+
+        # Validate report
+        assert report.total == 3
+        assert report.succeeded == 3
+        assert report.failed == 0
+
+        # Validate directory structure
+        assert (out / "raw" / "2015").is_dir()
+        assert (out / "raw" / "2016").is_dir()
+        assert (out / "preprocessed" / "2015").is_dir()
+        assert (out / "binned_6000" / "2015").is_dir()
+        assert (out / "binned_3000" / "2015").is_dir()
+
+        # Validate file counts
+        assert len(list((out / "raw" / "2015").glob("*.txt"))) == 2
+        assert len(list((out / "raw" / "2016").glob("*.txt"))) == 1
+
+        # Validate metadata split
+        meta_2015 = pd.read_csv(out / "id" / "2015" / "2015_clean.csv")
+        assert len(meta_2015) == 2
+        assert "code" in meta_2015.columns
+
+        # Validate binned output is readable and has correct format
+        binned_file = list((out / "binned_6000" / "2015").glob("*.txt"))[0]
+        content = binned_file.read_text()
+        lines = content.strip().split("\n")
+        assert lines[0] == "bin_index binned_intensity"
+        assert 5990 <= len(lines) - 1 <= 6010

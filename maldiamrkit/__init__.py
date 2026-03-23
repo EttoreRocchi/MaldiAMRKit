@@ -2,11 +2,13 @@
 
 Subpackage guide
 ----------------
+- ``maldiamrkit.builder``        -- build_driams_dataset, ProcessingHandler, BuildReport
 - ``maldiamrkit.filters``        -- SpeciesFilter, DrugFilter, QualityFilter, MetadataFilter
 - ``maldiamrkit.preprocessing``  -- PreprocessingPipeline, transformers, binning, quality, merging
 - ``maldiamrkit.alignment``      -- Warping, RawWarping
 - ``maldiamrkit.detection``      -- MaldiPeakDetector
 - ``maldiamrkit.evaluation``     -- AMR metrics, splitting, LabelEncoder
+- ``maldiamrkit.visualization``  -- plot_spectrum, plot_pseudogel, plot_peaks, plot_alignment
 - ``maldiamrkit.io``             -- read_spectrum
 
 Examples
@@ -14,17 +16,22 @@ Examples
 >>> from maldiamrkit import MaldiSpectrum, MaldiSet
 >>> from maldiamrkit.preprocessing import PreprocessingPipeline
 >>> from maldiamrkit.alignment import Warping
+>>> from maldiamrkit import build_driams_dataset, ProcessingHandler
 """
 
+from .builder import BuildReport, ProcessingHandler, build_driams_dataset
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
-    "MaldiSpectrum",
+    "BuildReport",
     "MaldiSet",
+    "MaldiSpectrum",
+    "ProcessingHandler",
+    "build_driams_dataset",
     "__version__",
     "__author__",
 ]

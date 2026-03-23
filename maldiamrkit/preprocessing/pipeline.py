@@ -14,8 +14,8 @@ def preprocess(
     """
     Apply preprocessing pipeline to a raw MALDI-TOF spectrum.
 
-    By default applies: clip negatives → sqrt transform → Savitzky-Golay
-    smoothing → SNIP baseline → m/z trim (2000–20000 Da) → TIC normalization.
+    By default applies: clip negatives -> sqrt transform -> Savitzky-Golay
+    smoothing -> SNIP baseline -> m/z trim (2000-20000 Da) -> TIC normalization.
 
     Parameters
     ----------

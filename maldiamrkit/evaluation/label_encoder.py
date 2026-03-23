@@ -108,7 +108,25 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
                     result[i] = 0
                 elif self.intermediate == "resistant":
                     result[i] = 1
-                # else: drop → stays NaN
+                # else: drop -> stays NaN
+
+        # Check for unrecognized labels (still NaN after encoding)
+        unrecognized_mask = np.isnan(result)
+        if self.intermediate == "drop":
+            # In drop mode, NaN from intermediate labels is expected
+            intermediate_mask = np.array(
+                [str(label) in self._INTERMEDIATE for label in y]
+            )
+            unexpected_nan = unrecognized_mask & ~intermediate_mask
+        else:
+            unexpected_nan = unrecognized_mask
+
+        if unexpected_nan.any():
+            bad_labels = [str(y[i]) for i in np.where(unexpected_nan)[0]]
+            raise ValueError(
+                f"Unrecognized labels: {bad_labels}. "
+                f"Expected one of R/S/I (or resistant/susceptible/intermediate)."
+            )
 
         if self.intermediate == "drop":
             mask = ~np.isnan(result)

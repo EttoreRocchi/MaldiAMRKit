@@ -223,6 +223,63 @@ class TestMzMultiTrimmer:
     """Tests for MzMultiTrimmer."""
 
     def test_no_matching_ranges(self):
-        df = _make_df(np.ones(100))  # mass range: 2000-20000
+        df = _make_df(np.ones(100))
         result = MzMultiTrimmer(mz_ranges=[(30000, 40000)])(df)
         assert len(result) == 0
+
+    def test_multiple_ranges(self):
+        df = _make_df(np.ones(100))
+        result = MzMultiTrimmer(mz_ranges=[(2000, 5000), (10000, 15000)])(df)
+        assert len(result) > 0
+        assert all((2000 <= m <= 5000) or (10000 <= m <= 15000) for m in result["mass"])
+
+    def test_repr(self):
+        t = MzMultiTrimmer(mz_ranges=[(2000, 5000)])
+        assert "MzMultiTrimmer" in repr(t)
+
+
+class TestLogTransformRepr:
+    """Test LogTransform repr."""
+
+    def test_repr(self):
+        from maldiamrkit.preprocessing.transformers import LogTransform
+
+        assert repr(LogTransform()) == "LogTransform()"
+
+
+class TestMedianNormalizerEdges:
+    """Tests for MedianNormalizer edge cases."""
+
+    def test_all_zero_median(self):
+        from maldiamrkit.preprocessing.transformers import MedianNormalizer
+
+        df = _make_df(np.zeros(50))
+        result = MedianNormalizer()(df)
+        assert result["intensity"].sum() == 0.0
+
+
+class TestPQNNormalizerEdges:
+    """Tests for PQNNormalizer edge cases."""
+
+    def test_reference_length_mismatch_warns(self):
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        ref = np.ones(200)
+        pqn = PQNNormalizer(reference=ref)
+        df = _make_df(np.ones(50))
+        with pytest.warns(UserWarning, match="reference length"):
+            pqn(df)
+
+    def test_no_positive_reference(self):
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        ref = np.zeros(50)
+        pqn = PQNNormalizer(reference=ref)
+        df = _make_df(np.ones(50))
+        result = pqn(df)
+        assert len(result) == 50
+
+    def test_repr(self):
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        assert "PQNNormalizer" in repr(PQNNormalizer())

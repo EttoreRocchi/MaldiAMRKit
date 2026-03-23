@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -40,6 +41,19 @@ from .transformers import (
     SqrtTransform,
     TICNormalizer,
 )
+
+
+@runtime_checkable
+class PreprocessingStep(Protocol):
+    """Protocol for preprocessing step transformers."""
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply the preprocessing step to a spectrum DataFrame."""
+        ...
+
+    def to_dict(self) -> dict:
+        """Serialize the step to a dictionary."""
+        ...
 
 
 class PreprocessingPipeline:
@@ -58,7 +72,7 @@ class PreprocessingPipeline:
     >>> preprocessed = pipe(raw_spectrum_df)
     """
 
-    def __init__(self, steps: list[tuple[str, object]]):
+    def __init__(self, steps: list[tuple[str, PreprocessingStep]]):
         self.steps = list(steps)
 
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -82,8 +96,8 @@ class PreprocessingPipeline:
     def default(cls) -> PreprocessingPipeline:
         """Return the standard preprocessing pipeline.
 
-        Steps: clip negatives → sqrt transform → Savitzky-Golay smoothing →
-        SNIP baseline → m/z trim (2000–20000 Da) → TIC normalization.
+        Steps: clip negatives -> sqrt transform -> Savitzky-Golay smoothing ->
+        SNIP baseline -> m/z trim (2000-20000 Da) -> TIC normalization.
 
         Returns
         -------

@@ -80,7 +80,7 @@ class SavitzkyGolaySmooth:
     Parameters
     ----------
     window_length : int, default=20
-        Length of the filter window. Must be a positive odd integer.
+        Length of the filter window. Must be a positive integer.
     polyorder : int, default=2
         Order of the polynomial used to fit the samples.
     """

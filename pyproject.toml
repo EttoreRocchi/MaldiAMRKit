@@ -31,7 +31,7 @@ maldiamrkit = "maldiamrkit.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/EttoreRocchi/MaldiAMRKit"
-Documentation = "https://github.com/EttoreRocchi/MaldiAMRKit#readme"
+Documentation = "https://maldiamrkit.readthedocs.io/"
 Source = "https://github.com/EttoreRocchi/MaldiAMRKit"
 Issues = "https://github.com/EttoreRocchi/MaldiAMRKit/issues"
 

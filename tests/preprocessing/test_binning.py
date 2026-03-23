@@ -102,7 +102,7 @@ class TestBinSpectrum:
             adaptive_min_width=1.0,
             adaptive_max_width=10.0,
         )
-        # Very high prominence → no peaks detected → uniform fallback
+        # Very high prominence -> no peaks detected -> uniform fallback
         result_high, _ = bin_spectrum(
             preprocessed_spectrum,
             method="adaptive",

@@ -4,13 +4,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-
-if TYPE_CHECKING:
-    import matplotlib.pyplot as plt
 
 from .io.readers import read_spectrum
 from .preprocessing.binning import bin_spectrum
@@ -60,7 +56,8 @@ class MaldiSpectrum:
     >>> spec = MaldiSpectrum("raw/abc.txt")
     >>> spec.preprocess()
     >>> spec.bin(3)
-    >>> spec.plot()
+    >>> from maldiamrkit.visualization import plot_spectrum
+    >>> plot_spectrum(spec)
     """
 
     def __init__(
@@ -195,7 +192,7 @@ class MaldiSpectrum:
         ----------
         bin_width : int or float, default=3
             Width of each bin in Daltons. For 'uniform', this is the fixed width.
-            For 'logarithmic', this is the reference width at mz_start.
+            For 'logarithmic', this is the reference width at mz_min.
             Ignored for 'adaptive' and 'custom' methods.
         method : str, default='uniform'
             Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
@@ -282,6 +279,41 @@ class MaldiSpectrum:
         else:
             raise ValueError(f"Invalid fmt '{fmt}'. Use 'csv' or 'txt'.")
 
+    def get_data(self, prefer: str = "preprocessed") -> pd.DataFrame:
+        """Return spectrum data, preferring the requested processing stage.
+
+        Parameters
+        ----------
+        prefer : str, default="preprocessed"
+            Preferred stage: ``"preprocessed"`` or ``"binned"``.  Falls back
+            to raw data if the requested stage has not been computed.
+
+        Returns
+        -------
+        pd.DataFrame
+            Copy of the spectrum data at the best available stage.
+        """
+        if prefer == "binned" and self._binned is not None:
+            return self._binned.copy()
+        if self._preprocessed is not None:
+            return self._preprocessed.copy()
+        return self._raw.copy()
+
+    @property
+    def is_binned(self) -> bool:
+        """Whether the spectrum has been binned."""
+        return self._binned is not None
+
+    @property
+    def is_preprocessed(self) -> bool:
+        """Whether the spectrum has been preprocessed."""
+        return self._preprocessed is not None
+
+    @property
+    def has_bin_metadata(self) -> bool:
+        """Whether bin metadata is available (i.e. ``bin()`` has been called)."""
+        return self._bin_metadata is not None
+
     def __repr__(self) -> str:
         status = []
         if self._preprocessed is not None:
@@ -291,46 +323,3 @@ class MaldiSpectrum:
             status.append(f"binned({n} bins)")
         state = ", ".join(status) if status else "raw"
         return f"MaldiSpectrum(id={self.id!r}, {state})"
-
-    def plot(
-        self, binned: bool = True, ax: plt.Axes | None = None, **kwargs
-    ) -> plt.Axes:
-        """
-        Plot the spectrum.
-
-        Parameters
-        ----------
-        binned : bool, default=True
-            If True, plot the binned spectrum. Otherwise, plot preprocessed
-            or raw spectrum.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates a new figure.
-        **kwargs : dict
-            Additional keyword arguments passed to the plotting function.
-
-        Returns
-        -------
-        matplotlib.axes.Axes
-            The axes containing the plot.
-        """
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-
-        _ax = ax or plt.subplots(figsize=(10, 4))[1]
-        data = (
-            self.binned
-            if binned
-            else (self.preprocessed if self._preprocessed is not None else self.raw)
-        )
-        if binned:
-            sns.barplot(data=data, x="mass", y="intensity", ax=_ax, **kwargs)
-        else:
-            _ax.plot(data.mass, data.intensity, **kwargs)
-        _ax.set(
-            title=f"{self.id}{' (binned)' if binned else ''}",
-            xlabel="m/z",
-            ylabel="intensity",
-            xticks=[],
-            ylim=[0, (data.intensity.max()) * 1.05],
-        )
-        return _ax

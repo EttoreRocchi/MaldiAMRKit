@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import gudhi
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
@@ -71,13 +70,26 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         binary: bool = True,
         persistence_threshold: float = 1e-6,
         n_jobs: int = 1,
+        prominence: float | None = None,
+        height: float | None = None,
+        distance: int | None = None,
+        width: float | None = None,
         **kwargs,
     ) -> None:
         self.method = method
         self.binary = binary
         self.persistence_threshold = persistence_threshold
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
+        self.prominence = prominence
+        self.height = height
+        self.distance = distance
+        self.width = width
+        # Build kwargs from explicit params + extra kwargs
+        self.kwargs = dict(kwargs)
+        for param in ("prominence", "height", "distance", "width"):
+            val = getattr(self, param)
+            if val is not None:
+                self.kwargs.setdefault(param, val)
 
         if self.method not in ["local", "ph"]:
             raise ValueError(
@@ -333,108 +345,3 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             )
 
         return pd.DataFrame(stats, index=X.index)
-
-    def plot_peaks(
-        self,
-        X: pd.DataFrame,
-        indices: int | list[int] | None = None,
-        xlim: tuple[float, float] | None = None,
-        figsize: tuple[float, float] = (14, 6),
-        alpha: float = 0.7,
-    ):
-        """
-        Plot detected peaks overlaid on original spectra.
-
-        Parameters
-        ----------
-        X : pd.DataFrame or pd.Series
-            Input spectra with shape (n_samples, n_bins).
-        indices : int or list of int, optional
-            Indices of spectra to plot. If None, plots the first spectrum.
-        xlim : tuple of (float, float), optional
-            X-axis limits for zooming into specific m/z range.
-        figsize : tuple of (float, float), default=(14, 6)
-            Figure size in inches.
-        alpha : float, default=0.7
-            Transparency for spectrum lines.
-
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            The generated figure.
-        axes : Axes or array of Axes
-            The subplot axes.
-        """
-        input_is_series = isinstance(X, pd.Series)
-        if input_is_series:
-            X = X.to_frame().T
-
-        if indices is None:
-            indices = [0]
-        elif isinstance(indices, int):
-            indices = [indices]
-
-        for idx in indices:
-            if idx < 0 or idx >= len(X):
-                raise ValueError(
-                    f"Index {idx} out of bounds for data with {len(X)} samples"
-                )
-
-        mz_axis = X.columns.to_numpy()
-        if not np.issubdtype(mz_axis.dtype, np.number):
-            mz_axis = np.arange(len(mz_axis))
-
-        n_spectra = len(indices)
-        fig, axes = plt.subplots(n_spectra, 1, figsize=figsize, squeeze=False)
-        axes = axes.flatten()
-
-        for plot_idx, spectrum_idx in enumerate(indices):
-            ax = axes[plot_idx]
-
-            row = X.iloc[spectrum_idx].values
-
-            if self.method == "local":
-                peaks = self._detect_peaks_local(row)
-            elif self.method == "ph":
-                peaks = self._detect_peaks_ph(row)
-            else:
-                raise ValueError(f"Unknown method: {self.method}")
-
-            ax.plot(
-                mz_axis, row, color="black", linewidth=1, alpha=alpha, label="Spectrum"
-            )
-
-            if len(peaks) > 0:
-                ax.scatter(
-                    mz_axis[peaks],
-                    row[peaks],
-                    color="red",
-                    s=50,
-                    zorder=5,
-                    label=f"Peaks (n={len(peaks)})",
-                    marker="o",
-                )
-
-                for peak in peaks:
-                    ax.axvline(
-                        mz_axis[peak],
-                        color="red",
-                        linestyle="--",
-                        alpha=0.3,
-                        linewidth=0.8,
-                    )
-
-            ax.set_xlabel("m/z" if np.issubdtype(mz_axis.dtype, np.number) else "Index")
-            ax.set_ylabel("Intensity")
-            ax.set_title(f"Peak Detection (method={self.method}, idx={spectrum_idx})")
-            ax.legend(loc="upper right")
-            ax.grid(True, alpha=0.3)
-
-            if xlim:
-                ax.set_xlim(xlim)
-
-        plt.tight_layout()
-
-        if n_spectra == 1:
-            return fig, axes[0]
-        return fig, axes

@@ -197,37 +197,45 @@ class TestPeakDetectorTransformDirect:
 
 
 class TestPeakDetectorPlot:
-    """Tests for plot_peaks method."""
+    """Tests for the plot_peaks function."""
 
     def test_plot_peaks_basic(self, binned_dataset: pd.DataFrame):
         """Test basic peak plot."""
+        from maldiamrkit.visualization import plot_peaks
+
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, ax = detector.plot_peaks(binned_dataset, indices=[0])
+        fig, ax = plot_peaks(detector, binned_dataset, indices=[0])
         assert fig is not None
         plt.close(fig)
 
     def test_plot_peaks_multiple_indices(self, binned_dataset: pd.DataFrame):
         """Test peak plot with multiple indices."""
+        from maldiamrkit.visualization import plot_peaks
+
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, axes = detector.plot_peaks(binned_dataset, indices=[0, 1])
+        fig, axes = plot_peaks(detector, binned_dataset, indices=[0, 1])
         assert fig is not None
         assert len(axes) == 2
         plt.close(fig)
 
     def test_plot_peaks_invalid_index(self, binned_dataset: pd.DataFrame):
         """Test plot_peaks with invalid index raises ValueError."""
+        from maldiamrkit.visualization import plot_peaks
+
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
         with pytest.raises(ValueError, match="out of bounds"):
-            detector.plot_peaks(binned_dataset, indices=[999])
+            plot_peaks(detector, binned_dataset, indices=[999])
 
     def test_plot_peaks_default_index(self, binned_dataset: pd.DataFrame):
         """Test plot_peaks with default index (None)."""
+        from maldiamrkit.visualization import plot_peaks
+
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, ax = detector.plot_peaks(binned_dataset)  # indices=None
+        fig, ax = plot_peaks(detector, binned_dataset)  # indices=None
         assert fig is not None
         plt.close(fig)
 
@@ -250,3 +258,26 @@ class TestPeakStatisticsEdgeCases:
         stats = detector.get_peak_statistics(binned_dataset.iloc[0])
         assert isinstance(stats, pd.DataFrame)
         assert len(stats) == 1
+
+    def test_statistics_no_peaks_found(self):
+        """Test statistics when no peaks are found."""
+        detector = MaldiPeakDetector(method="local", prominence=999)
+        flat = pd.DataFrame(np.zeros((1, 100)), columns=[str(i) for i in range(100)])
+        detector.fit(flat)
+        stats = detector.get_peak_statistics(flat)
+        assert stats.iloc[0]["n_peaks"] == 0
+        assert stats.iloc[0]["mean_intensity"] == 0.0
+        assert stats.iloc[0]["max_intensity"] == 0.0
+
+
+class TestPeakDetectorPHEdges:
+    """Edge case tests for persistent homology peak detection."""
+
+    @pytest.mark.slow
+    def test_constant_signal_returns_empty(self):
+        """Test _detect_peaks_ph with constant signal returns no peaks."""
+        detector = MaldiPeakDetector(method="ph")
+        constant = pd.DataFrame(np.ones((1, 100)), columns=[str(i) for i in range(100)])
+        detector.fit(constant)
+        result = detector.transform(constant)
+        assert result.iloc[0].sum() == 0

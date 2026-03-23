@@ -17,10 +17,6 @@ from maldiamrkit.filters import MetadataFilter, SpeciesFilter
 from maldiamrkit.preprocessing import PreprocessingPipeline, get_bin_metadata
 from maldiamrkit.preprocessing.binning import _uniform_edges
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def _make_binned_spectrum(sid: str = "in-memory", seed: int = 42) -> MaldiSpectrum:
     """Create a MaldiSpectrum with pre-set binned data.
@@ -61,11 +57,6 @@ def _make_binned_spectrum(sid: str = "in-memory", seed: int = 42) -> MaldiSpectr
     return spec
 
 
-# ---------------------------------------------------------------------------
-# TestMaldiSetInit
-# ---------------------------------------------------------------------------
-
-
 class TestMaldiSetInit:
     """Tests for MaldiSet initialization."""
 
@@ -84,7 +75,6 @@ class TestMaldiSetInit:
         )
         assert len(ds.spectra) == 3
         assert ds.antibiotics == ["Drug"]
-        assert ds.antibiotic == "Drug"
         assert ds.species == "taxon"
 
     def test_init_no_aggregate_by(self):
@@ -93,7 +83,6 @@ class TestMaldiSetInit:
         meta = pd.DataFrame({"ID": ["1s", "2s"]})
         ds = MaldiSet(specs, meta)
         assert ds.antibiotics is None
-        assert ds.antibiotic is None
         assert ds.species is None
         X = ds.X
         assert X.shape[0] == 2
@@ -110,14 +99,6 @@ class TestMaldiSetInit:
             aggregate_by={"antibiotics": ["Drug1", "Drug2"], "species": "taxon"},
         )
         assert ds.antibiotics == ["Drug1", "Drug2"]
-        assert ds.antibiotic == "Drug1"
-
-    def test_init_antibiotic_singular_key(self):
-        """Test that 'antibiotic' (singular) key is recognized."""
-        spec = _make_binned_spectrum("1s")
-        meta = pd.DataFrame({"ID": ["1s"], "Drug": ["S"]})
-        ds = MaldiSet([spec], meta, aggregate_by={"antibiotic": "Drug"})
-        assert ds.antibiotics == ["Drug"]
 
     def test_all_meta_columns_retained(self):
         """Test that all metadata columns are retained regardless of aggregate_by."""
@@ -179,11 +160,6 @@ class TestMaldiSetInit:
         assert ds.bin_width == 5
         assert ds.bin_method == "logarithmic"
         assert ds.bin_kwargs == {"foo": "bar"}
-
-
-# ---------------------------------------------------------------------------
-# TestMaldiSetFromDirectory
-# ---------------------------------------------------------------------------
 
 
 class TestMaldiSetFromDirectory:
@@ -295,11 +271,6 @@ class TestMaldiSetFromDirectory:
             pipeline=pipe,
         )
         assert len(ds.spectra) > 0
-
-
-# ---------------------------------------------------------------------------
-# TestMaldiSetProperties
-# ---------------------------------------------------------------------------
 
 
 class TestMaldiSetProperties:
@@ -487,11 +458,6 @@ class TestMaldiSetProperties:
         assert "bin_index" in bm.columns
 
 
-# ---------------------------------------------------------------------------
-# TestMaldiSetGetYSingle
-# ---------------------------------------------------------------------------
-
-
 class TestMaldiSetGetYSingle:
     """Tests for get_y_single method."""
 
@@ -511,7 +477,7 @@ class TestMaldiSetGetYSingle:
         spec = _make_binned_spectrum("1s")
         meta = pd.DataFrame({"ID": ["1s"], "Drug": ["R"], "Species": ["taxon"]})
         ds = MaldiSet(
-            [spec], meta, aggregate_by={"antibiotic": "Drug", "species": "taxon"}
+            [spec], meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
         )
         y = ds.get_y_single()
         assert isinstance(y, pd.Series)
@@ -532,11 +498,6 @@ class TestMaldiSetGetYSingle:
         ds = MaldiSet([spec], meta)
         with pytest.raises(ValueError, match="not found in metadata"):
             ds.get_y_single("NonExistent")
-
-
-# ---------------------------------------------------------------------------
-# TestMaldiSetFilter
-# ---------------------------------------------------------------------------
 
 
 class TestMaldiSetFilter:
@@ -604,11 +565,6 @@ class TestMaldiSetFilter:
         assert len(filtered.spectra) == 1
 
 
-# ---------------------------------------------------------------------------
-# TestMaldiSetExport
-# ---------------------------------------------------------------------------
-
-
 class TestMaldiSetExport:
     """Tests for to_csv, to_parquet, and __repr__."""
 
@@ -660,11 +616,6 @@ class TestMaldiSetExport:
         r = repr(ds)
         assert "n_spectra=1" in r
         assert "species='all'" in r
-
-
-# ---------------------------------------------------------------------------
-# TestSaveSpectra
-# ---------------------------------------------------------------------------
 
 
 class TestSaveSpectra:
@@ -757,11 +708,6 @@ class TestSaveSpectra:
         assert "Saved" in caplog.text
 
 
-# ---------------------------------------------------------------------------
-# TestMaldiSetReproducibility
-# ---------------------------------------------------------------------------
-
-
 class TestMaldiSetReproducibility:
     """Tests for reproducibility."""
 
@@ -778,11 +724,6 @@ class TestMaldiSetReproducibility:
             aggregate_by={"antibiotics": "Drug"},
         )
         pd.testing.assert_frame_equal(ds1.X.sort_index(), ds2.X.sort_index())
-
-
-# ---------------------------------------------------------------------------
-# TestMaldiSetPlot
-# ---------------------------------------------------------------------------
 
 
 class TestMaldiSetPlot:
@@ -803,85 +744,111 @@ class TestMaldiSetPlot:
 
     def test_plot_pseudogel_basic(self):
         """Test basic pseudogel plot."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(show=False)
+        fig, axes = plot_pseudogel(ds, show=False)
         assert fig is not None
         assert len(axes) == 2  # R and S groups
         plt.close(fig)
 
     def test_plot_pseudogel_single_region_tuple(self):
         """Test pseudogel with a single (min, max) region tuple."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(regions=(3000, 5000), show=False)
+        fig, axes = plot_pseudogel(ds, regions=(3000, 5000), show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_multiple_regions(self):
         """Test pseudogel with multiple region filters."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(regions=[(3000, 5000), (8000, 10000)], show=False)
+        fig, axes = plot_pseudogel(
+            ds, regions=[(3000, 5000), (8000, 10000)], show=False
+        )
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_no_log_scale(self):
         """Test pseudogel without log scale."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(log_scale=False, show=False)
+        fig, axes = plot_pseudogel(ds, log_scale=False, show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_no_sort(self):
         """Test pseudogel without intensity sorting."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(sort_by_intensity=False, show=False)
+        fig, axes = plot_pseudogel(ds, sort_by_intensity=False, show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_with_title(self):
         """Test pseudogel with custom title."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(title="My Title", show=False)
+        fig, axes = plot_pseudogel(ds, title="My Title", show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_custom_figsize(self):
         """Test pseudogel with custom figure size."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(figsize=(12, 6), show=False)
+        fig, axes = plot_pseudogel(ds, figsize=(12, 6), show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_vmin_vmax(self):
         """Test pseudogel with custom color scale."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
-        fig, axes = ds.plot_pseudogel(vmin=0.0, vmax=5.0, show=False)
+        fig, axes = plot_pseudogel(ds, vmin=0.0, vmax=5.0, show=False)
         assert fig is not None
         plt.close(fig)
 
     def test_plot_pseudogel_no_antibiotic_raises(self):
         """Test pseudogel raises when no antibiotic defined."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         spec = _make_binned_spectrum("1s")
         meta = pd.DataFrame({"ID": ["1s"]})
         ds = MaldiSet([spec], meta)
         with pytest.raises(ValueError, match="Antibiotic column not defined"):
-            ds.plot_pseudogel(show=False)
+            plot_pseudogel(ds, show=False)
 
     def test_plot_pseudogel_invalid_region_raises(self):
         """Test pseudogel raises for invalid region (min > max)."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
         with pytest.raises(ValueError, match="Invalid region"):
-            ds.plot_pseudogel(regions=[(10000, 3000)], show=False)
+            plot_pseudogel(ds, regions=[(10000, 3000)], show=False)
 
     def test_plot_pseudogel_no_mz_in_region_raises(self):
         """Test pseudogel raises when region contains no m/z values."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
         with pytest.raises(ValueError, match="No m/z values found"):
-            ds.plot_pseudogel(regions=[(0, 1)], show=False)
+            plot_pseudogel(ds, regions=[(0, 1)], show=False)
 
     def test_plot_pseudogel_show(self):
         """Test pseudogel with show=True (mocked)."""
+        from maldiamrkit.visualization import plot_pseudogel
+
         ds = self._make_dataset()
         with patch.object(plt, "show"):
-            fig, axes = ds.plot_pseudogel(show=True)
+            fig, axes = plot_pseudogel(ds, show=True)
         assert fig is not None
         plt.close(fig)

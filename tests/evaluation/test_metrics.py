@@ -134,15 +134,15 @@ class TestVmeMeCurve:
         y_true = np.array([1, 1, 1, 0, 0, 0])
         y_score = np.array([0.9, 0.7, 0.5, 0.4, 0.2, 0.1])
         vme_rates, me_rates, thresholds = vme_me_curve(y_true, y_score)
-        # At low thresholds: everything predicted resistant → VME=0, ME high
-        # At high thresholds: everything predicted susceptible → VME high, ME=0
+        # At low thresholds: everything predicted resistant -> VME=0, ME high
+        # At high thresholds: everything predicted susceptible -> VME high, ME=0
         assert vme_rates[0] <= vme_rates[-1] or me_rates[0] >= me_rates[-1]
 
     def test_extreme_thresholds(self):
         y_true = [1, 0]
         y_score = [0.8, 0.2]
         vme_rates, me_rates, thresholds = vme_me_curve(y_true, y_score)
-        # At lowest threshold (0.2): both predicted resistant → VME=0
+        # At lowest threshold (0.2): both predicted resistant -> VME=0
         assert vme_rates[0] == 0.0
 
 

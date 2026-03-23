@@ -8,15 +8,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from scipy.ndimage import gaussian_filter1d
 from sklearn.base import BaseEstimator, TransformerMixin
-from tslearn.metrics import dtw_path
 
 from ..detection.peak_detector import MaldiPeakDetector
 from ..io.readers import read_spectrum
 from ..preprocessing.binning import bin_spectrum
 from ..preprocessing.pipeline import preprocess
 from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
+from .strategies import ALIGNMENT_REGISTRY
 
 
 def create_raw_input(
@@ -239,6 +238,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
             Reference intensity values.
         ref_peaks_mz : np.ndarray
             Peak m/z positions in reference.
+
+        Notes
+        -----
+        For ``reference='median'``, all spectra are loaded into memory.
+        Memory usage is O(N * M) where N is the number of spectra and M
+        is the number of m/z points per spectrum.
         """
         if isinstance(self.reference, int):
             # Use specific spectrum as reference
@@ -324,9 +329,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
             )
 
         # Validate method
-        if self.method not in ["shift", "linear", "piecewise", "dtw"]:
+        if self.method not in ALIGNMENT_REGISTRY:
             raise ValueError(
-                f"Unknown method: {self.method}. Use: shift, linear, piecewise, dtw"
+                f"Unknown method: {self.method}. Use: {', '.join(ALIGNMENT_REGISTRY)}"
             )
 
         # Store preprocessing config
@@ -357,143 +362,22 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         return self
 
-    def _shift_raw(
-        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply global m/z shift based on peak matching."""
-        if len(peaks_mz) == 0 or len(self.ref_peaks_mz_) == 0:
-            return mz, intensity
-
-        # Match peaks to nearest reference peaks
-        shifts = []
-        for p in peaks_mz:
-            nearest_idx = np.argmin(np.abs(self.ref_peaks_mz_ - p))
-            nearest = self.ref_peaks_mz_[nearest_idx]
-            shifts.append(nearest - p)
-
-        shift_da = np.median(shifts) if shifts else 0.0
-        shift_da = np.clip(shift_da, -self.max_shift_da, self.max_shift_da)
-
-        return mz + shift_da, intensity
-
-    def _linear_raw(
-        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply linear m/z transformation: mz' = a*mz + b."""
-        if len(peaks_mz) < 2 or len(self.ref_peaks_mz_) < 2:
-            # Fall back to shift
-            return self._shift_raw(mz, intensity, peaks_mz)
-
-        # Match peaks to nearest reference peaks
-        sample_peaks = []
-        ref_peaks = []
-        for p in peaks_mz:
-            nearest_idx = np.argmin(np.abs(self.ref_peaks_mz_ - p))
-            nearest = self.ref_peaks_mz_[nearest_idx]
-            sample_peaks.append(p)
-            ref_peaks.append(nearest)
-
-        sample_peaks = np.array(sample_peaks)
-        ref_peaks = np.array(ref_peaks)
-
-        # Fit linear transformation: ref = a * sample + b
-        A = np.vstack([sample_peaks, np.ones_like(sample_peaks)]).T
-        a, b = np.linalg.lstsq(A, ref_peaks, rcond=None)[0]
-
-        # Apply transformation
-        new_mz = a * mz + b
-
-        return new_mz, intensity
-
-    def _piecewise_raw(
-        self, mz: np.ndarray, intensity: np.ndarray, peaks_mz: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply piecewise m/z transformation with smoothing."""
-        if len(peaks_mz) == 0 or len(self.ref_peaks_mz_) == 0:
-            return mz, intensity
-
-        # Match peaks to reference
-        sample_peaks = []
-        ref_peaks = []
-        for p in peaks_mz:
-            nearest_idx = np.argmin(np.abs(self.ref_peaks_mz_ - p))
-            nearest = self.ref_peaks_mz_[nearest_idx]
-            sample_peaks.append(p)
-            ref_peaks.append(nearest)
-
-        sample_peaks = np.array(sample_peaks)
-        ref_peaks = np.array(ref_peaks)
-
-        # Divide into segments
-        quantiles = np.linspace(0, 1, self.n_segments + 1)
-        boundaries = np.quantile(sample_peaks, quantiles)
-
-        seg_x, seg_shift = [], []
-        for q in range(self.n_segments):
-            if q == self.n_segments - 1:
-                mask = (sample_peaks >= boundaries[q]) & (
-                    sample_peaks <= boundaries[q + 1]
-                )
-            else:
-                mask = (sample_peaks >= boundaries[q]) & (
-                    sample_peaks < boundaries[q + 1]
-                )
-
-            if mask.sum() > 0:
-                seg_x.append(np.median(sample_peaks[mask]))
-                seg_shift.append(np.median(ref_peaks[mask] - sample_peaks[mask]))
-
-        if len(seg_x) == 0:
-            return mz, intensity
-
-        # Interpolate shifts across spectrum
-        shift_interp = np.interp(
-            mz, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1]
-        )
-
-        # Apply Gaussian smoothing
-        if self.smooth_sigma > 0:
-            # Estimate appropriate sigma based on m/z spacing
-            mz_spacing = np.median(np.diff(mz))
-            sigma_points = min(int(self.smooth_sigma / mz_spacing), len(mz) // 4)
-            if sigma_points > 1:
-                shift_interp = gaussian_filter1d(
-                    shift_interp, sigma=sigma_points, mode="nearest"
-                )
-
-        new_mz = mz + shift_interp
-
-        return new_mz, intensity
-
-    def _dtw_raw(
-        self, mz: np.ndarray, intensity: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply DTW alignment on raw spectra."""
-        # Resample query spectrum to reference m/z grid
-        query_intensity = np.interp(self.ref_mz_, mz, intensity)
-
-        # Compute DTW
-        path, distance = dtw_path(
-            query_intensity,
-            self.ref_intensity_,
-            global_constraint="sakoe_chiba",
-            sakoe_chiba_radius=self.dtw_radius,
-        )
-
-        # Create aligned intensity by following warping path
-        aligned_sum = np.zeros_like(self.ref_intensity_)
-        aligned_count = np.zeros_like(self.ref_intensity_)
-
-        for i, j in path:
-            if 0 <= j < len(aligned_sum):
-                aligned_sum[j] += query_intensity[i]
-                aligned_count[j] += 1
-
-        aligned_intensity = np.zeros_like(self.ref_intensity_)
-        mask = aligned_count > 0
-        aligned_intensity[mask] = aligned_sum[mask] / aligned_count[mask]
-
-        return self.ref_mz_, aligned_intensity
+    def _get_strategy(self):
+        """Build strategy instance from current parameters."""
+        cls = ALIGNMENT_REGISTRY[self.method]
+        if self.method == "shift":
+            return cls(max_shift=self.max_shift_da)
+        elif self.method == "linear":
+            return cls(max_shift=self.max_shift_da)
+        elif self.method == "piecewise":
+            return cls(
+                n_segments=self.n_segments,
+                smooth_sigma=self.smooth_sigma,
+                max_shift=self.max_shift_da,
+            )
+        elif self.method == "dtw":
+            return cls(dtw_radius=self.dtw_radius)
+        return cls()
 
     def _bin_warped(self, mz: np.ndarray, intensity: np.ndarray) -> pd.DataFrame:
         """Bin warped raw spectrum to output grid."""
@@ -512,27 +396,22 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
     def _process_single_sample(self, path: str) -> np.ndarray:
         """Process a single sample: load, warp, and bin."""
-        # Load raw spectrum
         spec_df = self._load_raw_spectrum(path)
         mz = spec_df["mass"].to_numpy()
         intensity = spec_df["intensity"].to_numpy()
 
-        # Detect peaks in raw spectrum
         peaks_mz = self._detect_peaks_mz(mz, intensity)
 
-        # Apply warping method
-        if self.method == "shift":
-            warped_mz, warped_int = self._shift_raw(mz, intensity, peaks_mz)
-        elif self.method == "linear":
-            warped_mz, warped_int = self._linear_raw(mz, intensity, peaks_mz)
-        elif self.method == "piecewise":
-            warped_mz, warped_int = self._piecewise_raw(mz, intensity, peaks_mz)
-        elif self.method == "dtw":
-            warped_mz, warped_int = self._dtw_raw(mz, intensity)
-        else:
-            raise ValueError(f"Unknown method: {self.method}")
+        strategy = self._get_strategy()
+        warped_mz, warped_int = strategy.align_raw(
+            mz,
+            intensity,
+            peaks_mz,
+            self.ref_peaks_mz_,
+            self.ref_mz_,
+            self.ref_intensity_,
+        )
 
-        # Bin to output grid
         binned = self._bin_warped(warped_mz, warped_int)
         return binned.set_index("mass")["intensity"].to_numpy()
 

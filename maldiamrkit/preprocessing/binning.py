@@ -47,28 +47,76 @@ def _logarithmic_edges(
     mz_max : float
         Upper m/z bound.
     bin_width : float
-        Reference bin width at mz_start in Daltons.
+        Reference bin width at mz_min in Daltons.
 
     Returns
     -------
     np.ndarray
-        Array of bin edges with width scaling as w(mz) = bin_width * (mz / mz_start).
+        Array of bin edges with width scaling as w(mz) = bin_width * (mz / mz_min).
     """
-    edges = [mz_min]
+    edges_list: list[float] = [mz_min]
     current = mz_min
 
     while current < mz_max:
         # Width at current position
         width = max(1.0, bin_width * (current / mz_min))
         current += width
-        edges.append(min(current, mz_max + width))
+        edges_list.append(min(current, mz_max + width))
 
-    edges = np.array(edges)
+    result = np.array(edges_list)
     # Ensure last edge covers mz_max
-    if edges[-1] < mz_max:
-        edges = np.append(edges, mz_max)
+    if result[-1] < mz_max:
+        result = np.append(result, mz_max)
 
-    return edges
+    return result
+
+
+def _estimate_peak_density(
+    peak_mz: np.ndarray,
+    mz_range: np.ndarray,
+    kde_bandwidth: float | None = None,
+    mz_min: float = 2000,
+    mz_max: float = 20000,
+) -> tuple[np.ndarray, float]:
+    """Estimate local peak density via Gaussian KDE.
+
+    Parameters
+    ----------
+    peak_mz : np.ndarray
+        Detected peak m/z positions.
+    mz_range : np.ndarray
+        Grid of m/z values to evaluate density on.
+    kde_bandwidth : float or None
+        Bandwidth for the Gaussian KDE. If None, uses Silverman's rule.
+    mz_min, mz_max : float
+        m/z bounds (used for fallback bandwidth).
+
+    Returns
+    -------
+    density : np.ndarray
+        Normalised density in [0, 1] on ``mz_range``.
+    bandwidth : float
+        Bandwidth used.
+    """
+    if kde_bandwidth is None:
+        n = len(peak_mz)
+        std = np.std(peak_mz)
+        iqr = np.subtract(*np.percentile(peak_mz, [75, 25]))
+        if n > 1 and std > 0 and iqr > 0:
+            kde_bandwidth = 0.9 * min(std, iqr / 1.34) * n ** (-0.2)
+        else:
+            kde_bandwidth = (mz_max - mz_min) / 50
+
+    # Vectorised KDE computation
+    density = np.exp(
+        -0.5 * ((mz_range[:, None] - peak_mz[None, :]) / kde_bandwidth) ** 2
+    ).sum(axis=1)
+
+    # Normalize to [0, 1]
+    if density.max() > 0:
+        density = density / density.max()
+
+    return density, kde_bandwidth
 
 
 def _adaptive_edges(
@@ -127,31 +175,15 @@ def _adaptive_edges(
 
     # Calculate local peak density using kernel density estimation
     mz_range = np.linspace(mz_min, mz_max, 1000)
-    if kde_bandwidth is None:
-        # Silverman's rule of thumb
-        n = len(peak_mz)
-        std = np.std(peak_mz)
-        iqr = np.subtract(*np.percentile(peak_mz, [75, 25]))
-        if n > 1 and std > 0 and iqr > 0:
-            kde_bandwidth = 0.9 * min(std, iqr / 1.34) * n ** (-0.2)
-        else:
-            kde_bandwidth = (mz_max - mz_min) / 50
-    bandwidth = kde_bandwidth
-
-    density = np.zeros_like(mz_range)
-    for pm in peak_mz:
-        density += np.exp(-0.5 * ((mz_range - pm) / bandwidth) ** 2)
-
-    # Normalize density to [0, 1]
-    if density.max() > 0:
-        density = density / density.max()
+    density, bandwidth = _estimate_peak_density(
+        peak_mz, mz_range, kde_bandwidth, mz_min, mz_max
+    )
 
     # Map density to bin width: high density -> small bins
-    # width = max_width - density * (max_width - min_width)
     width_at_mz = max_width - density * (max_width - min_width)
 
     # Generate edges based on variable widths
-    edges = [mz_min]
+    edges_list: list[float] = [mz_min]
     current = mz_min
     idx = 0
 
@@ -164,14 +196,14 @@ def _adaptive_edges(
 
         current += width
         if current <= mz_max + max_width:
-            edges.append(current)
+            edges_list.append(current)
 
-    edges = np.array(edges)
+    result = np.array(edges_list)
     # Ensure last edge covers mz_max
-    if edges[-1] < mz_max:
-        edges = np.append(edges, mz_max)
+    if result[-1] < mz_max:
+        result = np.append(result, mz_max)
 
-    return edges
+    return result
 
 
 def _validate_custom_edges(
@@ -251,6 +283,73 @@ def get_bin_metadata(edges: np.ndarray) -> pd.DataFrame:
     )
 
 
+def _uniform_edge_fn(*, mz_min, mz_max, bin_width, **_kwargs) -> np.ndarray:
+    """Generate uniform bin edges with validation."""
+    if bin_width < 1.0:
+        raise ValueError(f"bin_width must be >= 1 Dalton, got {bin_width}.")
+    return _uniform_edges(mz_min, mz_max, bin_width)
+
+
+def _logarithmic_edge_fn(*, mz_min, mz_max, bin_width, **_kwargs) -> np.ndarray:
+    """Generate logarithmic bin edges with validation."""
+    if bin_width < 1.0:
+        raise ValueError(f"bin_width must be >= 1 Dalton, got {bin_width}.")
+    return _logarithmic_edges(mz_min, mz_max, bin_width)
+
+
+def _adaptive_edge_fn(
+    *,
+    df,
+    mz_min,
+    mz_max,
+    adaptive_min_width=1.0,
+    adaptive_max_width=10.0,
+    adaptive_peak_prominence=None,
+    adaptive_kde_bandwidth=None,
+    **_kwargs,
+) -> np.ndarray:
+    """Generate adaptive bin edges with validation."""
+    if adaptive_min_width < 1.0:
+        raise ValueError(
+            f"adaptive_min_width must be >= 1 Dalton, got {adaptive_min_width}."
+        )
+    return _adaptive_edges(
+        df,
+        mz_min,
+        mz_max,
+        adaptive_min_width,
+        adaptive_max_width,
+        peak_prominence=adaptive_peak_prominence,
+        kde_bandwidth=adaptive_kde_bandwidth,
+    )
+
+
+def _custom_edge_fn(*, mz_min, mz_max, custom_edges=None, **_kwargs) -> np.ndarray:
+    """Validate and return custom bin edges."""
+    if custom_edges is None:
+        raise ValueError("custom_edges is required when method='custom'.")
+    return _validate_custom_edges(custom_edges, mz_min, mz_max)
+
+
+BINNING_REGISTRY: dict[str, callable] = {
+    "uniform": _uniform_edge_fn,
+    "logarithmic": _logarithmic_edge_fn,
+    "adaptive": _adaptive_edge_fn,
+    "custom": _custom_edge_fn,
+}
+"""Registry mapping binning method names to edge-generator functions.
+
+To add a custom binning method::
+
+    from maldiamrkit.preprocessing.binning import BINNING_REGISTRY
+
+    def my_edges(*, mz_min, mz_max, **kwargs):
+        return np.array([mz_min, (mz_min + mz_max) / 2, mz_max])
+
+    BINNING_REGISTRY["my_method"] = my_edges
+"""
+
+
 def bin_spectrum(
     df: pd.DataFrame,
     mz_min: int = 2000,
@@ -280,7 +379,7 @@ def bin_spectrum(
         Upper m/z bound in Daltons.
     bin_width : int or float, default=3
         Width of each bin in Daltons. For 'uniform', this is the fixed width.
-        For 'logarithmic', this is the reference width at mz_start.
+        For 'logarithmic', this is the reference width at mz_min.
         Ignored for 'adaptive' and 'custom' methods.
     method : str, default='uniform'
         Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
@@ -327,40 +426,27 @@ def bin_spectrum(
     >>> edges = [2000, 5000, 10000, 15000, 20000]
     >>> binned, metadata = bin_spectrum(df, method='custom', custom_edges=edges)
     """
-    valid_methods = ("uniform", "logarithmic", "adaptive", "custom")
-    if method not in valid_methods:
-        raise ValueError(f"Invalid method '{method}'. Must be one of {valid_methods}.")
+    if method not in BINNING_REGISTRY:
+        raise ValueError(
+            f"Invalid method '{method}'. Must be one of {tuple(BINNING_REGISTRY)}."
+        )
 
     if mz_min >= mz_max:
         raise ValueError(f"mz_min ({mz_min}) must be less than mz_max ({mz_max}).")
 
-    # Validate bin_width minimum
-    if method in ("uniform", "logarithmic") and bin_width < 1.0:
-        raise ValueError(f"bin_width must be >= 1 Dalton, got {bin_width}.")
-
-    # Generate bin edges based on method
-    if method == "uniform":
-        edges = _uniform_edges(mz_min, mz_max, bin_width)
-    elif method == "logarithmic":
-        edges = _logarithmic_edges(mz_min, mz_max, bin_width)
-    elif method == "adaptive":
-        if adaptive_min_width < 1.0:
-            raise ValueError(
-                f"adaptive_min_width must be >= 1 Dalton, got {adaptive_min_width}."
-            )
-        edges = _adaptive_edges(
-            df,
-            mz_min,
-            mz_max,
-            adaptive_min_width,
-            adaptive_max_width,
-            peak_prominence=adaptive_peak_prominence,
-            kde_bandwidth=adaptive_kde_bandwidth,
-        )
-    elif method == "custom":
-        if custom_edges is None:
-            raise ValueError("custom_edges is required when method='custom'.")
-        edges = _validate_custom_edges(custom_edges, mz_min, mz_max)
+    # Generate bin edges via registry
+    edge_fn = BINNING_REGISTRY[method]
+    edges = edge_fn(
+        df=df,
+        mz_min=mz_min,
+        mz_max=mz_max,
+        bin_width=bin_width,
+        custom_edges=custom_edges,
+        adaptive_min_width=adaptive_min_width,
+        adaptive_max_width=adaptive_max_width,
+        adaptive_peak_prominence=adaptive_peak_prominence,
+        adaptive_kde_bandwidth=adaptive_kde_bandwidth,
+    )
 
     # Generate bin metadata
     metadata = get_bin_metadata(edges)

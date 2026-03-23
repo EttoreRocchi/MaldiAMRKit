@@ -16,9 +16,7 @@ if TYPE_CHECKING:
 
 def _get_spectrum_df(spectrum: MaldiSpectrum) -> pd.DataFrame:
     """Return preprocessed data if available, otherwise raw."""
-    if spectrum._preprocessed is not None:
-        return spectrum.preprocessed
-    return spectrum.raw
+    return spectrum.get_data(prefer="preprocessed")
 
 
 @dataclass

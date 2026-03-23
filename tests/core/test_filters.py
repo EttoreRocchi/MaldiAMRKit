@@ -214,3 +214,49 @@ class TestFilterComposition:
     def test_base_class_cannot_be_instantiated(self):
         with pytest.raises(TypeError):
             SpectrumFilter()
+
+
+class TestFilterRepr:
+    """Tests for __repr__ methods on filter classes."""
+
+    def test_and_filter_repr(self):
+        f = SpeciesFilter("A") & SpeciesFilter("B")
+        r = repr(f)
+        assert "SpeciesFilter" in r
+        assert "&" in r
+
+    def test_or_filter_repr(self):
+        f = SpeciesFilter("A") | SpeciesFilter("B")
+        r = repr(f)
+        assert "|" in r
+
+    def test_not_filter_repr(self):
+        f = ~SpeciesFilter("A")
+        r = repr(f)
+        assert "~" in r
+
+    def test_species_filter_repr_multiple(self):
+        f = SpeciesFilter(["A", "B"])
+        r = repr(f)
+        assert "SpeciesFilter" in r
+
+    def test_quality_filter_repr_all_params(self):
+        f = QualityFilter(min_snr=5.0, min_peaks=10, max_baseline_fraction=0.5)
+        r = repr(f)
+        assert "min_snr" in r
+        assert "min_peaks" in r
+        assert "max_baseline_fraction" in r
+
+
+class TestDrugFilterNaN:
+    """Tests for DrugFilter with NaN values."""
+
+    def test_nan_value_excluded(self):
+        row = pd.Series({"Drug": float("nan")}, name="s1")
+        f = DrugFilter("Drug")
+        assert not f(row)
+
+    def test_nan_with_status_filter(self):
+        row = pd.Series({"Drug": float("nan")}, name="s1")
+        f = DrugFilter("Drug", status="R")
+        assert not f(row)

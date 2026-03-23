@@ -125,7 +125,7 @@ Quality Metrics
    :show-inheritance:
 
 .. autoclass:: maldiamrkit.preprocessing.SpectrumQualityReport
-   :no-index:
+   :no-members:
    :show-inheritance:
 
 Usage Example
