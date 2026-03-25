@@ -3,6 +3,19 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] - 2026-03-25
+
+### Added
+
+- **DRIAMS dataset loader**: `load_driams_dataset()` function for loading DRIAMS-formatted directories into `MaldiSet` objects, with auto-detection of processing stage (binned > preprocessed > raw), year-based layouts, and ID column.
+- **mzML/mzXML support**: `read_spectrum()` now reads `.mzML` and `.mzXML` files via optional `pyteomics` dependency.
+- **`[formats]` install extra**: `pip install maldiamrkit[formats]` installs `pyteomics` and `lxml` for mzML/mzXML parsing.
+
+### Docs
+
+- Updated API reference, installation guide, and quickstart for the new loader and mzML/mzXML support.
+- Tutorials index now uses proper toctree entries with a notebook symlink.
+
 ## [0.8.0] - 2026-03-23
 
 ### Added

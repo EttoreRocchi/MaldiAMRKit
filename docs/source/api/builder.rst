@@ -1,12 +1,17 @@
-Dataset Builder
-===============
+Dataset Builder & Loader
+========================
 
-Build DRIAMS-like dataset directories from raw spectra and metadata.
+Build and load DRIAMS-like dataset directories.
 
 build_driams_dataset
 --------------------
 
 .. autofunction:: maldiamrkit.builder.build_driams_dataset
+
+load_driams_dataset
+-------------------
+
+.. autofunction:: maldiamrkit.loader.load_driams_dataset
 
 ProcessingHandler
 -----------------

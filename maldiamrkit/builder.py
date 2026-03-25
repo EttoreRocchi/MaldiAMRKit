@@ -56,11 +56,6 @@ from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
-
-
 @dataclasses.dataclass
 class ProcessingHandler:
     """Define an additional processing output folder.
@@ -185,11 +180,6 @@ class BuildReport:
     failed_ids: list[str]
     output_dir: Path
     folders_created: list[str]
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
 
 
 def _save_driams_spectrum(df: pd.DataFrame, path: Path) -> None:
@@ -321,11 +311,6 @@ def _process_single_spectrum(
     except Exception as exc:
         logger.warning("Failed to process %s: %s", spec_id, exc)
         return None
-
-
-# ---------------------------------------------------------------------------
-# Build helpers
-# ---------------------------------------------------------------------------
 
 
 def _validate_inputs(
@@ -481,11 +466,6 @@ def _write_metadata(
         meta_matched = meta_matched.drop(columns=["_year"])
     else:
         meta_matched.to_csv(output_dir / "id" / f"{name}_clean.csv", index=False)
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def build_driams_dataset(

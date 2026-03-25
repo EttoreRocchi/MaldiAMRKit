@@ -51,7 +51,8 @@ pip install -e .[dev]
 - **Evaluation Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report`
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
 - **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
-- **DRIAMS Dataset Building**: Build DRIAMS-like dataset directories from raw spectra and metadata via `build_driams_dataset()`, with year-based subfolders and custom processing handlers
+- **DRIAMS Dataset Building & Loading**: Build and load DRIAMS-like dataset directories from raw spectra and metadata via `build_driams_dataset()` / `load_driams_dataset()`, with year-based subfolders and custom processing handlers
+- **mzML/mzXML Support**: Read standard mass spectrometry formats via optional `pyteomics` dependency (`pip install maldiamrkit[formats]`)
 - **Spectrum Export**: Save individual spectra (raw, preprocessed, or binned) to CSV or TXT via `MaldiSet.save_spectra()`
 - **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` commands for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
@@ -482,6 +483,6 @@ Publications using `MaldiAMRKit`:
 
 This toolkit is inspired by:
 
-> **Weis, C., Cuénod, A., Rieck, B., et al.** (2022). *Direct antimicrobial resistance prediction from clinical MALDI-TOF mass spectra using machine learning*. **Nature Medicine**, 28, 164–174. [https://doi.org/10.1038/s41591-021-01619-9](https://doi.org/10.1038/s41591-021-01619-9)
+> **Weis, C., Cuénod, A., Rieck, B., et al.** (2022). *Direct antimicrobial resistance prediction from clinical MALDI-TOF mass spectra using machine learning*. **Nature Medicine**, 28, 164-174. [https://doi.org/10.1038/s41591-021-01619-9](https://doi.org/10.1038/s41591-021-01619-9)
 
 Please consider citing this work if you find `MaldiAMRKit` useful.

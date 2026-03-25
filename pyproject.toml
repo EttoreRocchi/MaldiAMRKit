@@ -42,6 +42,7 @@ dependencies = {file = ["requirements.txt"]}
 [tool.setuptools.dynamic.optional-dependencies]
 docs = {file = ["requirements-docs.txt"]}
 dev = {file = ["requirements-dev.txt"]}
+formats = {file = ["requirements-formats.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]

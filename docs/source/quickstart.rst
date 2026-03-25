@@ -304,6 +304,28 @@ The output structure follows the DRIAMS convention:
    ├── binned_3000/{year}/
    └── id/{year}/{year}_clean.csv
 
+Loading DRIAMS Datasets
+-----------------------
+
+Load an existing DRIAMS-formatted dataset (built with
+``build_driams_dataset`` or downloaded from the public DRIAMS repository):
+
+.. code-block:: python
+
+   from maldiamrkit import load_driams_dataset
+
+   # Auto-detect stage (prefers binned), load all years
+   ds = load_driams_dataset("output/my_dataset")
+   print(ds.X.shape)
+
+   # Load a specific stage and year
+   ds = load_driams_dataset(
+       "output/my_dataset",
+       stage="preprocessed",
+       year=2015,
+       aggregate_by=dict(antibiotics="Ceftriaxone"),
+   )
+
 Command-Line Interface
 ----------------------
 

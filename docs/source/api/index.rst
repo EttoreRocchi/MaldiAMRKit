@@ -114,6 +114,7 @@ Dataset Building
    :nosignatures:
 
    maldiamrkit.builder.build_driams_dataset
+   maldiamrkit.loader.load_driams_dataset
    maldiamrkit.builder.ProcessingHandler
    maldiamrkit.builder.BuildReport
 

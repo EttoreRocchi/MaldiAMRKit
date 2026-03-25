@@ -6,22 +6,10 @@ Interactive tutorials demonstrating MaldiAMRKit usage.
 .. toctree::
    :maxdepth: 2
 
-Jupyter Notebooks
------------------
-
-The following Jupyter notebooks are available in the ``notebooks/`` directory:
-
-- **01_quick_start.ipynb** - Loading, preprocessing, binning, and quality assessment
-- **02_peak_detection.ipynb** - Local maxima and persistent homology methods
-- **03_alignment.ipynb** - Warping methods and alignment quality
-- **04_evaluation.ipynb** - AMR metrics, label encoding, and stratified splitting
-
-To view the notebooks, navigate to the ``notebooks/`` directory and start Jupyter:
-
-.. code-block:: bash
-
-   cd notebooks
-   jupyter notebook
+   notebooks/01_quick_start
+   notebooks/02_peak_detection
+   notebooks/03_alignment
+   notebooks/04_evaluation
 
 Example Workflows
 -----------------
