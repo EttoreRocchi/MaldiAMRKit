@@ -317,3 +317,22 @@ class TestWarpingValidation:
         w = Warping(method="shift")
         with pytest.raises(RuntimeError, match="fitted"):
             w.get_alignment_quality(binned_dataset)
+
+    def test_transform_feature_mismatch(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift")
+        w.fit(binned_dataset)
+        wrong_cols = binned_dataset.iloc[:, :10]
+        with pytest.raises(ValueError, match="does not match"):
+            w.transform(wrong_cols)
+
+    def test_alignment_quality_nan_correlation(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="shift")
+        w.fit(binned_dataset)
+        X_aligned = w.transform(binned_dataset)
+        X_const = binned_dataset.copy()
+        X_const.iloc[0] = 0.0
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            with pytest.warns(UserWarning, match="constant signal"):
+                quality = w.get_alignment_quality(X_const, X_aligned)
+        assert quality.loc[X_const.index[0], "correlation_before"] == 0.0

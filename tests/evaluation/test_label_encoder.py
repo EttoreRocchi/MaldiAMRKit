@@ -1,6 +1,7 @@
 """Unit tests for LabelEncoder."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from maldiamrkit.evaluation import LabelEncoder
@@ -74,3 +75,46 @@ class TestLabelEncoder:
         enc = LabelEncoder()
         with pytest.raises(ValueError, match="Unrecognized"):
             enc.transform(["R", "X", "unknown"])
+
+    def test_transform_dataframe(self):
+        enc = LabelEncoder()
+        df = pd.DataFrame({"Drug1": ["R", "S", "R"], "Drug2": ["S", "R", "S"]})
+        result = enc.fit_transform(df)
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["Drug1", "Drug2"]
+        np.testing.assert_array_equal(result["Drug1"].values, [1, 0, 1])
+        np.testing.assert_array_equal(result["Drug2"].values, [0, 1, 0])
+
+    def test_transform_2d_ndarray(self):
+        enc = LabelEncoder()
+        arr = np.array([["R", "S"], ["S", "R"], ["R", "R"]])
+        result = enc.fit_transform(arr)
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape == (3, 2)
+        np.testing.assert_array_equal(result[0].values, [1, 0, 1])
+        np.testing.assert_array_equal(result[1].values, [0, 1, 1])
+
+    def test_intermediate_nan_1d(self):
+        enc = LabelEncoder(intermediate="nan")
+        result = enc.fit_transform(["R", "I", "S", "I"])
+        assert result.dtype == np.float64
+        assert result[0] == 1.0
+        assert np.isnan(result[1])
+        assert result[2] == 0.0
+        assert np.isnan(result[3])
+
+    def test_intermediate_nan_2d(self):
+        enc = LabelEncoder(intermediate="nan")
+        df = pd.DataFrame({"D1": ["R", "I", "S"], "D2": ["S", "S", "I"]})
+        result = enc.fit_transform(df)
+        assert isinstance(result, pd.DataFrame)
+        assert result.loc[0, "D1"] == 1.0
+        assert np.isnan(result.loc[1, "D1"])
+        assert result.loc[1, "D2"] == 0.0
+        assert np.isnan(result.loc[2, "D2"])
+
+    def test_1d_returns_ndarray(self):
+        enc = LabelEncoder()
+        result = enc.fit_transform(["R", "S"])
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 1

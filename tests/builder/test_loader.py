@@ -185,7 +185,7 @@ class TestDiscoverMetadata:
 
 
 class TestLoadDriamsDataset:
-    """End-to-end tests: build → load → verify."""
+    """End-to-end tests: build -> load -> verify."""
 
     def test_round_trip_flat(self, built_dataset):
         ds = load_driams_dataset(built_dataset, n_jobs=1)

@@ -15,8 +15,6 @@ Examples
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 from pybaselines import Baseline
@@ -271,14 +269,13 @@ class PQNNormalizer:
         # Step 2: quotient normalization if reference is available
         if self.reference is not None:
             if len(self.reference) != len(df):
-                warnings.warn(
+                raise ValueError(
                     f"PQNNormalizer reference length ({len(self.reference)}) differs "
-                    f"from input length ({len(df)}). This may produce invalid "
-                    f"normalization due to misaligned m/z positions.",
-                    UserWarning,
-                    stacklevel=2,
+                    f"from input length ({len(df)}). This produces invalid "
+                    f"normalization due to misaligned m/z positions. Ensure the "
+                    f"reference was computed on spectra with the same m/z grid."
                 )
-            ref = self.reference[: len(df)]
+            ref = self.reference
             mask = ref > 0
             if mask.any():
                 quotients = df.loc[mask, "intensity"].values / ref[mask]

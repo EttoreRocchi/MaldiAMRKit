@@ -267,7 +267,7 @@ class TestPQNNormalizerEdges:
         ref = np.ones(200)
         pqn = PQNNormalizer(reference=ref)
         df = _make_df(np.ones(50))
-        with pytest.warns(UserWarning, match="reference length"):
+        with pytest.raises(ValueError, match="reference length"):
             pqn(df)
 
     def test_no_positive_reference(self):

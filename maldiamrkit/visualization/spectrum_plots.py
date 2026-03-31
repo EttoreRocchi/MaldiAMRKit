@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import matplotlib.pyplot as plt
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
     from ..dataset import MaldiSet
     from ..spectrum import MaldiSpectrum
@@ -17,9 +18,9 @@ if TYPE_CHECKING:
 def plot_spectrum(
     spectrum: MaldiSpectrum,
     binned: bool = True,
-    ax: plt.Axes | None = None,
-    **kwargs,
-) -> plt.Axes:
+    ax: Axes | None = None,
+    **kwargs: Any,
+) -> Axes:
     """Plot a single MALDI-TOF spectrum.
 
     Parameters
@@ -66,12 +67,12 @@ def plot_pseudogel(
     cmap: str = "inferno",
     vmin: float | None = None,
     vmax: float | None = None,
-    figsize: tuple[int, int] | None = None,
+    figsize: tuple[float, float] | None = None,
     log_scale: bool = True,
     sort_by_intensity: bool = True,
     title: str | None = None,
     show: bool = True,
-) -> tuple[plt.Figure, np.ndarray]:
+) -> tuple[Figure, np.ndarray]:
     """Display a pseudogel heatmap of the spectra.
 
     Creates one subplot for each unique value of the antibiotic column.

@@ -1,0 +1,3 @@
+# Optional dependencies for batch effect correction and UMAP exploratory plots
+umap-learn>=0.5
+combatlearn>=1.3

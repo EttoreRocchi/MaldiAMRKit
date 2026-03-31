@@ -29,6 +29,28 @@
 pip install maldiamrkit
 ```
 
+### Optional: mzML/mzXML Format Support
+
+```bash
+pip install maldiamrkit[formats]
+```
+
+Installs [`pyteomics`](https://pyteomics.readthedocs.io/) and `lxml` for reading standard mass spectrometry data formats.
+
+### Optional: Batch Correction & UMAP
+
+```bash
+pip install maldiamrkit[batch]
+```
+
+Installs [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) for ComBat-based batch effect correction and `umap-learn` for UMAP exploratory plots.
+
+### Optional: All Extras
+
+```bash
+pip install maldiamrkit[all]
+```
+
 ### Development Installation
 
 ```bash
@@ -56,6 +78,8 @@ pip install -e .[dev]
 - **Spectrum Export**: Save individual spectra (raw, preprocessed, or binned) to CSV or TXT via `MaldiSet.save_spectra()`
 - **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` commands for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
+- **Exploratory Visualizations**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
+- **Batch Effect Correction**: Multi-site/multi-instrument correction via [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) (`pip install maldiamrkit[batch]`)
 - **ML-Ready**: Direct integration with scikit-learn pipelines
 
 ## Quick Start
@@ -168,6 +192,37 @@ print(spec.bin_metadata.head())
 - `logarithmic`: Bin width scales with m/z (matches instrument resolution)
 - `adaptive`: Smaller bins where peaks are dense, larger bins elsewhere
 - `custom`: User-defined bin edges for domain-specific analysis
+
+### Exploratory Visualizations
+
+```python
+from maldiamrkit.visualization import plot_pca, plot_tsne, plot_umap
+
+# PCA colored by resistance phenotype
+fig, ax = plot_pca(data.X, color_by=data.get_y_single("Drug"))
+
+# t-SNE colored by species
+fig, ax = plot_tsne(data.X, color_by=data.meta.loc[data.X.index, "Species"], perplexity=15)
+
+# UMAP (requires: pip install maldiamrkit[batch])
+fig, ax = plot_umap(data.X, color_by=data.get_y_single("Drug"))
+```
+
+### Batch Effect Correction
+
+For multi-site data, use [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) directly:
+
+```python
+from combatlearn import Combat
+
+combat = Combat(method="fortin")
+combat.fit(X, y=batch_labels)
+X_corrected = combat.transform(X, y=batch_labels)
+```
+
+See the [combatlearn documentation](https://combatlearn.readthedocs.io/) for full usage.
+
+> Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). [doi:10.1186/s12866-025-04657-2](https://link.springer.com/article/10.1186/s12866-025-04657-2)
 
 ### Machine Learning Pipeline
 
@@ -374,6 +429,32 @@ from sklearn.model_selection import cross_val_score
 scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
 ```
 
+### Multi-Drug AMR Prediction
+
+Predict resistance to multiple antibiotics simultaneously:
+
+```python
+from maldiamrkit.evaluation import LabelEncoder, amr_multilabel_report
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+# Encode multi-drug labels (I -> NaN)
+enc = LabelEncoder(intermediate="nan")
+y_encoded = enc.fit_transform(data.y)
+
+# Multi-output classifier
+clf = MultiOutputClassifier(RandomForestClassifier(random_state=42))
+clf.fit(X_train, y_train)
+
+# Per-drug evaluation report
+report = amr_multilabel_report(y_test, y_pred, as_dataframe=True)
+print(report)
+#              vme    me  sensitivity  specificity  ...
+# Drug1       0.10  0.05         0.90         0.95  ...
+# Drug2       0.20  0.08         0.80         0.92  ...
+# macro_avg   0.15  0.065        0.85         0.935 ...
+```
+
 ### Stratified Splitting
 
 Prevent data leakage with species-aware and patient-grouped splits:
@@ -464,6 +545,7 @@ For more detailed examples, see the notebooks:
 - [Peak Detection](notebooks/02_peak_detection.ipynb) - Local maxima and persistent homology methods
 - [Alignment](notebooks/03_alignment.ipynb) - Warping methods and alignment quality
 - [Evaluation](notebooks/04_evaluation.ipynb) - AMR metrics, label encoding, and stratified splitting
+- [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
 
 ## Contributing
 

@@ -50,6 +50,13 @@ Key Features
    :gutter: 3
    :class-container: feature-grid
 
+   .. grid-item-card:: Exploratory Plots
+      :link: api/visualization.html#exploratory-plots
+      :link-type: url
+
+      PCA, t-SNE, and UMAP scatter plots colored by species, resistance
+      phenotype, or any metadata column.
+
    .. grid-item-card:: Sklearn Pipelines
       :link: quickstart.html#building-ml-pipelines
       :link-type: url

@@ -3,6 +3,26 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.10.0] - 2026-03-31
+
+### Added
+
+- **Exploratory visualizations**: `plot_pca`, `plot_tsne`, `plot_umap` functions for dimensionality reduction scatter plots colored by metadata columns (species, resistance phenotype, batch). UMAP requires the `[batch]` optional extra.
+- **Multi-drug AMR evaluation**: `amr_multilabel_report()` computes per-drug VME, ME, sensitivity, specificity, and categorical agreement with macro-average, supporting `as_dataframe=True`.
+- **LabelEncoder 2-D support**: `LabelEncoder` now accepts DataFrames (multi-drug labels) and returns encoded DataFrames. New `intermediate="nan"` mode maps intermediate labels to `NaN` for independent per-drug handling.
+- **`[batch]` install extra**: `pip install maldiamrkit[batch]` installs `combatlearn` for ComBat-based batch effect correction and `umap-learn` for UMAP plots.
+- **`[all]` install extra**: `pip install maldiamrkit[all]` installs all optional dependencies (formats + batch).
+
+### Fixed
+
+- Notebook images on ReadTheDocs: fixed broken image extraction on ReadTheDocs.
+
+### Changed
+
+- Updated installation guide with `[batch]` and `[all]` extras, combatlearn links and reference.
+- Added exploratory plots and multi-drug evaluation sections to API reference, quickstart, and README.
+- Tutorial notebook `05_exploration.ipynb` demonstrating PCA, t-SNE, UMAP, and batch correction workflow.
+
 ## [0.9.0] - 2026-03-25
 
 ### Added
@@ -11,10 +31,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **mzML/mzXML support**: `read_spectrum()` now reads `.mzML` and `.mzXML` files via optional `pyteomics` dependency.
 - **`[formats]` install extra**: `pip install maldiamrkit[formats]` installs `pyteomics` and `lxml` for mzML/mzXML parsing.
 
-### Docs
+### Changed
 
 - Updated API reference, installation guide, and quickstart for the new loader and mzML/mzXML support.
-- Tutorials index now uses proper toctree entries with a notebook symlink.
 
 ## [0.8.0] - 2026-03-23
 
@@ -35,6 +54,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [0.7.0] - 2026-02-10
 
 First changelog-tracked release of MaldiAMRKit.
+
+### Added
 
 - **Spectral preprocessing**: composable pipeline of transformers (smoothing, baseline correction, normalization, trimming) with multiple binning strategies (uniform, logarithmic, adaptive, custom) and raw-spectrum alignment (shift, linear, piecewise, DTW).
 - **AMR evaluation**: VME/ME rates, sensitivity, specificity, and classification reports following EUCAST/CLSI conventions; species-drug stratified and case-based splitting to prevent data leakage.

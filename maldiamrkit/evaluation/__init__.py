@@ -3,6 +3,7 @@
 from .label_encoder import LabelEncoder
 from .metrics import (
     amr_classification_report,
+    amr_multilabel_report,
     categorical_agreement,
     major_error_rate,
     me_scorer,
@@ -28,6 +29,7 @@ __all__ = [
     "categorical_agreement",
     "vme_me_curve",
     "amr_classification_report",
+    "amr_multilabel_report",
     "vme_scorer",
     "me_scorer",
     # Splitting

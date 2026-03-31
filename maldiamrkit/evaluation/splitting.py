@@ -6,6 +6,8 @@ to prevent data leakage and ensure balanced evaluation of AMR classifiers.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import (
@@ -185,11 +187,22 @@ class SpeciesDrugStratifiedKFold:
         self.random_state = random_state
         self.min_count = min_count
 
-    def get_n_splits(self, X=None, y=None, groups=None):
+    def get_n_splits(
+        self,
+        X: pd.DataFrame | np.ndarray | None = None,
+        y: np.ndarray | None = None,
+        groups: np.ndarray | None = None,
+    ) -> int:
         """Return the number of splits."""
         return self.n_splits
 
-    def split(self, X, y, species=None, groups=None):
+    def split(
+        self,
+        X: pd.DataFrame | np.ndarray,
+        y: np.ndarray,
+        species: np.ndarray | None = None,
+        groups: np.ndarray | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Generate train/test indices for each fold.
 
         Parameters
@@ -246,11 +259,21 @@ class CaseGroupedKFold:
     def __init__(self, n_splits: int = 5):
         self.n_splits = n_splits
 
-    def get_n_splits(self, X=None, y=None, groups=None):
+    def get_n_splits(
+        self,
+        X: pd.DataFrame | np.ndarray | None = None,
+        y: np.ndarray | None = None,
+        groups: np.ndarray | None = None,
+    ) -> int:
         """Return the number of splits."""
         return self.n_splits
 
-    def split(self, X, y=None, groups=None):
+    def split(
+        self,
+        X: pd.DataFrame | np.ndarray,
+        y: np.ndarray | None = None,
+        groups: np.ndarray | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Generate train/test indices for each fold.
 
         Parameters

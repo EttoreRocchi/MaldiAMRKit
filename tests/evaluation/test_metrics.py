@@ -1,10 +1,12 @@
 """Tests for AMR evaluation metrics."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from maldiamrkit.evaluation import (
     amr_classification_report,
+    amr_multilabel_report,
     categorical_agreement,
     major_error_rate,
     me_scorer,
@@ -257,3 +259,45 @@ class TestVmeMeCurveCustomLabels:
         assert len(thresholds) > 0
         # At lowest threshold, all predicted resistant -> VME should be 0
         assert vme_rates[0] == 0.0
+
+
+class TestAmrMultilabelReport:
+    def test_basic(self):
+        y_true = pd.DataFrame({"Drug1": [1, 1, 0, 0], "Drug2": [0, 0, 1, 1]})
+        y_pred = pd.DataFrame({"Drug1": [1, 0, 0, 0], "Drug2": [0, 1, 1, 1]})
+        report = amr_multilabel_report(y_true, y_pred)
+        assert "Drug1" in report
+        assert "Drug2" in report
+        assert "macro_avg" in report
+        assert report["Drug1"]["vme"] == 0.5
+        assert report["Drug2"]["me"] == pytest.approx(0.5)
+
+    def test_as_dataframe(self):
+        y_true = pd.DataFrame({"A": [1, 1, 0], "B": [0, 1, 0]})
+        y_pred = pd.DataFrame({"A": [1, 1, 0], "B": [0, 1, 0]})
+        df = amr_multilabel_report(y_true, y_pred, as_dataframe=True)
+        assert isinstance(df, pd.DataFrame)
+        assert "macro_avg" in df.index
+        assert "A" in df.index
+        assert "vme" in df.columns
+
+    def test_with_nan(self):
+        y_true = pd.DataFrame({"D1": [1, 0, np.nan], "D2": [0, 1, 1]})
+        y_pred = pd.DataFrame({"D1": [1, 0, 1], "D2": [0, 1, 0]})
+        report = amr_multilabel_report(y_true, y_pred)
+        assert report["D1"]["n_total"] == 2
+        assert report["D2"]["n_total"] == 3
+
+    def test_single_drug(self):
+        y_true = pd.DataFrame({"Drug": [1, 1, 0, 0]})
+        y_pred = pd.DataFrame({"Drug": [1, 0, 0, 0]})
+        report = amr_multilabel_report(y_true, y_pred)
+        assert "Drug" in report
+        assert "macro_avg" in report
+        assert report["Drug"]["vme"] == report["macro_avg"]["vme"]
+
+    def test_no_common_columns_raises(self):
+        y_true = pd.DataFrame({"A": [1, 0]})
+        y_pred = pd.DataFrame({"B": [1, 0]})
+        with pytest.raises(ValueError, match="No common columns"):
+            amr_multilabel_report(y_true, y_pred)

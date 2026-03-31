@@ -87,6 +87,7 @@ Evaluation
    maldiamrkit.evaluation.specificity_score
    maldiamrkit.evaluation.categorical_agreement
    maldiamrkit.evaluation.amr_classification_report
+   maldiamrkit.evaluation.amr_multilabel_report
    maldiamrkit.evaluation.vme_me_curve
    maldiamrkit.evaluation.vme_scorer
    maldiamrkit.evaluation.me_scorer
@@ -106,6 +107,9 @@ Visualization
    maldiamrkit.visualization.plot_pseudogel
    maldiamrkit.visualization.plot_peaks
    maldiamrkit.visualization.plot_alignment
+   maldiamrkit.visualization.plot_pca
+   maldiamrkit.visualization.plot_tsne
+   maldiamrkit.visualization.plot_umap
 
 Dataset Building
 ----------------

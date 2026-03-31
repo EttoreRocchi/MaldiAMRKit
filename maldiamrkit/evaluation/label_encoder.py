@@ -17,6 +17,7 @@ array([1])
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
@@ -24,6 +25,8 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
     """Encode R/I/S resistance labels to binary (0/1).
 
     Supports configurable handling of intermediate (I) labels.
+    Accepts both 1-D arrays (single drug) and 2-D DataFrames
+    (multiple drugs).
 
     Parameters
     ----------
@@ -38,6 +41,9 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
           Note: this changes the output array length (samples with I
           labels are excluded) and is not compatible with sklearn
           pipelines that expect consistent sample counts.
+        - ``"nan"``: map I to ``NaN``. Useful for multi-drug encoding
+          where each drug is handled independently. Output dtype is
+          ``float64`` (required to hold ``NaN``).
 
     Attributes
     ----------
@@ -47,8 +53,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
     Raises
     ------
     ValueError
-        If ``intermediate`` is not one of 'susceptible', 'resistant',
-        or 'drop'.
+        If ``intermediate`` is not one of the accepted values.
     """
 
     _RESISTANT = {"R", "r", "resistant", "Resistant"}
@@ -56,14 +61,14 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
     _INTERMEDIATE = {"I", "i", "intermediate", "Intermediate"}
 
     def __init__(self, intermediate: str = "susceptible") -> None:
-        if intermediate not in ("susceptible", "resistant", "drop"):
+        if intermediate not in ("susceptible", "resistant", "drop", "nan"):
             raise ValueError(
-                f"intermediate must be 'susceptible', 'resistant', or 'drop', "
-                f"got {intermediate!r}"
+                f"intermediate must be 'susceptible', 'resistant', 'drop', "
+                f"or 'nan', got {intermediate!r}"
             )
         self.intermediate = intermediate
 
-    def fit(self, y, **kwargs):
+    def fit(self, y: np.ndarray | pd.DataFrame, **kwargs: object) -> LabelEncoder:
         """Fit the encoder (no-op, just sets ``classes_``).
 
         Parameters
@@ -78,22 +83,33 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         self.classes_ = np.array([0, 1])
         return self
 
-    def transform(self, y):
+    def transform(self, y: np.ndarray | pd.DataFrame) -> np.ndarray | pd.DataFrame:
         """Transform labels to binary.
 
         Parameters
         ----------
-        y : array-like
+        y : array-like or pd.DataFrame
             String labels (R/I/S or resistant/intermediate/susceptible).
+            If a DataFrame is passed, each column is encoded independently.
 
         Returns
         -------
-        ndarray
-            Binary array: 1 for resistant, 0 for susceptible.
-            If ``intermediate="drop"``, intermediate samples are
-            removed from the output (the returned array will be
-            shorter than the input).
+        ndarray or pd.DataFrame
+            Binary encoded labels. Returns a DataFrame when the input is
+            a DataFrame (or a 2-D ndarray), preserving column names and
+            index. Returns a 1-D ndarray for 1-D input.
         """
+        if isinstance(y, pd.DataFrame):
+            return y.apply(self._encode_column)
+        arr = np.asarray(y)
+        if arr.ndim == 2:
+            return pd.DataFrame(
+                {i: self._encode_column(arr[:, i]) for i in range(arr.shape[1])}
+            )
+        return self._encode_column(arr)
+
+    def _encode_column(self, y: np.ndarray) -> np.ndarray:
+        """Encode a single 1-D label array."""
         y = np.asarray(y)
         result = np.full(len(y), np.nan)
 
@@ -108,12 +124,11 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
                     result[i] = 0
                 elif self.intermediate == "resistant":
                     result[i] = 1
-                # else: drop -> stays NaN
+                # "drop" and "nan" -> stays NaN
 
         # Check for unrecognized labels (still NaN after encoding)
         unrecognized_mask = np.isnan(result)
-        if self.intermediate == "drop":
-            # In drop mode, NaN from intermediate labels is expected
+        if self.intermediate in ("drop", "nan"):
             intermediate_mask = np.array(
                 [str(label) in self._INTERMEDIATE for label in y]
             )
@@ -131,6 +146,8 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         if self.intermediate == "drop":
             mask = ~np.isnan(result)
             return result[mask].astype(int)
+        if self.intermediate == "nan":
+            return result
         return result.astype(int)
 
     def fit_transform(self, y, **kwargs):

@@ -1,12 +1,28 @@
 """Sphinx configuration for MaldiAMRKit documentation."""
 
 import os
+import shutil
 import sys
+from pathlib import Path
 
 # Add the project root to the path
 sys.path.insert(0, os.path.abspath("../.."))
 
-from maldiamrkit import __version__
+from maldiamrkit import __version__  # noqa: E402
+
+# Copy notebooks from repo root into the Sphinx source tree so that nbsphinx
+# processes real files rather than following a symlink.  Symlinked notebooks
+# break image extraction on ReadTheDocs.
+_here = Path(__file__).parent
+_notebooks_src = _here.parent.parent / "notebooks"
+_notebooks_dst = _here / "tutorials" / "notebooks"
+
+if _notebooks_src.exists():
+    if _notebooks_dst.is_symlink():
+        _notebooks_dst.unlink()
+    if _notebooks_dst.exists():
+        shutil.rmtree(_notebooks_dst)
+    shutil.copytree(_notebooks_src, _notebooks_dst)
 
 # Project information
 project = "MaldiAMRKit"
@@ -16,8 +32,6 @@ author = "Ettore Rocchi"
 # The full version, including alpha/beta/rc tags
 release = __version__
 version = ".".join(release.split(".")[:2])
-
-# -- General configuration ---------------------------------------------------
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -77,8 +91,6 @@ intersphinx_mapping = {
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# -- Options for HTML output -------------------------------------------------
-
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
@@ -129,8 +141,6 @@ html_sidebars = {
     "**": ["sidebar-nav-bs"],
     "index": [],
 }
-
-# -- nbsphinx configuration --------------------------------------------------
 
 nbsphinx_execute = "never"
 nbsphinx_allow_errors = True

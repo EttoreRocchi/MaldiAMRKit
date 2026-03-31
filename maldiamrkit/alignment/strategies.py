@@ -139,7 +139,13 @@ class ShiftStrategy(AlignmentStrategy):
     def __init__(self, max_shift: float) -> None:
         self.max_shift = max_shift
 
-    def align_binned(self, row, peaks, ref_peaks, mz_axis):
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
         """Apply global median shift to a binned spectrum."""
         if len(peaks) == 0 or len(ref_peaks) == 0:
             return row
@@ -158,7 +164,15 @@ class ShiftStrategy(AlignmentStrategy):
             aligned = row.copy()
         return aligned
 
-    def align_raw(self, mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity):
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply global m/z shift to a raw spectrum."""
         if len(peaks_mz) == 0 or len(ref_peaks_mz) == 0:
             return mz, intensity
@@ -176,7 +190,13 @@ class LinearStrategy(AlignmentStrategy):
         self.max_shift = max_shift
         self._fallback = ShiftStrategy(max_shift)
 
-    def align_binned(self, row, peaks, ref_peaks, mz_axis):
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
         """Apply linear transformation alignment to a binned spectrum."""
         if len(peaks) < 2 or len(ref_peaks) < 2:
             return self._fallback.align_binned(row, peaks, ref_peaks, mz_axis)
@@ -187,7 +207,15 @@ class LinearStrategy(AlignmentStrategy):
         new_positions = a * mz_axis + b
         return monotonic_interp(mz_axis, new_positions, row)
 
-    def align_raw(self, mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity):
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply linear m/z transformation to a raw spectrum."""
         if len(peaks_mz) < 2 or len(ref_peaks_mz) < 2:
             return self._fallback.align_raw(
@@ -228,7 +256,13 @@ class PiecewiseStrategy(AlignmentStrategy):
 
         return seg_x, seg_shift
 
-    def align_binned(self, row, peaks, ref_peaks, mz_axis):
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
         """Apply piecewise alignment to a binned spectrum."""
         if len(peaks) == 0 or len(ref_peaks) == 0:
             return row
@@ -249,7 +283,15 @@ class PiecewiseStrategy(AlignmentStrategy):
         new_positions = mz_axis + shift_interp
         return monotonic_interp(mz_axis, new_positions, row)
 
-    def align_raw(self, mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity):
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply piecewise m/z transformation to a raw spectrum."""
         if len(peaks_mz) == 0 or len(ref_peaks_mz) == 0:
             return mz, intensity
@@ -301,7 +343,13 @@ class DTWStrategy(AlignmentStrategy):
         aligned[mask] = aligned_sum[mask] / aligned_count[mask]
         return aligned
 
-    def align_binned(self, row, peaks, ref_peaks, mz_axis):
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
         """Raise because DTW binned alignment requires the full reference spectrum.
 
         DTW binned alignment is handled directly by the Warping class
@@ -311,7 +359,15 @@ class DTWStrategy(AlignmentStrategy):
             "DTW binned alignment is handled directly by the Warping class"
         )
 
-    def align_raw(self, mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity):
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply DTW alignment to a raw spectrum."""
         query_intensity = np.interp(ref_mz, mz, intensity)
         aligned_intensity = self._dtw_align(query_intensity, ref_intensity)

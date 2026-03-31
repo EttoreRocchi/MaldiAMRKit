@@ -11,6 +11,7 @@ In AMR prediction:
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import confusion_matrix, make_scorer
 
 
@@ -65,7 +66,7 @@ def _get_confusion_values(
 
     # Find index of resistant label
     r_idx = labels.index(resistant_label)
-    s_idx = 1 - r_idx if len(labels) == 2 else 0
+    s_idx = 1 - r_idx
 
     tp = cm[r_idx, r_idx]
     fn = cm[r_idx, s_idx]
@@ -317,6 +318,76 @@ def amr_classification_report(
         "n_susceptible": int(tn + fp),
         "n_total": len(y_true),
     }
+
+
+def amr_multilabel_report(
+    y_true: pd.DataFrame,
+    y_pred: pd.DataFrame,
+    *,
+    resistant_label: int = 1,
+    as_dataframe: bool = False,
+) -> dict | pd.DataFrame:
+    """AMR classification report for multiple antibiotics.
+
+    Computes per-drug VME, ME, sensitivity, specificity, and categorical
+    agreement, plus a macro-average across all drugs.
+
+    Parameters
+    ----------
+    y_true : pd.DataFrame
+        True binary labels with one column per antibiotic.
+    y_pred : pd.DataFrame
+        Predicted binary labels with matching columns.
+    resistant_label : int, default=1
+        Label value representing the resistant class.
+    as_dataframe : bool, default=False
+        If ``True``, return a :class:`~pandas.DataFrame` instead of a
+        nested dict.
+
+    Returns
+    -------
+    dict or pd.DataFrame
+        Per-drug metrics plus a ``"macro_avg"`` entry.  When
+        *as_dataframe* is ``True``, rows are drugs + ``"macro_avg"`` and
+        columns are metric names.
+
+    Examples
+    --------
+    >>> report = amr_multilabel_report(y_true, y_pred, as_dataframe=True)
+    >>> report.loc["macro_avg", "vme"]
+    0.15
+    """
+    drugs = [c for c in y_true.columns if c in y_pred.columns]
+    if not drugs:
+        raise ValueError("No common columns between y_true and y_pred.")
+
+    reports: dict[str, dict] = {}
+    for drug in drugs:
+        yt = y_true[drug]
+        yp = y_pred[drug]
+        # Drop rows where either side is NaN
+        valid = yt.notna() & yp.notna()
+        yt = yt[valid]
+        yp = yp[valid]
+        if len(yt) == 0:
+            continue
+        reports[drug] = amr_classification_report(
+            yt.to_numpy(), yp.to_numpy(), resistant_label=resistant_label
+        )
+
+    # Macro average (numeric keys only)
+    metric_keys = ["vme", "me", "sensitivity", "specificity", "categorical_agreement"]
+    macro = {}
+    for key in metric_keys:
+        values = [r[key] for r in reports.values()]
+        macro[key] = float(np.mean(values)) if values else 0.0
+    for key in ["n_resistant", "n_susceptible", "n_total"]:
+        macro[key] = sum(r[key] for r in reports.values())
+    reports["macro_avg"] = macro
+
+    if as_dataframe:
+        return pd.DataFrame(reports).T
+    return reports
 
 
 # Pre-built sklearn scorers for cross_val_score / GridSearchCV

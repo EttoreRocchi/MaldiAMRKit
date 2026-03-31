@@ -50,7 +50,7 @@ def _require_pyteomics(format_name: str) -> None:
         ) from None
 
 
-def _import_pyteomics_mzml():
+def _import_pyteomics_mzml() -> type:
     """Lazily import pyteomics.mzml."""
     _require_pyteomics("mzML")
     from pyteomics import mzml
@@ -58,7 +58,7 @@ def _import_pyteomics_mzml():
     return mzml
 
 
-def _import_pyteomics_mzxml():
+def _import_pyteomics_mzxml() -> type:
     """Lazily import pyteomics.mzxml."""
     _require_pyteomics("mzXML")
     from pyteomics import mzxml

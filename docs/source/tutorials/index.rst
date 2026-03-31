@@ -10,6 +10,7 @@ Interactive tutorials demonstrating MaldiAMRKit usage.
    notebooks/02_peak_detection
    notebooks/03_alignment
    notebooks/04_evaluation
+   notebooks/05_exploration
 
 Example Workflows
 -----------------

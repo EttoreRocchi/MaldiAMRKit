@@ -168,7 +168,7 @@ def _collect_spectrum_files(
         return sorted(subdir.glob("*.txt")) if subdir.is_dir() else []
 
     if years:
-        files = []
+        files: list[Path] = []
         for y in years:
             subdir = stage_dir / y
             if subdir.is_dir():

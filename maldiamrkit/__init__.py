@@ -8,7 +8,7 @@ Subpackage guide
 - ``maldiamrkit.alignment``      -- Warping, RawWarping
 - ``maldiamrkit.detection``      -- MaldiPeakDetector
 - ``maldiamrkit.evaluation``     -- AMR metrics, splitting, LabelEncoder
-- ``maldiamrkit.visualization``  -- plot_spectrum, plot_pseudogel, plot_peaks, plot_alignment
+- ``maldiamrkit.visualization``  -- plot_spectrum, plot_pseudogel, plot_peaks, plot_alignment, plot_pca, plot_tsne, plot_umap
 - ``maldiamrkit.loader``          -- load_driams_dataset
 - ``maldiamrkit.io``             -- read_spectrum
 
@@ -25,7 +25,7 @@ from .dataset import MaldiSet
 from .loader import load_driams_dataset
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

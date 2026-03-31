@@ -21,6 +21,8 @@ Metrics
 
 .. autofunction:: maldiamrkit.evaluation.amr_classification_report
 
+.. autofunction:: maldiamrkit.evaluation.amr_multilabel_report
+
 Sklearn Scorers
 ~~~~~~~~~~~~~~~
 
@@ -133,3 +135,27 @@ Label Encoding Example
     enc = LabelEncoder(intermediate="drop")
     y_binary = enc.fit_transform(["R", "S", "I"])
     # array([1, 0])
+
+Multi-Drug Evaluation
+---------------------
+
+For predicting resistance to multiple antibiotics simultaneously:
+
+.. code-block:: python
+
+    from maldiamrkit.evaluation import LabelEncoder, amr_multilabel_report
+    from sklearn.multioutput import MultiOutputClassifier
+    from sklearn.ensemble import RandomForestClassifier
+
+    # Encode multi-drug labels (intermediate -> NaN)
+    enc = LabelEncoder(intermediate="nan")
+    y_encoded = enc.fit_transform(data.y)  # DataFrame with one column per drug
+
+    # Train multi-output model
+    clf = MultiOutputClassifier(RandomForestClassifier())
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+
+    # Per-drug AMR report
+    report = amr_multilabel_report(y_test, y_pred, as_dataframe=True)
+    print(report)

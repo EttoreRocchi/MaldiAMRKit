@@ -305,3 +305,102 @@ class TestRawWarpingErrors:
 
         with pytest.raises(FileNotFoundError):
             warper.fit(X)
+
+    def test_fit_empty_dataframe(self):
+        warper = RawWarping(method="shift")
+        with pytest.raises(ValueError, match="empty"):
+            warper.fit(pd.DataFrame())
+
+    def test_fit_invalid_method(self, tmp_path: Path):
+        for i in range(3):
+            (tmp_path / f"s{i}.txt").write_text("2000\t1.0\n3000\t2.0\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="nonexistent")
+        with pytest.raises(ValueError, match="Unknown method"):
+            warper.fit(X)
+
+    def test_fit_invalid_reference(self, tmp_path: Path):
+        for i in range(3):
+            (tmp_path / f"s{i}.txt").write_text("2000\t1.0\n3000\t2.0\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(reference="invalid")
+        with pytest.raises(ValueError, match="Unsupported reference"):
+            warper.fit(X)
+
+    def test_fit_integer_reference(self, tmp_path: Path):
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(3):
+            intensity = np.exp(-((mz - 5000 - i * 2) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            path = tmp_path / f"s{i}.txt"
+            with open(path, "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift", reference=0)
+        warper.fit(X)
+        assert hasattr(warper, "ref_mz_")
+
+    def test_fit_reference_quality_warning(self, tmp_path: Path):
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(3):
+            intensity = np.exp(-((mz - 5000) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            with open(tmp_path / f"s{i}.txt", "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift", min_reference_peaks=9999)
+        with pytest.warns(UserWarning, match="peaks"):
+            warper.fit(X)
+
+    def test_transform_before_fit(self, tmp_path: Path):
+        (tmp_path / "s0.txt").write_text("2000\t1.0\n3000\t2.0\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift")
+        with pytest.raises(RuntimeError, match="fitted"):
+            warper.transform(X)
+
+    def test_transform_missing_path_column(self, tmp_path: Path):
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(3):
+            intensity = np.exp(-((mz - 5000) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            with open(tmp_path / f"s{i}.txt", "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift")
+        warper.fit(X)
+        with pytest.raises(ValueError, match="path"):
+            warper.transform(pd.DataFrame({"dummy": [0]}))
+
+    def test_get_alignment_quality_before_fit(self, tmp_path: Path):
+        (tmp_path / "s0.txt").write_text("2000\t1.0\n3000\t2.0\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift")
+        with pytest.raises(RuntimeError, match="fitted"):
+            warper.get_alignment_quality(X)
+
+    def test_get_alignment_quality_auto_transform(self, tmp_path: Path):
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(3):
+            intensity = np.exp(-((mz - 5000 - i * 2) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            with open(tmp_path / f"s{i}.txt", "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift")
+        warper.fit(X)
+        quality = warper.get_alignment_quality(X)
+        assert isinstance(quality, pd.DataFrame)
+        assert len(quality) == 3

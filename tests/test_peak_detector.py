@@ -281,3 +281,36 @@ class TestPeakDetectorPHEdges:
         detector.fit(constant)
         result = detector.transform(constant)
         assert result.iloc[0].sum() == 0
+
+    def test_fit_empty_dataframe(self):
+        detector = MaldiPeakDetector()
+        with pytest.raises(ValueError, match="empty"):
+            detector.fit(pd.DataFrame())
+
+    @pytest.mark.slow
+    def test_ph_fallback_candidates(self):
+        rng = np.random.default_rng(99)
+        signal = rng.uniform(0.0, 0.001, 200)
+        signal[50] = 0.5
+        signal[51] = 0.49
+        signal[100] = 0.8
+        signal[150] = 0.3
+        X = pd.DataFrame([signal], columns=[str(i) for i in range(200)])
+        detector = MaldiPeakDetector(method="ph", persistence_threshold=1e-4)
+        detector.fit(X)
+        result = detector.transform(X)
+        assert result.iloc[0].sum() > 0
+
+    @pytest.mark.slow
+    def test_ph_statistics(self):
+        rng = np.random.default_rng(42)
+        signal = rng.uniform(0.0, 0.01, 100)
+        signal[30] = 1.0
+        signal[70] = 0.5
+        X = pd.DataFrame([signal], columns=[str(i) for i in range(100)])
+        detector = MaldiPeakDetector(method="ph", persistence_threshold=1e-3)
+        detector.fit(X)
+        stats = detector.get_peak_statistics(X)
+        assert isinstance(stats, pd.DataFrame)
+        assert "n_peaks" in stats.columns
+        assert stats.iloc[0]["n_peaks"] > 0

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
@@ -331,7 +333,7 @@ def _custom_edge_fn(*, mz_min, mz_max, custom_edges=None, **_kwargs) -> np.ndarr
     return _validate_custom_edges(custom_edges, mz_min, mz_max)
 
 
-BINNING_REGISTRY: dict[str, callable] = {
+BINNING_REGISTRY: dict[str, Callable[..., np.ndarray]] = {
     "uniform": _uniform_edge_fn,
     "logarithmic": _logarithmic_edge_fn,
     "adaptive": _adaptive_edge_fn,
