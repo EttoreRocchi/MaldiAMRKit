@@ -326,6 +326,38 @@ Load an existing DRIAMS-formatted dataset (built with
        aggregate_by=dict(antibiotics="Ceftriaxone"),
    )
 
+Exporting Spectra
+-----------------
+
+Save individual spectra (raw, preprocessed, or binned) to files:
+
+.. code-block:: python
+
+   # Save preprocessed spectra as TXT files
+   data.save_spectra("output/preprocessed/", stage="preprocessed", fmt="txt")
+
+   # Save binned spectra as CSV files
+   data.save_spectra("output/binned/", stage="binned", fmt="csv")
+
+Batch Effect Correction
+-----------------------
+
+For multi-site or multi-instrument data, use
+`combatlearn <https://github.com/EttoreRocchi/combatlearn>`_
+(``pip install maldiamrkit[batch]``):
+
+.. code-block:: python
+
+   from combatlearn import Combat
+
+   combat = Combat(method="fortin")
+   combat.fit(X, y=batch_labels)
+   X_corrected = combat.transform(X, y=batch_labels)
+
+See the `combatlearn documentation <https://combatlearn.readthedocs.io/>`_ for
+full usage and the :doc:`exploration tutorial </tutorials/notebooks/05_exploration>`
+for a worked example.
+
 Command-Line Interface
 ----------------------
 

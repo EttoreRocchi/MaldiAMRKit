@@ -87,6 +87,38 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
 }
 
+# Suppress warnings for shorthand types in NumPy-style docstrings
+# that Sphinx cannot resolve
+nitpick_ignore_regex = [
+    (r"py:class", r"optional"),
+    (r"py:class", r"default=.*"),
+    (r"py:class", r"array-like"),
+    (r"py:class", r"np\..*"),
+    (r"py:class", r"pd\..*"),
+    (r"py:class", r"ndarray"),
+    (r"py:class", r"Path"),
+    (r"py:class", r"arrays"),
+    (r"py:class", r"tuples"),
+    (r"py:class", r"callable"),
+    (r"py:class", r"ignored"),
+    (r"py:class", r"self"),
+    (r"py:class", r"transformer"),
+    (r"py:class", r"typing\..*"),
+    (r"py:class", r"build_driams_dataset"),
+    (r"py:class", r"matplotlib\..*"),
+    (r"py:class", r"pandas\..*"),
+    (r"py:class", r"umap\..*"),
+    (r"py:class", r"MaldiSet"),
+    (r"py:class", r"PreprocessingPipeline.*"),
+    (r"py:class", r"maldiamrkit\..*"),
+    (r"py:class", r"\d+"),
+    (r"py:class", r"\{.*"),
+    (r"py:class", r"\".*"),
+    (r"py:meth", r"PreprocessingPipeline\..*"),
+    (r"py:func", r"build_driams_dataset"),
+    (r"py:data", r"typing\..*"),
+]
+
 # Templates and static files
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

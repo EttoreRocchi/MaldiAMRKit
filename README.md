@@ -19,8 +19,12 @@
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
   <a href="https://maldiamrkit.readthedocs.io/">Documentation</a> •
-  <a href="#license">License</a> 
+  <a href="#tutorials">Tutorials</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#citing">Citing</a> •
+  <a href="#license">License</a>
 </p>
 
 ## Installation
@@ -61,26 +65,37 @@ pip install -e .[dev]
 
 ## Features
 
-- **Spectrum Processing**: Load, smooth, baseline correct, and normalize MALDI-TOF spectra
-- **Dataset Management**: Process multiple spectra with metadata integration
-- **Peak Detection**: Local maxima and persistent homology methods
-- **Spectral Alignment (Warping)**: Multiple alignment methods (shift, linear, piecewise, DTW)
-- **Raw Spectra Warping**: Full m/z resolution alignment before binning
+### Preprocessing
+- **Composable Pipeline**: Build custom `PreprocessingPipeline` from individual transformers (smoothing, baseline correction, normalization, trimming), serializable to JSON/YAML
+- **Multiple Binning Strategies**: Uniform, logarithmic, adaptive, and custom bin edges
 - **Quality Metrics**: SNR estimation, comprehensive quality reports, and alignment assessment
-- **Replicate Merging**: Mean/median/weighted merging of spectral replicates with correlation-based outlier detection
-- **Composable Preprocessing Pipeline**: Build custom `PreprocessingPipeline` from individual transformers, serializable to JSON/YAML
-- **Composable Filter System**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` with `&`/`|`/`~` operators for flexible dataset filtering
-- **Evaluation Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report`
-- **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
+- **Replicate Merging**: Mean/median/weighted merging with correlation-based outlier detection
+
+### Alignment & Detection
+- **Spectral Alignment**: Shift, linear, piecewise, and DTW warping for both binned and raw full-resolution spectra
+- **Peak Detection**: Local maxima and persistent homology methods
+
+### Evaluation
+- **AMR Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report` following EUCAST/CLSI conventions
 - **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
-- **DRIAMS Dataset Building & Loading**: Build and load DRIAMS-like dataset directories from raw spectra and metadata via `build_driams_dataset()` / `load_driams_dataset()`, with year-based subfolders and custom processing handlers
-- **mzML/mzXML Support**: Read standard mass spectrometry formats via optional `pyteomics` dependency (`pip install maldiamrkit[formats]`)
-- **Spectrum Export**: Save individual spectra (raw, preprocessed, or binned) to CSV or TXT via `MaldiSet.save_spectra()`
-- **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` commands for batch processing
-- **Parallel Processing**: Multi-core support via `n_jobs` parameter for faster processing
-- **Exploratory Visualizations**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
+- **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
+
+### Data Management
+- **DRIAMS Dataset Building & Loading**: Build and load DRIAMS-like dataset directories via `build_driams_dataset()` / `load_driams_dataset()`
+- **Composable Filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` combinable with `&`/`|`/`~` operators
+- **mzML/mzXML Support**: Read standard mass spectrometry formats via optional `pyteomics` dependency
+- **Spectrum Export**: Save spectra to CSV or TXT via `MaldiSet.save_spectra()`
+
+### Visualization & Tools
+- **Exploratory Plots**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
 - **Batch Effect Correction**: Multi-site/multi-instrument correction via [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) (`pip install maldiamrkit[batch]`)
+- **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` for batch processing
+- **Parallel Processing**: Multi-core support via `n_jobs` parameter
 - **ML-Ready**: Direct integration with scikit-learn pipelines
+
+## Documentation
+
+Full documentation is available at [maldiamrkit.readthedocs.io](https://maldiamrkit.readthedocs.io/).
 
 ## Quick Start
 
@@ -121,109 +136,6 @@ X = data.X  # Feature matrix
 y = data.get_y_single("Drug")  # Target labels
 ```
 
-### Build a DRIAMS-like Dataset
-
-Create a standardised dataset directory from raw spectra and a metadata CSV:
-
-```python
-from maldiamrkit import build_driams_dataset, ProcessingHandler
-
-# Basic: produces raw/, preprocessed/, binned_6000/, id/
-report = build_driams_dataset(
-    spectra_dir="data/spectra/",
-    metadata_csv="data/metadata.csv",
-    output_dir="output/my_dataset",
-)
-
-# With year-based subfolders and extra processing variants
-report = build_driams_dataset(
-    "data/spectra/", "data/metadata.csv", "output/my_dataset",
-    year_column="acquisition_date",
-    extra_handlers=[
-        ProcessingHandler("preprocessed_sqrt", "preprocessed",
-                          pipeline=sqrt_pipeline),
-        ProcessingHandler("binned_3000", "binned", bin_width=6),
-    ],
-)
-print(f"Processed {report.succeeded}/{report.total} spectra")
-```
-
-Output structure:
-```
-my_dataset/
-├── raw/{year}/              # Raw spectra
-├── preprocessed/{year}/     # Default preprocessing
-├── preprocessed_sqrt/{year}/ # Extra handler output
-├── binned_6000/{year}/      # Default binning (3 Da)
-├── binned_3000/{year}/      # Extra handler output (6 Da)
-└── id/{year}/               # Metadata CSVs
-```
-
-### Binning Methods
-
-MaldiAMRKit supports multiple binning strategies:
-
-```python
-from maldiamrkit import MaldiSpectrum
-
-spec = MaldiSpectrum("data/spectrum.txt").preprocess()
-
-# Uniform binning (default)
-spec.bin(bin_width=3)
-
-# Logarithmic binning (width scales with m/z)
-spec.bin(bin_width=3, method="logarithmic")
-
-# Adaptive binning (smaller bins in peak-dense regions)
-spec.bin(method="adaptive", adaptive_min_width=1.0, adaptive_max_width=10.0)
-
-# Custom binning (user-defined edges)
-spec.bin(method="custom", custom_edges=[2000, 5000, 10000, 15000, 20000])
-
-# Access bin metadata
-print(spec.bin_metadata.head())
-#    bin_index  bin_start  bin_end  bin_width
-# 0          0     2000.0   2003.0        3.0
-# 1          1     2003.0   2006.0        3.0
-```
-
-**Binning Methods:**
-- `uniform`: Fixed width bins (default)
-- `logarithmic`: Bin width scales with m/z (matches instrument resolution)
-- `adaptive`: Smaller bins where peaks are dense, larger bins elsewhere
-- `custom`: User-defined bin edges for domain-specific analysis
-
-### Exploratory Visualizations
-
-```python
-from maldiamrkit.visualization import plot_pca, plot_tsne, plot_umap
-
-# PCA colored by resistance phenotype
-fig, ax = plot_pca(data.X, color_by=data.get_y_single("Drug"))
-
-# t-SNE colored by species
-fig, ax = plot_tsne(data.X, color_by=data.meta.loc[data.X.index, "Species"], perplexity=15)
-
-# UMAP (requires: pip install maldiamrkit[batch])
-fig, ax = plot_umap(data.X, color_by=data.get_y_single("Drug"))
-```
-
-### Batch Effect Correction
-
-For multi-site data, use [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) directly:
-
-```python
-from combatlearn import Combat
-
-combat = Combat(method="fortin")
-combat.fit(X, y=batch_labels)
-X_corrected = combat.transform(X, y=batch_labels)
-```
-
-See the [combatlearn documentation](https://combatlearn.readthedocs.io/) for full usage.
-
-> Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). [doi:10.1186/s12866-025-04657-2](https://link.springer.com/article/10.1186/s12866-025-04657-2)
-
 ### Machine Learning Pipeline
 
 ```python
@@ -242,300 +154,14 @@ pipe = Pipeline([
     ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
 ])
 
-# Cross-validation (recommended over train accuracy)
+# Cross-validation
 scores = cross_val_score(pipe, X, y, cv=5, scoring="accuracy")
 print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 ```
 
-### Spectral Alignment
-
-Align spectra to correct for mass calibration drift:
-
-```python
-from maldiamrkit.alignment import Warping
-
-# Create warping transformer
-warper = Warping(
-    method='piecewise',  # or 'shift', 'linear', 'dtw'
-    reference='median',
-    n_segments=5
-)
-
-# Fit on training data and transform
-warper.fit(X_train)
-X_aligned = warper.transform(X_test)
-
-# Check alignment quality
-quality = warper.get_alignment_quality(X_test, X_aligned)
-print(f"Mean improvement: {quality['improvement'].mean():.4f}")
-
-# Visualize
-from maldiamrkit.visualization import plot_alignment
-plot_alignment(warper, X_test, X_aligned, indices=[0], show_peaks=True)
-```
-
-### Raw Spectra Warping
-
-For higher precision, use RawWarping which operates at full m/z resolution:
-
-```python
-from maldiamrkit.alignment import RawWarping, create_raw_input
-
-# Create input DataFrame from spectrum files
-X_raw = create_raw_input("data/spectra/")
-
-# Raw warping loads original files for warping
-warper = RawWarping(
-    method="piecewise",
-    bin_width=3,
-    max_shift_da=10.0,
-    n_jobs=-1  # Parallel processing
-)
-
-# Outputs binned data for pipeline compatibility
-warper.fit(X_raw)
-X_aligned = warper.transform(X_raw)
-```
-
-**Alignment Methods:**
-- `shift`: Global median shift (fast, simple)
-- `linear`: Least-squares linear transformation
-- `piecewise`: Local shifts across spectrum segments (most flexible)
-- `dtw`: Dynamic Time Warping (best for non-linear drift)
-
-### Quality Assessment
-
-```python
-from maldiamrkit import MaldiSpectrum
-from maldiamrkit.preprocessing import estimate_snr, SpectrumQuality
-
-# Estimate signal-to-noise ratio
-spec = MaldiSpectrum("spectrum.txt").preprocess()
-snr = estimate_snr(spec)
-print(f"SNR: {snr:.1f}")
-
-# Comprehensive quality report
-qc = SpectrumQuality()  # Uses high m/z region (19500-20000) by default
-report = qc.assess(spec)
-print(f"SNR: {report.snr:.1f}")
-print(f"Peak count: {report.peak_count}")
-print(f"Dynamic range: {report.dynamic_range:.2f}")
-```
-
-### Replicate Merging
-
-Merge multiple spectral replicates per isolate into a single consensus spectrum:
-
-```python
-from maldiamrkit import MaldiSpectrum
-from maldiamrkit.preprocessing import merge_replicates, detect_outlier_replicates
-
-# Load replicates as MaldiSpectrum objects
-spectra = [MaldiSpectrum(f"data/isolate_rep{i}.txt") for i in range(1, 4)]
-
-# Detect and remove outlier replicates
-keep = detect_outlier_replicates(spectra)
-clean = [s for s, k in zip(spectra, keep) if k]
-
-# Merge into a single consensus spectrum
-merged = merge_replicates(clean, method="mean")
-```
-
-### Composable Preprocessing Pipeline
-
-Build a composable, serializable preprocessing pipeline:
-
-```python
-from maldiamrkit.preprocessing import (
-    PreprocessingPipeline,
-    ClipNegatives, SqrtTransform, SavitzkyGolaySmooth,
-    SNIPBaseline, MzTrimmer, TICNormalizer,
-)
-
-# Use the default pipeline
-pipe = PreprocessingPipeline.default()
-
-# Or build a custom pipeline
-pipe = PreprocessingPipeline([
-    ("clip", ClipNegatives()),
-    ("sqrt", SqrtTransform()),
-    ("smooth", SavitzkyGolaySmooth(window_length=15, polyorder=2)),
-    ("baseline", SNIPBaseline(half_window=30)),
-    ("trim", MzTrimmer(mz_min=2000, mz_max=20000)),
-    ("norm", TICNormalizer()),
-])
-
-# Serialize to JSON/YAML for reproducibility
-pipe.to_json("my_pipeline.json")
-pipe = PreprocessingPipeline.from_json("my_pipeline.json")
-
-# Apply to a spectrum
-spec = MaldiSpectrum("data/spectrum.txt", pipeline=pipe)
-spec.preprocess().bin(3)
-```
-
-### Dataset Filtering
-
-Use composable filters to select subsets of a `MaldiSet`:
-
-```python
-from maldiamrkit import MaldiSet
-from maldiamrkit.filters import SpeciesFilter, DrugFilter, QualityFilter, MetadataFilter
-
-data = MaldiSet.from_directory("spectra/", "metadata.csv",
-    aggregate_by=dict(antibiotics="Drug"))
-
-# Filter by species
-ecoli = data.filter(SpeciesFilter("Escherichia coli"))
-
-# Combine filters with & (and), | (or), ~ (not)
-f = SpeciesFilter("Escherichia coli") & QualityFilter(min_snr=5.0)
-high_quality_ecoli = data.filter(f)
-
-# Filter by antibiotic resistance status
-f = SpeciesFilter("Escherichia coli") & DrugFilter("Ceftriaxone", status="R")
-resistant_ecoli = data.filter(f)
-
-# Custom metadata filter
-f = MetadataFilter("batch_id", lambda v: v == "batch_1")
-batch1 = data.filter(f)
-```
-
-### Evaluation Metrics
-
-AMR-specific evaluation following EUCAST/CLSI conventions:
-
-```python
-from maldiamrkit.evaluation import (
-    very_major_error_rate, major_error_rate,
-    amr_classification_report, vme_scorer, me_scorer,
-    LabelEncoder,
-)
-
-# Encode R/I/S labels to binary
-enc = LabelEncoder(intermediate="susceptible")
-y_binary = enc.fit_transform(y_raw)
-
-# Compute individual metrics
-vme = very_major_error_rate(y_true, y_pred)
-me = major_error_rate(y_true, y_pred)
-
-# Full classification report
-report = amr_classification_report(y_true, y_pred)
-# {'vme': 0.1, 'me': 0.05, 'sensitivity': 0.9, 'specificity': 0.95, ...}
-
-# Use as sklearn scorers in cross-validation
-from sklearn.model_selection import cross_val_score
-scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
-```
-
-### Multi-Drug AMR Prediction
-
-Predict resistance to multiple antibiotics simultaneously:
-
-```python
-from maldiamrkit.evaluation import LabelEncoder, amr_multilabel_report
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
-
-# Encode multi-drug labels (I -> NaN)
-enc = LabelEncoder(intermediate="nan")
-y_encoded = enc.fit_transform(data.y)
-
-# Multi-output classifier
-clf = MultiOutputClassifier(RandomForestClassifier(random_state=42))
-clf.fit(X_train, y_train)
-
-# Per-drug evaluation report
-report = amr_multilabel_report(y_test, y_pred, as_dataframe=True)
-print(report)
-#              vme    me  sensitivity  specificity  ...
-# Drug1       0.10  0.05         0.90         0.95  ...
-# Drug2       0.20  0.08         0.80         0.92  ...
-# macro_avg   0.15  0.065        0.85         0.935 ...
-```
-
-### Stratified Splitting
-
-Prevent data leakage with species-aware and patient-grouped splits:
-
-```python
-from maldiamrkit.evaluation import (
-    stratified_species_drug_split,
-    case_based_split,
-    SpeciesDrugStratifiedKFold,
-    CaseGroupedKFold,
-)
-
-# Single split stratified by species + drug label
-X_train, X_test, y_train, y_test = stratified_species_drug_split(
-    X, y, species=species_labels, test_size=0.2, random_state=42
-)
-
-# Patient-grouped split (no patient in both train and test)
-X_train, X_test, y_train, y_test = case_based_split(
-    X, y, case_ids=patient_ids, test_size=0.2
-)
-
-# Cross-validation splitters (sklearn-compatible)
-cv = SpeciesDrugStratifiedKFold(n_splits=5)
-for train_idx, test_idx in cv.split(X, y, species=species_labels):
-    ...
-
-cv = CaseGroupedKFold(n_splits=5)
-for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
-    ...
-```
-
-### Command-Line Interface
-
-Batch preprocess spectra or generate quality reports from the terminal:
-
-```bash
-# Preprocess and bin to a CSV feature matrix
-maldiamrkit preprocess --input-dir data/ --output processed.csv --bin-width 3
-
-# Also save individual preprocessed spectra as TXT files
-maldiamrkit preprocess --input-dir data/ --output processed.csv --save-spectra-dir processed/
-
-# Use a custom pipeline config
-maldiamrkit preprocess --input-dir data/ --output processed.csv --pipeline config.yaml
-
-# Generate quality report
-maldiamrkit quality --input-dir data/ --output report.csv
-
-# Build a DRIAMS-like dataset
-maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
-
-# With year-based subfolders
-maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
-  --year-column acquisition_date
-
-# With extra processing handlers (JSON/YAML config)
-maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
-  --extra-handlers handlers.yaml
-```
-
-### Parallel Processing
-
-Use `n_jobs` parameter for multi-core processing:
-
-```python
-from maldiamrkit import MaldiSet
-from maldiamrkit.alignment import Warping
-from maldiamrkit.detection import MaldiPeakDetector
-
-# Parallel dataset loading
-data = MaldiSet.from_directory("spectra/", "meta.csv", n_jobs=-1)
-
-# Parallel peak detection
-detector = MaldiPeakDetector(prominence=0.01, n_jobs=-1)
-peaks = detector.fit_transform(X)
-
-# Parallel alignment
-warper = Warping(method="piecewise", n_jobs=-1)
-X_aligned = warper.fit_transform(X)
-```
+For more examples covering alignment, filtering, evaluation, CLI usage, and more, see the
+[Quickstart Guide](https://maldiamrkit.readthedocs.io/quickstart.html) and
+[API Reference](https://maldiamrkit.readthedocs.io/api/index.html).
 
 ## Tutorials
 
@@ -549,22 +175,22 @@ For more detailed examples, see the notebooks:
 
 ## Contributing
 
-Pull requests, bug reports, and feature ideas are welcome: feel free to open a PR!
+Pull requests, bug reports, and feature ideas are welcome. See the [Contributing Guide](CONTRIBUTING.md) for how to get started.
+
+## Citing
+
+If you use MaldiAMRKit in your research, please cite:
+
+> Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). [doi:10.1186/s12866-025-04657-2](https://link.springer.com/article/10.1186/s12866-025-04657-2)
+
+See the [full publications list](https://maldiamrkit.readthedocs.io/papers.html) for more papers using MaldiAMRKit.
 
 ## License
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
-
-## Papers
-
-Publications using `MaldiAMRKit`:
-
-> Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). https://doi.org/10.1186/s12866-025-04657-2
 
 ## Acknowledgements
 
 This toolkit is inspired by:
 
 > **Weis, C., Cuénod, A., Rieck, B., et al.** (2022). *Direct antimicrobial resistance prediction from clinical MALDI-TOF mass spectra using machine learning*. **Nature Medicine**, 28, 164-174. [https://doi.org/10.1038/s41591-021-01619-9](https://doi.org/10.1038/s41591-021-01619-9)
-
-Please consider citing this work if you find `MaldiAMRKit` useful.

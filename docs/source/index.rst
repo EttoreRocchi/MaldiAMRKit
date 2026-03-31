@@ -50,12 +50,12 @@ Key Features
    :gutter: 3
    :class-container: feature-grid
 
-   .. grid-item-card:: Exploratory Plots
-      :link: api/visualization.html#exploratory-plots
+   .. grid-item-card:: Preprocessing Pipeline
+      :link: quickstart.html#custom-preprocessing-pipeline
       :link-type: url
 
-      PCA, t-SNE, and UMAP scatter plots colored by species, resistance
-      phenotype, or any metadata column.
+      Composable transformers (smoothing, baseline, trimming, normalization),
+      multiple binning strategies, and peak detection. Serializable to JSON/YAML.
 
    .. grid-item-card:: Sklearn Pipelines
       :link: quickstart.html#building-ml-pipelines
@@ -71,26 +71,20 @@ Key Features
       Shift, linear, piecewise, and DTW warping for both binned and
       raw full-resolution spectra.
 
-   .. grid-item-card:: Peak Detection
-      :link: api/detection.html
+   .. grid-item-card:: AMR Evaluation
+      :link: api/evaluation.html
       :link-type: url
 
-      Local maxima and persistent homology methods with parallel
-      processing support.
+      VME, ME, sensitivity, specificity, and classification reports
+      following EUCAST/CLSI conventions. Species-drug stratified and
+      case-based splitting to prevent data leakage.
 
-   .. grid-item-card:: Multiple Binning Strategies
-      :link: api/preprocessing.html#binning
+   .. grid-item-card:: DRIAMS Dataset Builder
+      :link: quickstart.html#building-driams-like-datasets
       :link-type: url
 
-      Uniform, logarithmic, adaptive, and custom bin edges for
-      domain-specific analysis.
-
-   .. grid-item-card:: Preprocessing Pipeline
-      :link: quickstart.html#custom-preprocessing-pipeline
-      :link-type: url
-
-      Composable pipeline of transformers (smoothing, baseline, trimming,
-      normalization). Serializable to JSON/YAML.
+      Build and load DRIAMS-like dataset directories from raw spectra
+      and metadata with year-based subfolders and custom processing handlers.
 
    .. grid-item-card:: Composable Filters
       :link: api/core.html#filters
@@ -99,33 +93,26 @@ Key Features
       ``SpeciesFilter``, ``DrugFilter``, ``QualityFilter``, ``MetadataFilter``
       combinable with ``&``, ``|``, ``~`` operators.
 
-   .. grid-item-card:: AMR Evaluation
-      :link: api/evaluation.html
+   .. grid-item-card:: Exploratory Plots
+      :link: api/visualization.html#exploratory-plots
       :link-type: url
 
-      VME, ME, sensitivity, specificity, and classification reports
-      following EUCAST/CLSI conventions.
-
-   .. grid-item-card:: Stratified Splitting
-      :link: api/evaluation.html#splitting-utilities
-      :link-type: url
-
-      Species-drug stratified and case-based (patient-grouped) splits
-      to prevent data leakage.
-
-   .. grid-item-card:: DRIAMS Dataset Builder
-      :link: quickstart.html#building-driams-like-datasets
-      :link-type: url
-
-      Build DRIAMS-like dataset directories from raw spectra and metadata
-      with year-based subfolders and custom processing handlers.
+      PCA, t-SNE, and UMAP scatter plots colored by species, resistance
+      phenotype, or any metadata column.
 
    .. grid-item-card:: CLI & Export
       :link: quickstart.html#command-line-interface
       :link-type: url
 
       ``maldiamrkit preprocess``, ``maldiamrkit quality``, and
-      ``maldiamrkit build-driams`` for batch processing. Export to CSV/Parquet.
+      ``maldiamrkit build-driams`` for batch processing. Export to CSV/TXT.
+
+   .. grid-item-card:: Batch Correction
+      :link: quickstart.html#batch-effect-correction
+      :link-type: url
+
+      Multi-site and multi-instrument correction via
+      `combatlearn <https://github.com/EttoreRocchi/combatlearn>`_.
 
 ----
 
@@ -167,5 +154,6 @@ Quick Example
    quickstart
    api/index
    tutorials/index
+   contributing
    papers
    changelog
