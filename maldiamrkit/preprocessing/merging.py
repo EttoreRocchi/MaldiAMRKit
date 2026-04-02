@@ -44,7 +44,14 @@ def _to_common_grid(
     matrix : np.ndarray
         Intensity matrix of shape ``(n_spectra, len(common_mz))``.
     """
-    common_mz = np.unique(np.concatenate([s["mass"].values for s in spectra]))
+    # Fast path: skip interpolation when all spectra share the same grid
+    grids = [s["mass"].values for s in spectra]
+    if all(np.array_equal(grids[0], g) for g in grids[1:]):
+        common_mz = grids[0]
+        matrix = np.array([s["intensity"].values for s in spectra])
+        return common_mz, matrix
+
+    common_mz = np.unique(np.concatenate(grids))
 
     matrix = np.empty((len(spectra), len(common_mz)))
     for i, s in enumerate(spectra):
@@ -166,5 +173,9 @@ def detect_outlier_replicates(
         # All correlations identical - no outliers
         return np.ones(len(spectra), dtype=bool)
 
-    cutoff = med_corr - threshold * 1.4826 * mad_corr
+    # The 1.4826 MAD-to-sigma factor assumes normally distributed
+    # correlations (Rousseeuw & Croux 1993).  Pearson correlations are
+    # bounded in [-1, 1], so clamp the cutoff to avoid an unreachable
+    # threshold that would mask all outliers.
+    cutoff = max(med_corr - threshold * 1.4826 * mad_corr, -1.0)
     return corrs >= cutoff

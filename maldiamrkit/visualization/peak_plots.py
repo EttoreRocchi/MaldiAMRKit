@@ -50,24 +50,7 @@ def plot_peaks(
     """
     import matplotlib.pyplot as plt
 
-    input_is_series = isinstance(X, pd.Series)
-    if input_is_series:
-        X = X.to_frame().T
-
-    if indices is None:
-        indices = [0]
-    elif isinstance(indices, int):
-        indices = [indices]
-
-    for idx in indices:
-        if idx < 0 or idx >= len(X):
-            raise ValueError(
-                f"Index {idx} out of bounds for data with {len(X)} samples"
-            )
-
-    mz_axis = X.columns.to_numpy()
-    if not np.issubdtype(mz_axis.dtype, np.number):
-        mz_axis = np.arange(len(mz_axis))
+    X, indices, mz_axis = _normalize_peak_inputs(X, indices)
 
     # Detect peaks for selected spectra using public API
     peaks_df = detector.transform(X.iloc[indices])
@@ -96,6 +79,29 @@ def plot_peaks(
     if n_spectra == 1:
         return fig, axes[0]
     return fig, axes
+
+
+def _normalize_peak_inputs(X, indices):
+    """Normalize inputs for peak plotting: handle Series, indices, mz_axis."""
+    if isinstance(X, pd.Series):
+        X = X.to_frame().T
+
+    if indices is None:
+        indices = [0]
+    elif isinstance(indices, int):
+        indices = [indices]
+
+    for idx in indices:
+        if idx < 0 or idx >= len(X):
+            raise ValueError(
+                f"Index {idx} out of bounds for data with {len(X)} samples"
+            )
+
+    mz_axis = X.columns.to_numpy()
+    if not np.issubdtype(mz_axis.dtype, np.number):
+        mz_axis = np.arange(len(mz_axis))
+
+    return X, indices, mz_axis
 
 
 def _draw_peak_panel(ax, mz_axis, row, peaks, method, spectrum_idx, xlim, alpha):

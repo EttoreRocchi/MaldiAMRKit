@@ -154,11 +154,11 @@ class TestMaldiSetInit:
             [spec],
             meta,
             bin_width=5,
-            bin_method="logarithmic",
+            bin_method="proportional",
             bin_kwargs={"foo": "bar"},
         )
         assert ds.bin_width == 5
-        assert ds.bin_method == "logarithmic"
+        assert ds.bin_method == "proportional"
         assert ds.bin_kwargs == {"foo": "bar"}
 
 
@@ -197,9 +197,9 @@ class TestMaldiSetFromDirectory:
             spectra_dir,
             metadata_file,
             aggregate_by={"antibiotics": "Drug"},
-            bin_method="logarithmic",
+            bin_method="proportional",
         )
-        assert ds.bin_method == "logarithmic"
+        assert ds.bin_method == "proportional"
 
     def test_from_directory_skips_files_not_in_metadata(
         self, spectra_dir: Path, metadata_file: Path, tmp_path: Path

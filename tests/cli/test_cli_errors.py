@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
+import pytest
+import yaml
 from typer.testing import CliRunner
 
-from maldiamrkit.cli import _load_pipeline, app
+from maldiamrkit.cli import _load_extra_handlers, _load_pipeline, app
 from maldiamrkit.preprocessing import PreprocessingPipeline
 
 runner = CliRunner()
@@ -104,7 +108,7 @@ class TestQualityErrors:
 
 
 class TestBuildDriamsErrors:
-    """Tests for build-driams command error paths."""
+    """Tests for build command error paths."""
 
     def test_invalid_extra_handlers_config(self, tmp_path):
         spectra_dir = tmp_path / "spectra"
@@ -116,7 +120,7 @@ class TestBuildDriamsErrors:
         result = runner.invoke(
             app,
             [
-                "build-driams",
+                "build",
                 "--spectra-dir",
                 str(spectra_dir),
                 "--metadata",
@@ -137,7 +141,7 @@ class TestBuildDriamsErrors:
         result = runner.invoke(
             app,
             [
-                "build-driams",
+                "build",
                 "--spectra-dir",
                 str(empty_dir),
                 "--metadata",
@@ -147,3 +151,70 @@ class TestBuildDriamsErrors:
             ],
         )
         assert result.exit_code != 0
+
+
+class TestBuildLayoutErrors:
+    """Tests for build command layout error paths."""
+
+    def test_invalid_layout_value(self, tmp_path):
+        result = runner.invoke(
+            app,
+            [
+                "build",
+                "--spectra-dir",
+                str(tmp_path),
+                "--metadata",
+                str(tmp_path / "meta.csv"),
+                "--output-dir",
+                str(tmp_path / "out"),
+                "--layout",
+                "invalid",
+            ],
+        )
+        assert result.exit_code != 0
+
+
+class TestLoadExtraHandlers:
+    """Tests for _load_extra_handlers helper."""
+
+    def test_yaml_format(self, tmp_path):
+        """Verify YAML config files are loaded correctly."""
+        config = [
+            {"folder_name": "custom", "kind": "preprocessed"},
+        ]
+        yaml_path = tmp_path / "handlers.yaml"
+        yaml_path.write_text(yaml.dump(config))
+        handlers = _load_extra_handlers(yaml_path)
+        assert len(handlers) == 1
+        assert handlers[0].folder_name == "custom"
+
+    def test_too_large_raises(self, tmp_path):
+        """Verify file > 1MB raises BadParameter."""
+        import typer
+
+        large_file = tmp_path / "big.json"
+        large_file.write_bytes(b"x" * 1_000_001)
+        with pytest.raises(typer.BadParameter, match="too large"):
+            _load_extra_handlers(large_file)
+
+    def test_not_list_raises(self, tmp_path):
+        """Verify non-list config raises BadParameter."""
+        import typer
+
+        config_path = tmp_path / "handlers.json"
+        config_path.write_text(json.dumps({"key": "value"}))
+        with pytest.raises(typer.BadParameter, match="list"):
+            _load_extra_handlers(config_path)
+
+    def test_relative_pipeline_path_resolved(self, tmp_path):
+        """Verify relative pipeline paths are resolved against config dir."""
+        pipe = PreprocessingPipeline.default()
+        pipe_path = tmp_path / "pipe.json"
+        pipe.to_json(str(pipe_path))
+        config = [
+            {"folder_name": "custom", "kind": "preprocessed", "pipeline": "pipe.json"},
+        ]
+        config_path = tmp_path / "handlers.json"
+        config_path.write_text(json.dumps(config))
+        handlers = _load_extra_handlers(config_path)
+        assert handlers[0].pipeline is not None

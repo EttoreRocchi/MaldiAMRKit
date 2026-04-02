@@ -254,24 +254,28 @@ metadata CSV:
 
 .. code-block:: python
 
-   from maldiamrkit import build_driams_dataset, ProcessingHandler
+   from maldiamrkit.data import DatasetBuilder, FlatLayout, ProcessingHandler
 
    # Basic: produces raw/, preprocessed/, binned_6000/, id/
-   report = build_driams_dataset(
-       spectra_dir="spectra/",
-       metadata_csv="metadata.csv",
-       output_dir="output/my_dataset",
-   )
+   layout = FlatLayout("spectra/", "metadata.csv")
+   report = DatasetBuilder(layout, "output/my_dataset").build()
    print(f"Processed {report.succeeded}/{report.total} spectra")
 
 With year-based subfolders (requires a date or year column in the metadata):
 
 .. code-block:: python
 
-   report = build_driams_dataset(
-       "spectra/", "metadata.csv", "output/my_dataset",
-       year_column="acquisition_date",
-   )
+   layout = FlatLayout("spectra/", "metadata.csv", year_column="acquisition_date")
+   report = DatasetBuilder(layout, "output/my_dataset").build()
+
+Build from Bruker binary data (e.g. MARISMa-style directory tree):
+
+.. code-block:: python
+
+   from maldiamrkit.data import BrukerTreeLayout
+
+   layout = BrukerTreeLayout("path/to/MARISMa", "path/to/AMR.csv")
+   report = DatasetBuilder(layout, "output/my_dataset").build()
 
 Add extra processing variants alongside the defaults using
 ``ProcessingHandler``:
@@ -282,15 +286,15 @@ Add extra processing variants alongside the defaults using
 
    sqrt_pipeline = PreprocessingPipeline.from_yaml("sqrt_pipeline.yaml")
 
-   report = build_driams_dataset(
-       "spectra/", "metadata.csv", "output/my_dataset",
-       year_column="acquisition_date",
+   layout = FlatLayout("spectra/", "metadata.csv", year_column="acquisition_date")
+   report = DatasetBuilder(
+       layout, "output/my_dataset",
        extra_handlers=[
            ProcessingHandler("preprocessed_sqrt", "preprocessed",
                              pipeline=sqrt_pipeline),
            ProcessingHandler("binned_3000", "binned", bin_width=6),
        ],
-   )
+   ).build()
 
 The output structure follows the DRIAMS convention:
 
@@ -304,27 +308,35 @@ The output structure follows the DRIAMS convention:
    ├── binned_3000/{year}/
    └── id/{year}/{year}_clean.csv
 
-Loading DRIAMS Datasets
------------------------
+Loading Datasets
+----------------
 
-Load an existing DRIAMS-formatted dataset (built with
-``build_driams_dataset`` or downloaded from the public DRIAMS repository):
+Load an existing dataset (built with ``DatasetBuilder`` or downloaded
+from the public DRIAMS repository):
 
 .. code-block:: python
 
-   from maldiamrkit import load_driams_dataset
+   from maldiamrkit.data import DatasetLoader, DRIAMSLayout
 
    # Auto-detect stage (prefers binned), load all years
-   ds = load_driams_dataset("output/my_dataset")
+   ds = DatasetLoader(DRIAMSLayout("output/my_dataset")).load()
    print(ds.X.shape)
 
    # Load a specific stage and year
-   ds = load_driams_dataset(
-       "output/my_dataset",
+   ds = DatasetLoader(
+       DRIAMSLayout("output/my_dataset", year=2015),
        stage="preprocessed",
-       year=2015,
-       aggregate_by=dict(antibiotics="Ceftriaxone"),
-   )
+   ).load(aggregate_by=dict(antibiotics="Ceftriaxone"))
+
+Load directly from a MARISMa-style Bruker tree (no build step needed):
+
+.. code-block:: python
+
+   from maldiamrkit.data import DatasetLoader, MARISMaLayout
+
+   ds = DatasetLoader(
+       MARISMaLayout("path/to/MARISMa", "path/to/AMR.csv", year=2024),
+   ).load()
 
 Exporting Spectra
 -----------------
@@ -363,27 +375,13 @@ Command-Line Interface
 
 MaldiAMRKit provides CLI commands for batch processing:
 
+- ``maldiamrkit preprocess`` - build a CSV feature matrix from raw spectra
+- ``maldiamrkit quality`` - generate quality reports
+- ``maldiamrkit build`` - construct a DRIAMS-like dataset directory
+
 .. code-block:: bash
 
-   # Preprocess spectra into a CSV feature matrix
-   maldiamrkit preprocess --input-dir data/ --output features.csv --bin-width 3
+   maldiamrkit preprocess --input-dir data/ --output features.csv
 
-   # Also save individual preprocessed spectra as TXT files
-   maldiamrkit preprocess --input-dir data/ --output features.csv --save-spectra-dir processed/
-
-   # Generate quality reports
-   maldiamrkit quality --input-dir data/ --output quality_report.csv
-
-   # Use a custom pipeline config
-   maldiamrkit preprocess --input-dir data/ --output features.csv --pipeline config.yaml
-
-   # Build a DRIAMS-like dataset
-   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
-
-   # With year-based subfolders
-   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
-     --year-column acquisition_date
-
-   # With extra processing handlers (JSON/YAML config file)
-   maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/ \
-     --extra-handlers handlers.yaml
+See the :doc:`CLI Reference <cli>` for the full command documentation and
+examples.

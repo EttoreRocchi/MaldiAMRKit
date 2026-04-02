@@ -8,7 +8,7 @@ import pytest
 
 from maldiamrkit import MaldiSpectrum
 from maldiamrkit.alignment import Warping
-from maldiamrkit.builder import ProcessingHandler, build_driams_dataset
+from maldiamrkit.data import DatasetBuilder, FlatLayout, ProcessingHandler
 from maldiamrkit.detection import MaldiPeakDetector
 from maldiamrkit.preprocessing import (
     SpectrumQuality,
@@ -127,7 +127,7 @@ class TestEndToEnd:
         unique_vals = np.unique(peaks.values)
         assert all(v in (0.0, 1.0) for v in unique_vals)
 
-    def test_build_driams_end_to_end(self, tmp_path: Path):
+    def test_build_dataset_end_to_end(self, tmp_path: Path):
         """Test: generate spectra -> build DRIAMS dataset -> validate structure."""
         # Create synthetic spectra files
         spectra_dir = tmp_path / "spectra"
@@ -159,16 +159,18 @@ class TestEndToEnd:
 
         # Build with year split and an extra handler
         out = tmp_path / "driams"
-        report = build_driams_dataset(
-            spectra_dir,
-            meta_path,
+        report = DatasetBuilder(
+            FlatLayout(
+                spectra_dir,
+                meta_path,
+                year_column="acquisition_date",
+            ),
             out,
-            year_column="acquisition_date",
             extra_handlers=[
                 ProcessingHandler("binned_3000", "binned", bin_width=6),
             ],
             n_jobs=1,
-        )
+        ).build()
 
         # Validate report
         assert report.total == 3

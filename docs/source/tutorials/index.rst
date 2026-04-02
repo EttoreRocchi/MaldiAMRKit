@@ -67,32 +67,33 @@ Raw Spectra Alignment
    warper.fit(X_raw)
    X_aligned = warper.transform(X_raw)
 
-Building DRIAMS-like Datasets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Building Datasets
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from maldiamrkit import build_driams_dataset, ProcessingHandler
+   from maldiamrkit.data import DatasetBuilder, FlatLayout, ProcessingHandler
    from maldiamrkit.preprocessing import PreprocessingPipeline
 
-   # Build a DRIAMS-like dataset with year-based subfolders
-   report = build_driams_dataset(
-       spectra_dir="spectra/",
-       metadata_csv="metadata.csv",
-       output_dir="output/my_dataset",
-       year_column="acquisition_date",
-   )
+   # Build a dataset with year-based subfolders
+   layout = FlatLayout("spectra/", "metadata.csv", year_column="acquisition_date")
+   report = DatasetBuilder(layout, "output/my_dataset").build()
    print(f"Processed {report.succeeded}/{report.total} spectra")
    print(f"Folders: {report.folders_created}")
 
    # Add extra processing variants
    sqrt_pipe = PreprocessingPipeline.from_yaml("sqrt_pipeline.yaml")
-   report = build_driams_dataset(
-       "spectra/", "metadata.csv", "output/my_dataset",
-       year_column="acquisition_date",
+   report = DatasetBuilder(
+       layout, "output/my_dataset",
        extra_handlers=[
            ProcessingHandler("preprocessed_sqrt", "preprocessed",
                              pipeline=sqrt_pipe),
            ProcessingHandler("binned_3000", "binned", bin_width=6),
        ],
-   )
+   ).build()
+
+   # Build from Bruker binary data (e.g. MARISMa)
+   from maldiamrkit.data import BrukerTreeLayout
+
+   bruker_layout = BrukerTreeLayout("path/to/MARISMa", "path/to/AMR.csv")
+   report = DatasetBuilder(bruker_layout, "output/marisma_built").build()

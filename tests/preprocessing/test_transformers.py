@@ -283,3 +283,60 @@ class TestPQNNormalizerEdges:
         from maldiamrkit.preprocessing.transformers import PQNNormalizer
 
         assert "PQNNormalizer" in repr(PQNNormalizer())
+
+
+class TestMedianNormalizerSerialization:
+    """Tests for MedianNormalizer to_dict and __repr__ (L236, L239)."""
+
+    def test_to_dict(self):
+        """Verify to_dict returns correct dictionary."""
+        from maldiamrkit.preprocessing.transformers import MedianNormalizer
+
+        result = MedianNormalizer().to_dict()
+        assert result == {"name": "MedianNormalizer"}
+
+    def test_repr(self):
+        """Verify __repr__ returns expected string."""
+        from maldiamrkit.preprocessing.transformers import MedianNormalizer
+
+        assert repr(MedianNormalizer()) == "MedianNormalizer()"
+
+
+class TestPQNNormalizerExtras:
+    """Additional PQNNormalizer tests for uncovered branches."""
+
+    def test_list_reference_converted(self):
+        """Verify list reference is converted to ndarray."""
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        pqn = PQNNormalizer(reference=[1.0, 2.0, 3.0])
+        assert isinstance(pqn.reference, np.ndarray)
+
+    def test_to_dict_with_reference(self):
+        """Verify to_dict includes reference when set."""
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        pqn = PQNNormalizer(reference=[1.0, 2.0])
+        d = pqn.to_dict()
+        assert "reference" in d
+        assert d["reference"] == [1.0, 2.0]
+
+
+class TestMzMultiTrimmerExtras:
+    """Additional MzMultiTrimmer tests for uncovered branches."""
+
+    def test_empty_ranges_raises(self):
+        """Verify empty mz_ranges raises ValueError."""
+        from maldiamrkit.preprocessing.transformers import MzMultiTrimmer
+
+        with pytest.raises(ValueError, match="must not be empty"):
+            MzMultiTrimmer(mz_ranges=[])
+
+    def test_to_dict(self):
+        """Verify to_dict returns correct dictionary."""
+        from maldiamrkit.preprocessing.transformers import MzMultiTrimmer
+
+        trimmer = MzMultiTrimmer(mz_ranges=[(2000, 5000), (8000, 12000)])
+        d = trimmer.to_dict()
+        assert d["name"] == "MzMultiTrimmer"
+        assert d["mz_ranges"] == [(2000, 5000), (8000, 12000)]

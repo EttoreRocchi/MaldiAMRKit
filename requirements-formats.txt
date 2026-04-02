@@ -1,2 +1,0 @@
-pyteomics>=4.0
-lxml>=4.0

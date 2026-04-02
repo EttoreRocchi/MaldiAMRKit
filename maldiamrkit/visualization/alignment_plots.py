@@ -58,26 +58,9 @@ def plot_alignment(
     """
     import matplotlib.pyplot as plt
 
-    if not hasattr(warper, "ref_spec_"):
-        raise RuntimeError("Warping must be fitted before plotting")
-
-    if X_aligned is None:
-        X_aligned = warper.transform(X_original)
-
-    if indices is None:
-        indices = [0]
-    elif isinstance(indices, int):
-        indices = [indices]
-
-    for idx in indices:
-        if idx < 0 or idx >= len(X_original):
-            raise ValueError(
-                f"Index {idx} out of bounds for data with {len(X_original)} samples"
-            )
-
-    mz_axis = X_original.columns.to_numpy()
-    if not np.issubdtype(mz_axis.dtype, np.number):
-        mz_axis = np.arange(len(mz_axis))
+    indices, mz_axis, X_aligned = _validate_alignment_inputs(
+        warper, X_original, X_aligned, indices
+    )
 
     ref_peaks, sample_peaks_dict, aligned_peaks_dict = _compute_peak_positions(
         warper, X_original, X_aligned, indices, mz_axis, show_peaks
@@ -117,6 +100,32 @@ def plot_alignment(
 
     plt.tight_layout()
     return fig, axes
+
+
+def _validate_alignment_inputs(warper, X_original, X_aligned, indices):
+    """Validate inputs and normalize indices for alignment plotting."""
+    if not hasattr(warper, "ref_spec_"):
+        raise RuntimeError("Warping must be fitted before plotting")
+
+    if X_aligned is None:
+        X_aligned = warper.transform(X_original)
+
+    if indices is None:
+        indices = [0]
+    elif isinstance(indices, int):
+        indices = [indices]
+
+    for idx in indices:
+        if idx < 0 or idx >= len(X_original):
+            raise ValueError(
+                f"Index {idx} out of bounds for data with {len(X_original)} samples"
+            )
+
+    mz_axis = X_original.columns.to_numpy()
+    if not np.issubdtype(mz_axis.dtype, np.number):
+        mz_axis = np.arange(len(mz_axis))
+
+    return indices, mz_axis, X_aligned
 
 
 def _compute_peak_positions(

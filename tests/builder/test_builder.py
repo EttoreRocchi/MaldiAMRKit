@@ -8,12 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from maldiamrkit.builder import (
+from maldiamrkit.data import (
     BuildReport,
+    DatasetBuilder,
+    FlatLayout,
     ProcessingHandler,
-    _extract_year,
-    build_driams_dataset,
 )
+from maldiamrkit.data.input_layouts import _extract_year
 from maldiamrkit.preprocessing import PreprocessingPipeline
 from maldiamrkit.preprocessing.transformers import (
     ClipNegatives,
@@ -100,9 +101,11 @@ class TestDirectoryStructure:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        report = build_driams_dataset(
-            synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1
-        )
+        report = DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         assert (out / "raw").is_dir()
         assert (out / "preprocessed").is_dir()
         # Default bin_width=3, mz range 2000-20000 -> 6001 edges -> 6000 bins
@@ -114,13 +117,12 @@ class TestDirectoryStructure:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        report = build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        report = DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             bin_width=6,
             n_jobs=1,
-        )
+        ).build()
         assert (out / "binned_3000").is_dir()
         assert "binned_3000" in report.folders_created
 
@@ -128,15 +130,14 @@ class TestDirectoryStructure:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             extra_handlers=[
                 ProcessingHandler("preprocessed_sqrt", "preprocessed"),
             ],
             n_jobs=1,
-        )
+        ).build()
         assert (out / "preprocessed_sqrt").is_dir()
         # Default folders should still exist
         assert (out / "preprocessed").is_dir()
@@ -149,7 +150,11 @@ class TestOutputFormats:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1)
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         raw_files = list((out / "raw").glob("*.txt"))
         assert len(raw_files) == 5
         # Check content is space-separated with header
@@ -166,7 +171,11 @@ class TestOutputFormats:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1)
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         pp_files = list((out / "preprocessed").glob("*.txt"))
         assert len(pp_files) == 5
         content = pp_files[0].read_text()
@@ -175,7 +184,11 @@ class TestOutputFormats:
 
     def test_binned_format(self, tmp_path, synthetic_spectra_dir, synthetic_metadata):
         out = tmp_path / "output"
-        build_driams_dataset(synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1)
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         binned_files = list((out / "binned_6000").glob("*.txt"))
         assert len(binned_files) == 5
         content = binned_files[0].read_text()
@@ -195,13 +208,12 @@ class TestMetadata:
 
     def test_metadata_output(self, tmp_path, synthetic_spectra_dir, synthetic_metadata):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             name="test",
             n_jobs=1,
-        )
+        ).build()
         meta_path = out / "id" / "test_clean.csv"
         assert meta_path.exists()
         df = pd.read_csv(meta_path)
@@ -213,14 +225,13 @@ class TestMetadata:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             id_column="sample_id",
             name="test",
             n_jobs=1,
-        )
+        ).build()
         df = pd.read_csv(out / "id" / "test_clean.csv")
         assert "sample_id" in df.columns
         assert "ID" not in df.columns
@@ -234,13 +245,15 @@ class TestYearStructure:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata_with_years
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata_with_years,
+        DatasetBuilder(
+            FlatLayout(
+                synthetic_spectra_dir,
+                synthetic_metadata_with_years,
+                year_column="acquisition_date",
+            ),
             out,
-            year_column="acquisition_date",
             n_jobs=1,
-        )
+        ).build()
         assert (out / "raw" / "2015").is_dir()
         assert (out / "raw" / "2016").is_dir()
         assert (out / "preprocessed" / "2015").is_dir()
@@ -255,13 +268,15 @@ class TestYearStructure:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata_with_years
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata_with_years,
+        DatasetBuilder(
+            FlatLayout(
+                synthetic_spectra_dir,
+                synthetic_metadata_with_years,
+                year_column="acquisition_date",
+            ),
             out,
-            year_column="acquisition_date",
             n_jobs=1,
-        )
+        ).build()
         meta_2015 = pd.read_csv(out / "id" / "2015" / "2015_clean.csv")
         meta_2016 = pd.read_csv(out / "id" / "2016" / "2016_clean.csv")
         assert len(meta_2015) == 3
@@ -270,13 +285,12 @@ class TestYearStructure:
 
     def test_no_year_flat(self, tmp_path, synthetic_spectra_dir, synthetic_metadata):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             name="test",
             n_jobs=1,
-        )
+        ).build()
         # No year subfolders - files directly in raw/
         raw_files = list((out / "raw").glob("*.txt"))
         assert len(raw_files) == 5
@@ -292,15 +306,14 @@ class TestExtraHandlers:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             extra_handlers=[
                 ProcessingHandler("preprocessed_sqrt", "preprocessed"),
             ],
             n_jobs=1,
-        )
+        ).build()
         pp_files = list((out / "preprocessed_sqrt").glob("*.txt"))
         assert len(pp_files) == 5
 
@@ -308,15 +321,14 @@ class TestExtraHandlers:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             extra_handlers=[
                 ProcessingHandler("binned_3000", "binned", bin_width=6),
             ],
             n_jobs=1,
-        )
+        ).build()
         binned_files = list((out / "binned_3000").glob("*.txt"))
         assert len(binned_files) == 5
         # Check bin count is different from default
@@ -329,16 +341,18 @@ class TestExtraHandlers:
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata_with_years
     ):
         out = tmp_path / "output"
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata_with_years,
+        DatasetBuilder(
+            FlatLayout(
+                synthetic_spectra_dir,
+                synthetic_metadata_with_years,
+                year_column="acquisition_date",
+            ),
             out,
-            year_column="acquisition_date",
             extra_handlers=[
                 ProcessingHandler("preprocessed_alt", "preprocessed"),
             ],
             n_jobs=1,
-        )
+        ).build()
         assert (out / "preprocessed_alt" / "2015").is_dir()
         assert (out / "preprocessed_alt" / "2016").is_dir()
         alt_2015 = list((out / "preprocessed_alt" / "2015").glob("*.txt"))
@@ -357,9 +371,8 @@ class TestExtraHandlers:
                 ("norm", TICNormalizer()),
             ]
         )
-        build_driams_dataset(
-            synthetic_spectra_dir,
-            synthetic_metadata,
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
             out,
             extra_handlers=[
                 ProcessingHandler(
@@ -369,7 +382,7 @@ class TestExtraHandlers:
                 ),
             ],
             n_jobs=1,
-        )
+        ).build()
         # Both default and custom preprocessed should exist
         default_files = list((out / "preprocessed").glob("*.txt"))
         custom_files = list((out / "preprocessed_minimal").glob("*.txt"))
@@ -398,9 +411,11 @@ class TestValidation:
         meta.to_csv(meta_path, index=False)
         out = tmp_path / "output"
         with caplog.at_level("WARNING"):
-            report = build_driams_dataset(
-                synthetic_spectra_dir, meta_path, out, n_jobs=1
-            )
+            report = DatasetBuilder(
+                FlatLayout(synthetic_spectra_dir, meta_path),
+                out,
+                n_jobs=1,
+            ).build()
         assert report.total == 5
         assert report.succeeded == 5
 
@@ -409,9 +424,11 @@ class TestValidation:
         meta_path = tmp_path / "meta.csv"
         meta.to_csv(meta_path, index=False)
         with pytest.raises(ValueError, match="ID"):
-            build_driams_dataset(
-                synthetic_spectra_dir, meta_path, tmp_path / "out", n_jobs=1
-            )
+            DatasetBuilder(
+                FlatLayout(synthetic_spectra_dir, meta_path),
+                tmp_path / "out",
+                n_jobs=1,
+            ).build()
 
     def test_empty_dir_raises(self, tmp_path):
         empty_dir = tmp_path / "empty"
@@ -420,21 +437,24 @@ class TestValidation:
         meta_path = tmp_path / "meta.csv"
         meta.to_csv(meta_path, index=False)
         with pytest.raises(ValueError, match="No .txt"):
-            build_driams_dataset(empty_dir, meta_path, tmp_path / "out", n_jobs=1)
+            DatasetBuilder(
+                FlatLayout(empty_dir, meta_path),
+                tmp_path / "out",
+                n_jobs=1,
+            ).build()
 
     def test_duplicate_folder_raises(
         self, tmp_path, synthetic_spectra_dir, synthetic_metadata
     ):
         with pytest.raises(ValueError, match="Duplicate folder"):
-            build_driams_dataset(
-                synthetic_spectra_dir,
-                synthetic_metadata,
+            DatasetBuilder(
+                FlatLayout(synthetic_spectra_dir, synthetic_metadata),
                 tmp_path / "out",
                 extra_handlers=[
                     ProcessingHandler("preprocessed", "preprocessed"),
                 ],
                 n_jobs=1,
-            )
+            ).build()
 
     def test_corrupt_spectrum_skipped(self, tmp_path, synthetic_metadata):
         spectra_dir = tmp_path / "spectra"
@@ -453,7 +473,11 @@ class TestValidation:
         (spectra_dir / "sample_4.txt").write_text("this is not a spectrum\n!@#$%\n")
 
         out = tmp_path / "output"
-        report = build_driams_dataset(spectra_dir, synthetic_metadata, out, n_jobs=1)
+        report = DatasetBuilder(
+            FlatLayout(spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         assert report.succeeded == 4
         assert report.failed == 1
         assert "sample_4" in report.failed_ids
@@ -464,9 +488,11 @@ class TestBuildReport:
 
     def test_report_fields(self, tmp_path, synthetic_spectra_dir, synthetic_metadata):
         out = tmp_path / "output"
-        report = build_driams_dataset(
-            synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1
-        )
+        report = DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
         assert report.total == 5
         assert report.succeeded == 5
         assert report.failed == 0
@@ -525,3 +551,86 @@ class TestExtractYear:
     def test_invalid_raises(self):
         with pytest.raises(ValueError, match="Cannot extract year"):
             _extract_year("not-a-date")
+
+
+class TestProcessingHandlerFromDict:
+    """Tests for ProcessingHandler.from_dict with various pipeline types."""
+
+    def test_string_pipeline_json(self, tmp_path):
+        """Verify pipeline as JSON path string."""
+        pipe = PreprocessingPipeline.default()
+        json_path = tmp_path / "pipe.json"
+        pipe.to_json(str(json_path))
+        d = {
+            "folder_name": "custom",
+            "kind": "preprocessed",
+            "pipeline": str(json_path),
+        }
+        handler = ProcessingHandler.from_dict(d)
+        assert handler.pipeline is not None
+
+    def test_string_pipeline_yaml(self, tmp_path):
+        """Verify pipeline as YAML path string."""
+        pipe = PreprocessingPipeline.default()
+        yaml_path = tmp_path / "pipe.yaml"
+        pipe.to_yaml(str(yaml_path))
+        d = {
+            "folder_name": "custom",
+            "kind": "preprocessed",
+            "pipeline": str(yaml_path),
+        }
+        handler = ProcessingHandler.from_dict(d)
+        assert handler.pipeline is not None
+
+    def test_unsupported_type_raises(self):
+        """Verify unsupported pipeline type raises TypeError."""
+        d = {"folder_name": "custom", "kind": "preprocessed", "pipeline": 42}
+        with pytest.raises(TypeError, match="Unsupported pipeline"):
+            ProcessingHandler.from_dict(d)
+
+
+class TestBuilderEdgeCases:
+    """Tests for DatasetBuilder error paths."""
+
+    def test_no_matching_ids_raises(self, tmp_path):
+        """Verify ValueError when no IDs match between metadata and spectra."""
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        df = _generate_synthetic_spectrum(random_state=42)
+        np.savetxt(
+            spectra_dir / "spec_X.txt",
+            df[["mass", "intensity"]].values,
+            header="mass intensity",
+            comments="# ",
+            fmt="%.6f",
+        )
+        meta_path = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["spec_Y"], "Drug": ["R"]}).to_csv(meta_path, index=False)
+        layout = FlatLayout(spectra_dir, meta_path)
+        builder = DatasetBuilder(layout, tmp_path / "out")
+        with pytest.raises(ValueError, match="No matching IDs"):
+            builder.build()
+
+    def test_on_error_raise(self, tmp_path):
+        """Verify on_error='raise' raises RuntimeError on failures."""
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        # Create an empty file that will fail to process
+        (spectra_dir / "bad.txt").write_text("")
+        # Also create a valid one so we get past ID matching
+        df = _generate_synthetic_spectrum(random_state=42)
+        np.savetxt(
+            spectra_dir / "good.txt",
+            df[["mass", "intensity"]].values,
+            header="mass intensity",
+            comments="# ",
+            fmt="%.6f",
+        )
+        meta_path = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["bad", "good"], "Drug": ["R", "S"]}).to_csv(
+            meta_path, index=False
+        )
+        layout = FlatLayout(spectra_dir, meta_path)
+        builder = DatasetBuilder(layout, tmp_path / "out", on_error="raise")
+        with pytest.raises(RuntimeError, match="failed"):
+            builder.build()

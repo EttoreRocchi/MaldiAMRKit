@@ -8,7 +8,7 @@ read_spectrum
 
 .. autofunction:: maldiamrkit.io.read_spectrum
 
-sniff_delimiter
----------------
+parse_mic_column
+----------------
 
-.. autofunction:: maldiamrkit.io.sniff_delimiter
+.. autofunction:: maldiamrkit.io.parse_mic_column

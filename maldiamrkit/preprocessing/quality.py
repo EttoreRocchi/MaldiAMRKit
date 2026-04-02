@@ -122,7 +122,9 @@ class SpectrumQuality:
             return 0.0
 
         mad = np.median(np.abs(noise - np.median(noise)))
-        return 1.4826 * mad  # MAD to std conversion
+        # 1.4826 = 1/Phi^{-1}(3/4), exact for Gaussian noise
+        # (Rousseeuw & Croux 1993).
+        return 1.4826 * mad
 
     def estimate_baseline_fraction(self, spectrum: MaldiSpectrum) -> float:
         """
@@ -318,11 +320,21 @@ def estimate_snr(
     noise_mask = df["mass"].between(*noise_region)
     noise = df.loc[noise_mask, "intensity"]
 
+    _MAX_SNR = 1e6  # finite cap to avoid inf propagating downstream
+
     if len(noise) == 0:
-        return np.inf
+        warnings.warn(
+            f"Noise region {noise_region} contains no data points. "
+            f"SNR capped at {_MAX_SNR:.0e}.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return _MAX_SNR
 
     mad = np.median(np.abs(noise - np.median(noise)))
-    noise_std = 1.4826 * mad  # MAD to std conversion for normal distribution
+    # MAD-to-std conversion factor 1.4826 assumes normally distributed
+    # noise (exact for Gaussian; see Rousseeuw & Croux 1993).
+    noise_std = 1.4826 * mad
 
     if signal_method == "max":
         signal = df["intensity"].max()
@@ -335,4 +347,7 @@ def estimate_snr(
             top_n = np.sort(peak_intensities)[-n_top_peaks:]
             signal = np.median(top_n)
 
-    return signal / noise_std if noise_std > 0 else np.inf
+    if noise_std <= 0:
+        return _MAX_SNR
+
+    return min(signal / noise_std, _MAX_SNR)

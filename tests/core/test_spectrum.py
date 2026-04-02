@@ -177,7 +177,7 @@ class TestMaldiSpectrumBin:
         # Allow small numerical tolerance
         assert np.isclose(original_sum, binned_sum, rtol=0.01)
 
-    @pytest.mark.parametrize("method", ["uniform", "logarithmic", "adaptive"])
+    @pytest.mark.parametrize("method", ["uniform", "proportional", "adaptive"])
     def test_bin_methods_valid(self, synthetic_spectrum: pd.DataFrame, method: str):
         """Test all binning methods work."""
         spec = MaldiSpectrum(synthetic_spectrum)
@@ -360,3 +360,49 @@ class TestMaldiSpectrumPlot:
         returned = plot_spectrum(spec, ax=ax)
         assert returned is ax
         plt.close(fig)
+
+
+class TestInferId:
+    """Tests for the _infer_id helper covering Bruker directory branches."""
+
+    def test_file_path_returns_stem(self, tmp_path):
+        """Verify non-directory path returns file stem."""
+        f = tmp_path / "spectrum_1.txt"
+        f.write_text("1000 100\n")
+        from maldiamrkit.spectrum import _infer_id
+
+        assert _infer_id(f) == "spectrum_1"
+
+    def test_dir_no_acqus_returns_name(self, tmp_path):
+        """Verify directory without acqus returns dir name."""
+        d = tmp_path / "some_dir"
+        d.mkdir()
+        from maldiamrkit.spectrum import _infer_id
+
+        assert _infer_id(d) == "some_dir"
+
+    def test_bruker_depth3_single_target(self, tmp_path):
+        """Verify depth-3 Bruker dir returns name_target."""
+        # Structure: identifier / target_pos / 1 / 1SLin / acqus
+        identifier = tmp_path / "specimen_A"
+        acqus_dir = identifier / "0_A1" / "1" / "1SLin"
+        acqus_dir.mkdir(parents=True)
+        (acqus_dir / "acqus").write_text("##TITLE= Test\n##END=\n")
+        from maldiamrkit.spectrum import _infer_id
+
+        result = _infer_id(identifier)
+        assert result == "specimen_A_0_A1"
+
+    def test_bruker_depth3_multiple_targets_warns(self, tmp_path, caplog):
+        """Verify warning when multiple target positions found."""
+        identifier = tmp_path / "specimen_A"
+        for target in ("0_A1", "0_A2"):
+            acqus_dir = identifier / target / "1" / "1SLin"
+            acqus_dir.mkdir(parents=True)
+            (acqus_dir / "acqus").write_text("##TITLE= Test\n##END=\n")
+        from maldiamrkit.spectrum import _infer_id
+
+        with caplog.at_level(logging.WARNING):
+            result = _infer_id(identifier)
+        assert "specimen_A" in result
+        assert "Multiple target positions" in caplog.text

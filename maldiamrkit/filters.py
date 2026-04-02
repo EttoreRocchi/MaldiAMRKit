@@ -194,20 +194,24 @@ class QualityFilter(SpectrumFilter):
         self.min_peaks = min_peaks
         self.max_baseline_fraction = max_baseline_fraction
 
+    _CHECKS: list[tuple[str, str, str]] = [
+        ("min_snr", "snr", "ge"),
+        ("min_peaks", "n_peaks", "ge"),
+        ("max_baseline_fraction", "baseline_fraction", "le"),
+    ]
+
     def __call__(self, meta_row: pd.Series) -> bool:
         """Return True if the row passes all quality thresholds."""
-        if self.min_snr is not None:
-            snr = meta_row.get("snr")
-            if snr is None or snr < self.min_snr:
-                return False
-        if self.min_peaks is not None:
-            n_peaks = meta_row.get("n_peaks")
-            if n_peaks is None or n_peaks < self.min_peaks:
-                return False
-        if self.max_baseline_fraction is not None:
-            bf = meta_row.get("baseline_fraction")
-            if bf is None or bf > self.max_baseline_fraction:
-                return False
+        for attr, col, op in self._CHECKS:
+            threshold = getattr(self, attr)
+            if threshold is not None:
+                val = meta_row.get(col)
+                if val is None:
+                    return False
+                if op == "ge" and val < threshold:
+                    return False
+                if op == "le" and val > threshold:
+                    return False
         return True
 
     def __repr__(self) -> str:

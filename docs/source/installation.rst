@@ -5,19 +5,6 @@ Installation
 
    pip install maldiamrkit
 
-Optional: mzML/mzXML Format Support
-------------------------------------
-
-To read mzML and mzXML files (common in clinical mass spectrometry),
-install with the ``formats`` extra:
-
-.. code-block:: bash
-
-   pip install maldiamrkit[formats]
-
-This installs `pyteomics <https://pyteomics.readthedocs.io/>`_ and
-``lxml`` for parsing standard mass spectrometry data formats.
-
 Optional: Batch Correction & UMAP
 ---------------------------------
 
@@ -42,15 +29,6 @@ for usage examples. Reference:
    isolates in Italy*. **BMC Microbiol** (2026).
    `doi:10.1186/s12866-025-04657-2
    <https://link.springer.com/article/10.1186/s12866-025-04657-2>`_
-
-Optional: All Extras
---------------------
-
-Install all optional dependencies at once:
-
-.. code-block:: bash
-
-   pip install maldiamrkit[all]
 
 Development Installation
 ------------------------

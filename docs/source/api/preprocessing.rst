@@ -88,11 +88,11 @@ MaldiAMRKit supports multiple binning strategies:
 
     spec.bin(bin_width=3)  # 3 Da bins
 
-**Logarithmic**: Bin width scales with m/z, matching instrument resolution.
+**Proportional**: Bin width scales with m/z, matching instrument resolution.
 
 .. code-block:: python
 
-    spec.bin(bin_width=3, method="logarithmic")
+    spec.bin(bin_width=3, method="proportional")
 
 **Adaptive**: Smaller bins in peak-dense regions, larger bins elsewhere.
 

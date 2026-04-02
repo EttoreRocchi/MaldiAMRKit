@@ -108,7 +108,7 @@ class PreprocessingPipeline:
             [
                 ("clip", ClipNegatives()),
                 ("sqrt", SqrtTransform()),
-                ("smooth", SavitzkyGolaySmooth(window_length=20, polyorder=2)),
+                ("smooth", SavitzkyGolaySmooth(window_length=21, polyorder=2)),
                 ("baseline", SNIPBaseline(half_window=40)),
                 ("trim", MzTrimmer(mz_min=2000, mz_max=20000)),
                 ("normalize", TICNormalizer()),

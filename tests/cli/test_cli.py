@@ -33,7 +33,7 @@ class TestHelpOutput:
         output = _strip_ansi(result.output)
         assert "preprocess" in output
         assert "quality" in output
-        assert "build-driams" in output
+        assert "build" in output
 
     def test_preprocess_help(self):
         result = runner.invoke(app, ["preprocess", "--help"])
@@ -224,7 +224,7 @@ class TestQualityCommand:
 
 
 def _setup_synthetic_build_data(tmp_path: Path) -> tuple[Path, Path]:
-    """Create synthetic spectra dir and metadata for build-driams tests."""
+    """Create synthetic spectra dir and metadata for build tests."""
     spectra_dir = tmp_path / "spectra"
     spectra_dir.mkdir()
     ids = []
@@ -246,16 +246,17 @@ def _setup_synthetic_build_data(tmp_path: Path) -> tuple[Path, Path]:
 
 
 class TestBuildDRIAMSCommand:
-    """Tests for the build-driams CLI subcommand."""
+    """Tests for the build CLI subcommand."""
 
-    def test_build_driams_help(self):
-        result = runner.invoke(app, ["build-driams", "--help"])
+    def test_build_help(self):
+        result = runner.invoke(app, ["build", "--help"])
         assert result.exit_code == 0
         output = _strip_ansi(result.output)
         for opt in [
             "--spectra-dir",
             "--metadata",
             "--output-dir",
+            "--layout",
             "--name",
             "--id-column",
             "--year-column",
@@ -263,16 +264,20 @@ class TestBuildDRIAMSCommand:
             "--pipeline",
             "--extra-handlers",
             "--n-jobs",
+            "--path-column",
+            "--target-positi",  # truncated in Rich-formatted help output
+            "--deduplicate",
+            "--validate",
         ]:
             assert opt in output, f"Missing option: {opt}"
 
-    def test_build_driams_end_to_end(self, tmp_path: Path):
+    def test_build_end_to_end(self, tmp_path: Path):
         spectra_dir, meta_path = _setup_synthetic_build_data(tmp_path)
         out = tmp_path / "driams_out"
         result = runner.invoke(
             app,
             [
-                "build-driams",
+                "build",
                 "--spectra-dir",
                 str(spectra_dir),
                 "--metadata",
@@ -291,7 +296,7 @@ class TestBuildDRIAMSCommand:
         assert (out / "binned_6000").is_dir()
         assert (out / "id" / "test_clean.csv").exists()
 
-    def test_build_driams_with_extra_handlers(self, tmp_path: Path):
+    def test_build_with_extra_handlers(self, tmp_path: Path):
         spectra_dir, meta_path = _setup_synthetic_build_data(tmp_path)
         # Write an extra-handlers config
         config = [
@@ -304,7 +309,7 @@ class TestBuildDRIAMSCommand:
         result = runner.invoke(
             app,
             [
-                "build-driams",
+                "build",
                 "--spectra-dir",
                 str(spectra_dir),
                 "--metadata",
@@ -322,7 +327,7 @@ class TestBuildDRIAMSCommand:
         binned = list((out / "binned_3000").glob("*.txt"))
         assert len(binned) == 3
 
-    def test_build_driams_empty_dir_exits(self, tmp_path: Path):
+    def test_build_empty_dir_exits(self, tmp_path: Path):
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
         meta = pd.DataFrame({"ID": ["x"], "Species": ["E. coli"]})
@@ -331,7 +336,7 @@ class TestBuildDRIAMSCommand:
         result = runner.invoke(
             app,
             [
-                "build-driams",
+                "build",
                 "--spectra-dir",
                 str(empty_dir),
                 "--metadata",
@@ -341,3 +346,110 @@ class TestBuildDRIAMSCommand:
             ],
         )
         assert result.exit_code == 1
+
+    def test_build_with_short_flags(self, tmp_path: Path):
+        spectra_dir, meta_path = _setup_synthetic_build_data(tmp_path)
+        out = tmp_path / "short_out"
+        result = runner.invoke(
+            app,
+            [
+                "build",
+                "-s",
+                str(spectra_dir),
+                "-m",
+                str(meta_path),
+                "-o",
+                str(out),
+                "-n",
+                "test",
+                "-j",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out / "raw").is_dir()
+
+
+class TestShortFlags:
+    """Tests that short flags work for all commands."""
+
+    def test_preprocess_short_flags(self, tmp_path: Path):
+        if not DATA_DIR.exists() or not list(DATA_DIR.glob("*.txt")):
+            pytest.skip("No spectrum files in data directory")
+
+        output = tmp_path / "short.csv"
+        result = runner.invoke(
+            app,
+            [
+                "preprocess",
+                "-i",
+                str(DATA_DIR),
+                "-o",
+                str(output),
+                "-b",
+                "3",
+            ],
+        )
+        assert result.exit_code == 0
+        assert output.exists()
+
+    def test_quality_short_flags(self, tmp_path: Path):
+        if not DATA_DIR.exists() or not list(DATA_DIR.glob("*.txt")):
+            pytest.skip("No spectrum files in data directory")
+
+        output = tmp_path / "short_quality.csv"
+        result = runner.invoke(
+            app,
+            [
+                "quality",
+                "-i",
+                str(DATA_DIR),
+                "-o",
+                str(output),
+            ],
+        )
+        assert result.exit_code == 0
+        assert output.exists()
+
+
+class TestBrukerLayout:
+    """Tests for the --layout bruker option."""
+
+    BRUKER_DIR = Path(__file__).parent.parent.parent / "data" / "bruker_sample"
+
+    def test_build_bruker_layout(self, tmp_path: Path):
+        if not self.BRUKER_DIR.exists():
+            pytest.skip("No bruker_sample data available")
+
+        # Build metadata CSV matching the Bruker sample structure
+        meta = pd.DataFrame(
+            {
+                "Identifier": ["922145"],
+                "Year": ["2025"],
+                "Path": ["922145/0_G10/1/1SLin"],
+                "target_position": ["G10"],
+                "Species": ["E. coli"],
+            }
+        )
+        meta_path = tmp_path / "bruker_meta.csv"
+        meta.to_csv(meta_path, index=False)
+
+        out = tmp_path / "bruker_out"
+        result = runner.invoke(
+            app,
+            [
+                "build",
+                "-s",
+                str(self.BRUKER_DIR),
+                "-m",
+                str(meta_path),
+                "-o",
+                str(out),
+                "-l",
+                "bruker",
+                "-j",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out / "raw").is_dir()

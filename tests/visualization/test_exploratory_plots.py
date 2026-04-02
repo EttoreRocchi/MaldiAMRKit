@@ -161,3 +161,24 @@ class TestPlotUMAP:
     def test_title_default(self, small_X):
         fig, ax = plot_umap(small_X, n_neighbors=5, show=False)
         assert ax.get_title() == "UMAP"
+
+
+class TestUmapImportError:
+    """Tests for UMAP import error handling."""
+
+    def test_umap_import_error(self, small_X):
+        """Verify ImportError when umap-learn is not installed."""
+        from unittest.mock import patch
+
+        with patch.dict("sys.modules", {"umap": None}):
+            with pytest.raises(ImportError, match="umap-learn"):
+                _reduce_dimensions(small_X, method="umap")
+
+
+class TestScatterEmbeddingShow:
+    """Tests for show parameter in _scatter_embedding."""
+
+    def test_show_false_returns_without_calling_show(self, small_X):
+        """Verify show=False returns fig and ax without plt.show."""
+        fig, ax = plot_pca(small_X, show=False)
+        assert fig is not None

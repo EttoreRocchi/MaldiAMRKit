@@ -193,7 +193,11 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             )
 
             if persistence >= self.persistence_threshold:
-                # Find candidates close to birth intensity
+                # Find candidates close to birth intensity.
+                # Tolerance is 10% of persistence + small epsilon to handle
+                # near-zero persistence.  This heuristic may miss the exact
+                # birth index when multiple points have similar values; the
+                # fallback chain below mitigates this.
                 tol = persistence * 0.1 + 1e-10
                 candidates = np.where(np.abs(signal - birth) < tol)[0]
 

@@ -1,27 +1,59 @@
 Dataset Builder & Loader
 ========================
 
-Build and load DRIAMS-like dataset directories.
+Build and load datasets using pluggable layout adapters.
 
-build_driams_dataset
---------------------
+DatasetBuilder
+--------------
 
-.. autofunction:: maldiamrkit.builder.build_driams_dataset
+.. autoclass:: maldiamrkit.data.DatasetBuilder
+   :members:
+   :undoc-members:
 
-load_driams_dataset
--------------------
+DatasetLoader
+-------------
 
-.. autofunction:: maldiamrkit.loader.load_driams_dataset
+.. autoclass:: maldiamrkit.data.DatasetLoader
+   :members:
+   :undoc-members:
+
+Input Layouts
+-------------
+
+.. autoclass:: maldiamrkit.data.InputLayout
+   :members:
+
+.. autoclass:: maldiamrkit.data.FlatLayout
+   :members:
+   :undoc-members:
+
+.. autoclass:: maldiamrkit.data.BrukerTreeLayout
+   :members:
+   :undoc-members:
+
+Dataset Layouts
+---------------
+
+.. autoclass:: maldiamrkit.data.DatasetLayout
+   :members:
+
+.. autoclass:: maldiamrkit.data.DRIAMSLayout
+   :members:
+   :undoc-members:
+
+.. autoclass:: maldiamrkit.data.MARISMaLayout
+   :members:
+   :undoc-members:
 
 ProcessingHandler
 -----------------
 
-.. autoclass:: maldiamrkit.builder.ProcessingHandler
+.. autoclass:: maldiamrkit.data.ProcessingHandler
    :members:
    :undoc-members:
 
 BuildReport
 -----------
 
-.. autoclass:: maldiamrkit.builder.BuildReport
+.. autoclass:: maldiamrkit.data.BuildReport
    :no-members:

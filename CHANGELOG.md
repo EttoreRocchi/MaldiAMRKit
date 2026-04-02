@@ -3,6 +3,30 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.0] - 2026-04-02
+
+### Added
+
+- **Bruker format support**: `read_spectrum()` now reads Bruker flexAnalysis binary data directories (fid/1r + acqus) natively. Default reads the processed `1r` from `pdata/1/`; raw `fid` available via `bruker_source="fid"`.
+- **MIC parsing utility**: `parse_mic_column()` in `maldiamrkit.io` for parsing MIC strings (e.g. `"<=8"`, `">16"`, `"0,5"`) into numeric values and qualifiers.
+- **`DatasetBuilder` class**: Replaces `build_driams_dataset()`. Accepts an `InputLayout` adapter for flexible input format support.
+- **`DatasetLoader` class**: Replaces `load_driams_dataset()`. Accepts a `DatasetLayout` adapter for navigating different dataset structures.
+- **Input layout adapters**: `FlatLayout` for flat text file directories, `BrukerTreeLayout` for hierarchical Bruker binary trees with optional empty/duplicate spectrum validation.
+- **Dataset layout adapters**: `DRIAMSLayout` for loading DRIAMS-like built datasets, `MARISMaLayout` for loading directly from MARISMa-style raw Bruker trees.
+- **`maldiamrkit/data/` subpackage**: Centralises all data building and loading concerns.
+
+### Changed
+
+- `MaldiSpectrum` now supports Bruker directory paths (ID set to directory name).
+
+### Removed
+
+- **`build_driams_dataset()` function**: Replaced by `DatasetBuilder(FlatLayout(...), ...).build()`.
+- **`load_driams_dataset()` function**: Replaced by `DatasetLoader(DRIAMSLayout(...)).load()`.
+- **mzML/mzXML support**: Removed in favor of native Bruker format support.
+- **`[formats]` install extra**: Removed (mzML/mzXML support dropped).
+- **`[all]` install extra**: Removed (`[formats]` no longer exists).
+
 ## [0.10.0] - 2026-03-31
 
 ### Added

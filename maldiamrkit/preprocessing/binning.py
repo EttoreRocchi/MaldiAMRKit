@@ -34,13 +34,24 @@ def _uniform_edges(
     return np.arange(mz_min, mz_max + bin_width, bin_width)
 
 
-def _logarithmic_edges(
+def _proportional_edges(
     mz_min: float,
     mz_max: float,
     bin_width: float,
 ) -> np.ndarray:
     """
-    Generate log-scaled bin edges.
+    Generate proportional-width bin edges.
+
+    Bin width increases linearly with m/z:
+    ``w(mz) = bin_width * (mz / mz_min)``.
+
+    .. note::
+
+       This is *not* true logarithmic (geometric) spacing.  For
+       geometric spacing the edges would be ``mz_min * r**k``.  The
+       proportional scheme gives narrower bins at low m/z and wider
+       bins at high m/z, which is often desirable for MALDI-TOF data,
+       but the scaling is linear, not exponential.
 
     Parameters
     ----------
@@ -63,7 +74,7 @@ def _logarithmic_edges(
         # Width at current position
         width = max(1.0, bin_width * (current / mz_min))
         current += width
-        edges_list.append(min(current, mz_max + width))
+        edges_list.append(current)
 
     result = np.array(edges_list)
     # Ensure last edge covers mz_max
@@ -166,7 +177,9 @@ def _adaptive_edges(
     if peak_prominence is None:
         # MAD-based prominence: robust to outliers
         mad = np.median(np.abs(intensity - np.median(intensity)))
-        peak_prominence = 1.4826 * mad * 3  # 3-sigma equivalent
+        # 1.4826 converts MAD to sigma under Gaussian assumption
+        # (Rousseeuw & Croux 1993); * 3 gives 3-sigma equivalent.
+        peak_prominence = 1.4826 * mad * 3
     peaks, _ = find_peaks(intensity, prominence=peak_prominence)
 
     if len(peaks) == 0:
@@ -292,11 +305,11 @@ def _uniform_edge_fn(*, mz_min, mz_max, bin_width, **_kwargs) -> np.ndarray:
     return _uniform_edges(mz_min, mz_max, bin_width)
 
 
-def _logarithmic_edge_fn(*, mz_min, mz_max, bin_width, **_kwargs) -> np.ndarray:
-    """Generate logarithmic bin edges with validation."""
+def _proportional_edge_fn(*, mz_min, mz_max, bin_width, **_kwargs) -> np.ndarray:
+    """Generate proportional-width bin edges with validation."""
     if bin_width < 1.0:
         raise ValueError(f"bin_width must be >= 1 Dalton, got {bin_width}.")
-    return _logarithmic_edges(mz_min, mz_max, bin_width)
+    return _proportional_edges(mz_min, mz_max, bin_width)
 
 
 def _adaptive_edge_fn(
@@ -335,7 +348,7 @@ def _custom_edge_fn(*, mz_min, mz_max, custom_edges=None, **_kwargs) -> np.ndarr
 
 BINNING_REGISTRY: dict[str, Callable[..., np.ndarray]] = {
     "uniform": _uniform_edge_fn,
-    "logarithmic": _logarithmic_edge_fn,
+    "proportional": _proportional_edge_fn,
     "adaptive": _adaptive_edge_fn,
     "custom": _custom_edge_fn,
 }
@@ -367,9 +380,9 @@ def bin_spectrum(
     """
     Bin spectrum intensities into m/z intervals.
 
-    Supports multiple binning strategies: uniform (fixed width), logarithmic
-    (width scales with m/z), adaptive (smaller bins in peak-dense regions),
-    and custom (user-defined edges).
+    Supports multiple binning strategies: uniform (fixed width), proportional
+    (width scales linearly with m/z), adaptive (smaller bins in peak-dense
+    regions), and custom (user-defined edges).
 
     Parameters
     ----------
@@ -381,10 +394,11 @@ def bin_spectrum(
         Upper m/z bound in Daltons.
     bin_width : int or float, default=3
         Width of each bin in Daltons. For 'uniform', this is the fixed width.
-        For 'logarithmic', this is the reference width at mz_min.
+        For 'proportional', this is the reference width at mz_min.
         Ignored for 'adaptive' and 'custom' methods.
     method : str, default='uniform'
-        Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
+        Binning method. One of 'uniform', 'proportional', 'adaptive',
+        'custom'.
     custom_edges : array-like, optional
         User-provided bin edges. Required if method='custom'.
     adaptive_min_width : float, default=1.0
@@ -418,8 +432,8 @@ def bin_spectrum(
     >>> # Uniform binning (default)
     >>> binned, metadata = bin_spectrum(df, bin_width=3)
     >>>
-    >>> # Logarithmic binning
-    >>> binned, metadata = bin_spectrum(df, bin_width=3, method='logarithmic')
+    >>> # Proportional binning (width grows with m/z)
+    >>> binned, metadata = bin_spectrum(df, bin_width=3, method='proportional')
     >>>
     >>> # Adaptive binning
     >>> binned, metadata = bin_spectrum(df, method='adaptive')
@@ -435,6 +449,9 @@ def bin_spectrum(
 
     if mz_min >= mz_max:
         raise ValueError(f"mz_min ({mz_min}) must be less than mz_max ({mz_max}).")
+
+    if method == "proportional" and mz_min <= 0:
+        raise ValueError(f"mz_min must be > 0 for {method} binning, got {mz_min}")
 
     # Generate bin edges via registry
     edge_fn = BINNING_REGISTRY[method]

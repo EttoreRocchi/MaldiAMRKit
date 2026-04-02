@@ -44,6 +44,7 @@ test:  ## Run tests
 	@pytest $(TESTS)/
 
 test-cov:  ## Run tests with coverage report
+	@rm -f .coverage .coverage.*
 	@pytest $(TESTS)/ --cov=$(SRC) --cov-report=term-missing
 
 # Documentation
@@ -63,7 +64,8 @@ clean:  ## Remove build artefacts and caches
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type d -name "*.egg-info"   -exec rm -rf {} + 2>/dev/null || true
-	@rm -rf dist/ build/
+	@rm -rf dist/ build/ htmlcov/ .ruff_cache/
+	@rm -f .coverage .coverage.*
 
 # Release
 

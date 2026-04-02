@@ -314,3 +314,21 @@ class TestPeakDetectorPHEdges:
         assert isinstance(stats, pd.DataFrame)
         assert "n_peaks" in stats.columns
         assert stats.iloc[0]["n_peaks"] > 0
+
+
+class TestPeakDetectorEdgeCases:
+    """Additional edge case tests for peak detector."""
+
+    def test_unknown_method_raises_on_transform(self, binned_dataset):
+        """Verify unknown method raises ValueError during transform."""
+        detector = MaldiPeakDetector(method="local")
+        detector.method = "invalid"  # bypass __init__ validation
+        with pytest.raises(ValueError, match="Unknown method"):
+            detector.transform(binned_dataset.iloc[:1])
+
+    def test_unknown_method_raises_on_statistics(self, binned_dataset):
+        """Verify unknown method raises ValueError in get_peak_statistics."""
+        detector = MaldiPeakDetector(method="local")
+        detector.method = "invalid"
+        with pytest.raises(ValueError, match="Unknown method"):
+            detector.get_peak_statistics(binned_dataset.iloc[:1])

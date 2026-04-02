@@ -29,18 +29,18 @@ class TestBinSpectrum:
         expected_bins = (20000 - 2000) // 3
         assert len(result) == expected_bins
 
-    def test_bin_spectrum_logarithmic(self, preprocessed_spectrum: pd.DataFrame):
-        """Test logarithmic binning."""
+    def test_bin_spectrum_proportional(self, preprocessed_spectrum: pd.DataFrame):
+        """Test proportional binning."""
         result, metadata = bin_spectrum(
-            preprocessed_spectrum, bin_width=3, method="logarithmic"
+            preprocessed_spectrum, bin_width=3, method="proportional"
         )
 
         assert len(result) > 0
-        # Logarithmic binning should have fewer bins than uniform (bins grow)
+        # Proportional binning should have fewer bins than uniform (bins grow)
         uniform_result, _ = bin_spectrum(
             preprocessed_spectrum, bin_width=3, method="uniform"
         )
-        # Log bins grow, so we get fewer bins with same starting width
+        # Proportional bins grow, so we get fewer bins with same starting width
         assert len(result) < len(uniform_result)
 
     def test_bin_spectrum_adaptive(self, preprocessed_spectrum: pd.DataFrame):
@@ -172,12 +172,12 @@ class TestBinMetadata:
         # All bins should have width 3
         assert np.allclose(metadata["bin_width"], 3.0)
 
-    def test_bin_metadata_logarithmic_increasing_width(
+    def test_bin_metadata_proportional_increasing_width(
         self, preprocessed_spectrum: pd.DataFrame
     ):
-        """Test that logarithmic binning has increasing bin widths."""
+        """Test that proportional binning has increasing bin widths."""
         _, metadata = bin_spectrum(
-            preprocessed_spectrum, bin_width=3, method="logarithmic"
+            preprocessed_spectrum, bin_width=3, method="proportional"
         )
 
         widths = metadata["bin_width"].values
@@ -201,7 +201,7 @@ class TestBinningReproducibility:
         pd.testing.assert_frame_equal(result1, result2)
         pd.testing.assert_frame_equal(meta1, meta2)
 
-    @pytest.mark.parametrize("method", ["uniform", "logarithmic", "adaptive"])
+    @pytest.mark.parametrize("method", ["uniform", "proportional", "adaptive"])
     def test_reproducible_across_methods(
         self, preprocessed_spectrum: pd.DataFrame, method: str
     ):

@@ -109,7 +109,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
     bin_width : float, default=3
         Width of output bins in Daltons.
     bin_method : str, default="uniform"
-        Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
+        Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
     bin_kwargs : dict, optional
         Additional keyword arguments for binning.
     max_shift_da : float, default=50.0
@@ -129,6 +129,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
         detector is created with binary=True and prominence=1e-5.
     min_reference_peaks : int, default=5
         Minimum peaks expected in reference.
+    interp_step : float, default=0.5
+        Step size in Daltons for the common m/z grid used when
+        computing a median reference spectrum.
     n_jobs : int, default=1
         Number of parallel jobs for transform. Use -1 for all available
         cores, 1 for sequential processing.
@@ -186,6 +189,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         pipeline: PreprocessingPipeline | None = None,
         peak_detector: MaldiPeakDetector | None = None,
         min_reference_peaks: int = 5,
+        interp_step: float = 0.5,
         n_jobs: int = 1,
     ) -> None:
         self.method = method
@@ -197,6 +201,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         self.dtw_radius = dtw_radius
         self.smooth_sigma = smooth_sigma
         self.reference = reference
+        self.interp_step = interp_step
         self.pipeline = pipeline
         self.peak_detector = peak_detector or MaldiPeakDetector(
             binary=True, prominence=1e-5
@@ -257,32 +262,29 @@ class RawWarping(BaseEstimator, TransformerMixin):
             ref_intensity = ref_df["intensity"].to_numpy()
 
         elif self.reference == "median":
-            # Compute median spectrum on a common m/z grid
+            # Compute median spectrum on a common m/z grid.
+            # First pass: determine the common m/z range.
             all_mz = []
-            all_specs = []
-
             for path in paths:
                 spec_df = self._load_raw_spectrum(path)
                 all_mz.append(spec_df["mass"].to_numpy())
-                all_specs.append(spec_df)
 
-            # Create common grid based on min/max m/z
             mz_min = max(mz.min() for mz in all_mz)
             mz_max = min(mz.max() for mz in all_mz)
-            # Use fine step for interpolation
-            common_mz = np.arange(mz_min, mz_max, 0.5)
+            common_mz = np.arange(mz_min, mz_max, self.interp_step)
 
-            # Interpolate all spectra onto common grid
-            intensities = []
-            for spec_df in all_specs:
-                interp_int = np.interp(
+            # Second pass: interpolate onto common grid incrementally
+            # to avoid holding all raw DataFrames in memory.
+            # Memory usage: O(N * len(common_mz)) float64.
+            intensities = np.empty((len(paths), len(common_mz)))
+            for i, path in enumerate(paths):
+                spec_df = self._load_raw_spectrum(path)
+                intensities[i] = np.interp(
                     common_mz,
                     spec_df["mass"].to_numpy(),
                     spec_df["intensity"].to_numpy(),
                 )
-                intensities.append(interp_int)
 
-            # Compute median
             ref_mz = common_mz
             ref_intensity = np.median(intensities, axis=0)
         else:

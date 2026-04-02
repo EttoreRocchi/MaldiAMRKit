@@ -8,12 +8,50 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .io.readers import read_spectrum
+from .io.readers import _find_bruker_acqus, read_spectrum
 from .preprocessing.binning import bin_spectrum
 from .preprocessing.pipeline import preprocess
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 
 logger = logging.getLogger(__name__)
+
+
+def _infer_id(path: Path) -> str:
+    """Infer a spectrum identifier from a file or directory path.
+
+    For files, use the stem (filename without extension).
+    For Bruker directories, combine the identifier and target position
+    extracted from the relative path to the ``acqus`` file:
+
+    - ``{identifier}/{target_pos}/1/1SLin/acqus`` (depth 2 from
+      ``{target_pos}``) -> ``{identifier}_{target_pos}``
+    - ``{identifier}/.../{target_pos}/1/1SLin/acqus`` (depth 3 from
+      ``{identifier}``) -> ``{identifier}_{target_pos}``
+    - ``acqus`` directly in path -> ``path.name``
+    """
+    if not path.is_dir():
+        return path.stem
+    acqus = _find_bruker_acqus(path)
+    if acqus is None:
+        return path.name
+    rel_parts = acqus.parent.relative_to(path).parts
+    depth = len(rel_parts)
+    if depth == 2:
+        # Path is at {identifier}/{target_pos} level
+        return f"{path.parent.name}_{path.name}"
+    if depth == 3:
+        # Path is at {identifier} level; first rel part is target_pos
+        all_acqus = sorted(path.glob("*/*/*/acqus"))
+        if len(all_acqus) > 1:
+            targets = [a.parent.relative_to(path).parts[0] for a in all_acqus]
+            logger.warning(
+                "Multiple target positions found for %s: %s. Using '%s'.",
+                path.name,
+                targets,
+                rel_parts[0],
+            )
+        return f"{path.name}_{rel_parts[0]}"
+    return path.name
 
 
 class MaldiSpectrum:
@@ -79,7 +117,7 @@ class MaldiSpectrum:
         if isinstance(source, (str, Path)):
             self.path = Path(source)
             self._raw = read_spectrum(self.path)
-            self.id = self.path.stem
+            self.id = _infer_id(self.path)
         elif isinstance(source, pd.DataFrame):
             if source.empty:
                 raise ValueError("Cannot create MaldiSpectrum from an empty DataFrame.")
@@ -192,10 +230,10 @@ class MaldiSpectrum:
         ----------
         bin_width : int or float, default=3
             Width of each bin in Daltons. For 'uniform', this is the fixed width.
-            For 'logarithmic', this is the reference width at mz_min.
+            For 'proportional', this is the reference width at mz_min.
             Ignored for 'adaptive' and 'custom' methods.
         method : str, default='uniform'
-            Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
+            Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
         custom_edges : array-like, optional
             User-provided bin edges. Required if method='custom'.
         **kwargs : dict
@@ -211,7 +249,7 @@ class MaldiSpectrum:
         Examples
         --------
         >>> spec.bin(3)  # uniform binning
-        >>> spec.bin(3, method='logarithmic')
+        >>> spec.bin(3, method='proportional')
         >>> spec.bin(method='adaptive', adaptive_min_width=1.0, adaptive_max_width=10.0)
         >>> spec.bin(method='custom', custom_edges=[2000, 5000, 10000, 20000])
         """

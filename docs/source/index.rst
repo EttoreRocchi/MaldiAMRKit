@@ -25,7 +25,7 @@ for seamless integration into machine learning pipelines.
       :color: primary
       :shadow:
 
-      Get Started
+      Installation
 
    .. button-link:: api/index.html
       :color: primary
@@ -101,11 +101,11 @@ Key Features
       phenotype, or any metadata column.
 
    .. grid-item-card:: CLI & Export
-      :link: quickstart.html#command-line-interface
+      :link: cli.html
       :link-type: url
 
       ``maldiamrkit preprocess``, ``maldiamrkit quality``, and
-      ``maldiamrkit build-driams`` for batch processing. Export to CSV/TXT.
+      ``maldiamrkit build`` for batch processing. Export to CSV/TXT.
 
    .. grid-item-card:: Batch Correction
       :link: quickstart.html#batch-effect-correction
@@ -149,10 +149,24 @@ Quick Example
 .. toctree::
    :maxdepth: 2
    :hidden:
+   :caption: Get Started
 
    installation
    quickstart
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Reference
+
    api/index
+   cli
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Resources
+
    tutorials/index
    contributing
    papers

@@ -15,10 +15,15 @@ Examples
 
 from __future__ import annotations
 
+import logging
+import warnings
+
 import numpy as np
 import pandas as pd
 from pybaselines import Baseline
 from scipy.signal import savgol_filter
+
+logger = logging.getLogger(__name__)
 
 
 class ClipNegatives:
@@ -44,6 +49,13 @@ class SqrtTransform:
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply square-root transformation to the spectrum."""
         df = df.copy()
+        if (df["intensity"] < 0).any():
+            warnings.warn(
+                "SqrtTransform received negative intensity values which "
+                "will produce NaN. Apply ClipNegatives before SqrtTransform.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         df["intensity"] = np.sqrt(df["intensity"])
         return df
 
@@ -77,13 +89,14 @@ class SavitzkyGolaySmooth:
 
     Parameters
     ----------
-    window_length : int, default=20
-        Length of the filter window. Must be a positive integer.
+    window_length : int, default=21
+        Length of the filter window. Must be a positive odd integer
+        (per Savitzky & Golay 1964).
     polyorder : int, default=2
         Order of the polynomial used to fit the samples.
     """
 
-    def __init__(self, window_length: int = 20, polyorder: int = 2):
+    def __init__(self, window_length: int = 21, polyorder: int = 2):
         self.window_length = window_length
         self.polyorder = polyorder
 
@@ -210,6 +223,13 @@ class TICNormalizer:
         total = df["intensity"].sum()
         if total > 0:
             df["intensity"] = df["intensity"] / total
+        else:
+            warnings.warn(
+                "TIC total is zero - spectrum has no signal. "
+                "This may indicate a failed acquisition.",
+                UserWarning,
+                stacklevel=2,
+            )
         return df
 
     def to_dict(self) -> dict:

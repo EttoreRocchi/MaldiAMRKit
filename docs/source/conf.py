@@ -42,6 +42,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "nbsphinx",
     "sphinx_design",
+    "sphinx_click",
 ]
 
 # Napoleon settings for NumPy-style docstrings
@@ -104,7 +105,8 @@ nitpick_ignore_regex = [
     (r"py:class", r"self"),
     (r"py:class", r"transformer"),
     (r"py:class", r"typing\..*"),
-    (r"py:class", r"build_driams_dataset"),
+    (r"py:class", r"InputLayout"),
+    (r"py:class", r"DatasetLayout"),
     (r"py:class", r"matplotlib\..*"),
     (r"py:class", r"pandas\..*"),
     (r"py:class", r"umap\..*"),
@@ -115,7 +117,7 @@ nitpick_ignore_regex = [
     (r"py:class", r"\{.*"),
     (r"py:class", r"\".*"),
     (r"py:meth", r"PreprocessingPipeline\..*"),
-    (r"py:func", r"build_driams_dataset"),
+    (r"py:func", r"DatasetBuilder\.build"),
     (r"py:data", r"typing\..*"),
 ]
 

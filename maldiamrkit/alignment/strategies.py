@@ -183,8 +183,46 @@ class ShiftStrategy(AlignmentStrategy):
         return mz + shift_da, intensity
 
 
+def _robust_linear_fit(
+    sample: np.ndarray,
+    ref: np.ndarray,
+    residual_threshold: float = 3.0,
+) -> tuple[float, float]:
+    """Fit mz' = a*mz + b with MAD-based outlier rejection.
+
+    Performs a least-squares fit, then rejects peak pairs whose
+    residual exceeds ``residual_threshold * 1.4826 * MAD`` and refits.
+
+    Parameters
+    ----------
+    sample, ref : np.ndarray
+        Matched peak positions (sample and reference).
+    residual_threshold : float, default=3.0
+        Number of MAD-based sigma units for outlier rejection.
+
+    Returns
+    -------
+    a, b : float
+        Coefficients of the linear fit ``ref = a * sample + b``.
+    """
+    A = np.vstack([sample, np.ones_like(sample)]).T
+    a, b = np.linalg.lstsq(A, ref, rcond=None)[0]
+
+    if len(sample) > 2:
+        residuals = ref - (a * sample + b)
+        mad = np.median(np.abs(residuals - np.median(residuals)))
+        if mad > 0:
+            cutoff = residual_threshold * 1.4826 * mad
+            inlier_mask = np.abs(residuals - np.median(residuals)) <= cutoff
+            if inlier_mask.sum() >= 2:
+                A_inlier = A[inlier_mask]
+                a, b = np.linalg.lstsq(A_inlier, ref[inlier_mask], rcond=None)[0]
+
+    return a, b
+
+
 class LinearStrategy(AlignmentStrategy):
-    """Least-squares linear transformation alignment."""
+    """Least-squares linear transformation alignment with outlier rejection."""
 
     def __init__(self, max_shift: float) -> None:
         self.max_shift = max_shift
@@ -202,8 +240,7 @@ class LinearStrategy(AlignmentStrategy):
             return self._fallback.align_binned(row, peaks, ref_peaks, mz_axis)
 
         sample, ref = _match_peak_pairs(peaks, ref_peaks)
-        A = np.vstack([sample, np.ones_like(sample)]).T
-        a, b = np.linalg.lstsq(A, ref, rcond=None)[0]
+        a, b = _robust_linear_fit(sample, ref)
         new_positions = a * mz_axis + b
         return monotonic_interp(mz_axis, new_positions, row)
 
@@ -223,8 +260,7 @@ class LinearStrategy(AlignmentStrategy):
             )
 
         sample, ref = _match_peak_pairs(peaks_mz, ref_peaks_mz)
-        A = np.vstack([sample, np.ones_like(sample)]).T
-        a, b = np.linalg.lstsq(A, ref, rcond=None)[0]
+        a, b = _robust_linear_fit(sample, ref)
         return a * mz + b, intensity
 
 

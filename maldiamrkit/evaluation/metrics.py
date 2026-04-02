@@ -375,19 +375,23 @@ def amr_multilabel_report(
             yt.to_numpy(), yp.to_numpy(), resistant_label=resistant_label
         )
 
-    # Macro average (numeric keys only)
+    reports["macro_avg"] = _compute_macro_average(reports)
+
+    if as_dataframe:
+        return pd.DataFrame(reports).T
+    return reports
+
+
+def _compute_macro_average(reports: dict[str, dict]) -> dict:
+    """Compute macro-averaged metrics across per-drug reports."""
     metric_keys = ["vme", "me", "sensitivity", "specificity", "categorical_agreement"]
-    macro = {}
+    macro: dict[str, float | int] = {}
     for key in metric_keys:
         values = [r[key] for r in reports.values()]
         macro[key] = float(np.mean(values)) if values else 0.0
     for key in ["n_resistant", "n_susceptible", "n_total"]:
         macro[key] = sum(r[key] for r in reports.values())
-    reports["macro_avg"] = macro
-
-    if as_dataframe:
-        return pd.DataFrame(reports).T
-    return reports
+    return macro
 
 
 # Pre-built sklearn scorers for cross_val_score / GridSearchCV

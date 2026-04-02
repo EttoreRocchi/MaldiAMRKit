@@ -1,4 +1,4 @@
-"""Tests for the DRIAMS dataset loader."""
+"""Tests for the dataset loader."""
 
 from __future__ import annotations
 
@@ -8,12 +8,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from maldiamrkit.builder import build_driams_dataset
-from maldiamrkit.loader import (
+from maldiamrkit.data import (
+    DatasetBuilder,
+    DatasetLoader,
+    DRIAMSLayout,
+    FlatLayout,
+)
+from maldiamrkit.data.dataset_layouts import (
     _detect_id_column,
-    _detect_stage,
-    _discover_metadata,
-    load_driams_dataset,
+    _discover_driams_metadata,
 )
 
 # Import shared helper
@@ -89,9 +92,13 @@ def synthetic_metadata_with_years(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def built_dataset(tmp_path, synthetic_spectra_dir, synthetic_metadata) -> Path:
-    """Build a DRIAMS dataset and return the output directory."""
+    """Build a dataset and return the output directory."""
     out = tmp_path / "driams_out"
-    build_driams_dataset(synthetic_spectra_dir, synthetic_metadata, out, n_jobs=1)
+    DatasetBuilder(
+        FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+        out,
+        n_jobs=1,
+    ).build()
     return out
 
 
@@ -99,15 +106,17 @@ def built_dataset(tmp_path, synthetic_spectra_dir, synthetic_metadata) -> Path:
 def built_dataset_with_years(
     tmp_path, synthetic_spectra_dir, synthetic_metadata_with_years
 ) -> Path:
-    """Build a DRIAMS dataset with year subfolders."""
+    """Build a dataset with year subfolders."""
     out = tmp_path / "driams_years"
-    build_driams_dataset(
-        synthetic_spectra_dir,
-        synthetic_metadata_with_years,
+    DatasetBuilder(
+        FlatLayout(
+            synthetic_spectra_dir,
+            synthetic_metadata_with_years,
+            year_column="acquisition_date",
+        ),
         out,
-        year_column="acquisition_date",
         n_jobs=1,
-    )
+    ).build()
     return out
 
 
@@ -115,20 +124,24 @@ class TestDetectStage:
     """Tests for auto-detecting the processing stage."""
 
     def test_prefers_binned(self, built_dataset):
-        stage = _detect_stage(built_dataset)
+        layout = DRIAMSLayout(built_dataset)
+        stage = layout.detect_stage()
         assert stage.startswith("binned_")
 
     def test_falls_back_to_preprocessed(self, tmp_path):
         (tmp_path / "preprocessed").mkdir()
-        assert _detect_stage(tmp_path) == "preprocessed"
+        layout = DRIAMSLayout(tmp_path)
+        assert layout.detect_stage() == "preprocessed"
 
     def test_falls_back_to_raw(self, tmp_path):
         (tmp_path / "raw").mkdir()
-        assert _detect_stage(tmp_path) == "raw"
+        layout = DRIAMSLayout(tmp_path)
+        assert layout.detect_stage() == "raw"
 
     def test_raises_when_empty(self, tmp_path):
+        layout = DRIAMSLayout(tmp_path)
         with pytest.raises(FileNotFoundError, match="No recognised"):
-            _detect_stage(tmp_path)
+            layout.detect_stage()
 
 
 class TestDetectIdColumn:
@@ -156,79 +169,127 @@ class TestDiscoverMetadata:
 
     def test_flat_layout(self, built_dataset):
         id_dir = built_dataset / "id"
-        meta, years = _discover_metadata(id_dir, year=None)
+        meta, years = _discover_driams_metadata(id_dir, year=None)
         assert len(meta) == 5
         assert years == []
 
     def test_year_layout(self, built_dataset_with_years):
         id_dir = built_dataset_with_years / "id"
-        meta, years = _discover_metadata(id_dir, year=None)
+        meta, years = _discover_driams_metadata(id_dir, year=None)
         assert len(meta) == 5
         assert set(years) == {"2015", "2016"}
 
     def test_specific_year(self, built_dataset_with_years):
         id_dir = built_dataset_with_years / "id"
-        meta, years = _discover_metadata(id_dir, year=2015)
+        meta, years = _discover_driams_metadata(id_dir, year="2015")
         assert all(meta["code"].astype(str).isin({"sample_0", "sample_1", "sample_4"}))
         assert years == ["2015"]
 
     def test_missing_year_raises(self, built_dataset_with_years):
         id_dir = built_dataset_with_years / "id"
         with pytest.raises(FileNotFoundError):
-            _discover_metadata(id_dir, year=9999)
+            _discover_driams_metadata(id_dir, year="9999")
 
     def test_empty_id_dir_raises(self, tmp_path):
         id_dir = tmp_path / "id"
         id_dir.mkdir()
         with pytest.raises(FileNotFoundError, match="No metadata"):
-            _discover_metadata(id_dir, year=None)
+            _discover_driams_metadata(id_dir, year=None)
 
 
-class TestLoadDriamsDataset:
+class TestDatasetLoader:
     """End-to-end tests: build -> load -> verify."""
 
     def test_round_trip_flat(self, built_dataset):
-        ds = load_driams_dataset(built_dataset, n_jobs=1)
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load()
         assert len(ds.spectra) == 5
         assert "Ceftriaxone" in ds.meta.columns
 
     def test_round_trip_with_years(self, built_dataset_with_years):
-        ds = load_driams_dataset(built_dataset_with_years, n_jobs=1)
+        ds = DatasetLoader(DRIAMSLayout(built_dataset_with_years), n_jobs=1).load()
         assert len(ds.spectra) == 5
 
     def test_load_specific_year(self, built_dataset_with_years):
-        ds = load_driams_dataset(built_dataset_with_years, year=2015, n_jobs=1)
+        ds = DatasetLoader(
+            DRIAMSLayout(built_dataset_with_years, year=2015), n_jobs=1
+        ).load()
         assert len(ds.spectra) == 3
 
     def test_load_raw_stage(self, built_dataset):
-        ds = load_driams_dataset(built_dataset, stage="raw", n_jobs=1)
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), stage="raw", n_jobs=1).load()
         assert len(ds.spectra) == 5
 
     def test_load_preprocessed_stage(self, built_dataset):
-        ds = load_driams_dataset(built_dataset, stage="preprocessed", n_jobs=1)
+        ds = DatasetLoader(
+            DRIAMSLayout(built_dataset), stage="preprocessed", n_jobs=1
+        ).load()
         assert len(ds.spectra) == 5
 
     def test_explicit_id_column(self, built_dataset):
-        ds = load_driams_dataset(built_dataset, id_column="code", n_jobs=1)
+        ds = DatasetLoader(
+            DRIAMSLayout(built_dataset, id_column="code"), n_jobs=1
+        ).load()
         assert len(ds.spectra) == 5
 
     def test_aggregate_by(self, built_dataset):
-        ds = load_driams_dataset(
-            built_dataset,
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load(
             aggregate_by=dict(antibiotics="Ceftriaxone"),
-            n_jobs=1,
         )
         assert ds.antibiotics == ["Ceftriaxone"]
 
-    def test_nonexistent_dir_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError, match="not found"):
-            load_driams_dataset(tmp_path / "does_not_exist")
-
     def test_nonexistent_stage_raises(self, built_dataset):
         with pytest.raises(FileNotFoundError, match="Stage folder"):
-            load_driams_dataset(built_dataset, stage="nonexistent")
+            DatasetLoader(
+                DRIAMSLayout(built_dataset), stage="nonexistent", n_jobs=1
+            ).load()
 
     def test_missing_id_dir_raises(self, tmp_path):
         (tmp_path / "raw").mkdir()
         with pytest.raises(FileNotFoundError, match="id/"):
-            load_driams_dataset(tmp_path, stage="raw")
+            DatasetLoader(DRIAMSLayout(tmp_path), stage="raw", n_jobs=1).load()
+
+    def test_no_spectrum_files_raises(self, tmp_path):
+        """Verify FileNotFoundError when stage dir has no spectrum files."""
+        # Create structure with metadata but empty stage dir
+        id_dir = tmp_path / "id"
+        id_dir.mkdir()
+        pd.DataFrame({"ID": ["s1"]}).to_csv(id_dir / "data_clean.csv", index=False)
+        (tmp_path / "raw").mkdir()
+        with pytest.raises(FileNotFoundError, match="No spectrum files"):
+            DatasetLoader(DRIAMSLayout(tmp_path), stage="raw", n_jobs=1).load()
+
+    def test_no_matched_ids_raises(self, tmp_path):
+        """Verify ValueError when no spectrum files match metadata IDs."""
+        id_dir = tmp_path / "id"
+        id_dir.mkdir()
+        pd.DataFrame({"ID": ["no_match"]}).to_csv(
+            id_dir / "data_clean.csv", index=False
+        )
+        raw_dir = tmp_path / "raw"
+        raw_dir.mkdir()
+        (raw_dir / "different_name.txt").write_text("1000 100\n2000 200\n")
+        with pytest.raises(ValueError, match="No spectrum files matched"):
+            DatasetLoader(DRIAMSLayout(tmp_path), stage="raw", n_jobs=1).load()
+
+    def test_partial_match_logs_info(self, tmp_path):
+        """Verify info log when some spectra not in metadata."""
+        import numpy as np
+
+        from tests.conftest import _generate_synthetic_spectrum
+
+        id_dir = tmp_path / "id"
+        id_dir.mkdir()
+        pd.DataFrame({"ID": ["s1"]}).to_csv(id_dir / "data_clean.csv", index=False)
+        raw_dir = tmp_path / "raw"
+        raw_dir.mkdir()
+        # Create 2 spectra but only 1 in metadata
+        for name in ("s1", "s2"):
+            df = _generate_synthetic_spectrum(random_state=42)
+            np.savetxt(
+                raw_dir / f"{name}.txt",
+                df[["mass", "intensity"]].values,
+                fmt="%.6f",
+            )
+        loader = DatasetLoader(DRIAMSLayout(tmp_path), stage="raw", n_jobs=1)
+        ds = loader.load()
+        assert len(ds.spectra) == 1

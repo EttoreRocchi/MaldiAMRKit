@@ -4,7 +4,7 @@ Provides three subcommands:
 
 - ``preprocess``: Batch preprocess and bin spectra, outputting a CSV feature matrix.
 - ``quality``: Compute quality metrics (SNR, TIC, peak count, etc.) for all spectra.
-- ``build-driams``: Build a DRIAMS-like dataset directory from raw spectra and metadata.
+- ``build``: Build a standardised dataset directory from raw spectra and metadata.
 
 Examples
 --------
@@ -12,7 +12,7 @@ Examples
 
     maldiamrkit preprocess --input-dir data/ --output processed.csv --bin-width 3
     maldiamrkit quality --input-dir data/ --output report.csv
-    maldiamrkit build-driams --spectra-dir data/ --metadata meta.csv --output-dir output/
+    maldiamrkit build --spectra-dir data/ --metadata meta.csv --output-dir output/
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from .builder import ProcessingHandler, build_driams_dataset
+from .data import BrukerTreeLayout, DatasetBuilder, FlatLayout, ProcessingHandler
+from .data.input_layouts import InputLayout
 from .io.readers import read_spectrum
 from .preprocessing.pipeline import preprocess as preprocess_spectrum
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
@@ -60,23 +61,37 @@ class BinningMethod(str, Enum):
     """Supported binning methods."""
 
     uniform = "uniform"
-    logarithmic = "logarithmic"
+    proportional = "proportional"
+
+
+class InputLayoutType(str, Enum):
+    """Supported input layout types for the build command."""
+
+    flat = "flat"
+    bruker = "bruker"
 
 
 @app.command()
 def preprocess(
     input_dir: Annotated[
-        Path, typer.Option(help="Directory containing .txt spectrum files.")
+        Path,
+        typer.Option(
+            "-i", "--input-dir", help="Directory containing .txt spectrum files."
+        ),
     ],
     output: Annotated[
-        Path, typer.Option(help="Output CSV file for the feature matrix.")
+        Path,
+        typer.Option("-o", "--output", help="Output CSV file for the feature matrix."),
     ],
-    bin_width: Annotated[int, typer.Option(help="Bin width in Daltons.")] = 3,
+    bin_width: Annotated[
+        int, typer.Option("-b", "--bin-width", help="Bin width in Daltons.")
+    ] = 3,
     method: Annotated[
         BinningMethod, typer.Option(help="Binning method.")
     ] = BinningMethod.uniform,
     pipeline: Annotated[
-        Optional[Path], typer.Option(help="JSON/YAML pipeline config.")
+        Optional[Path],
+        typer.Option("-p", "--pipeline", help="JSON/YAML pipeline config."),
     ] = None,
     save_spectra_dir: Annotated[
         Optional[Path],
@@ -126,7 +141,12 @@ def preprocess(
                 )
                 row = binned.set_index("mass")["intensity"].rename(path.stem)
                 rows.append(row)
-            except Exception as exc:
+            except (
+                ValueError,
+                OSError,
+                pd.errors.ParserError,
+                pd.errors.EmptyDataError,
+            ) as exc:
                 n_failed += 1
                 logger.warning("Failed to process %s: %s", path.name, exc)
             progress.advance(task)
@@ -156,10 +176,14 @@ def preprocess(
 @app.command()
 def quality(
     input_dir: Annotated[
-        Path, typer.Option(help="Directory containing .txt spectrum files.")
+        Path,
+        typer.Option(
+            "-i", "--input-dir", help="Directory containing .txt spectrum files."
+        ),
     ],
     output: Annotated[
-        Path, typer.Option(help="Output CSV file for the quality report.")
+        Path,
+        typer.Option("-o", "--output", help="Output CSV file for the quality report."),
     ],
 ) -> None:
     """Compute quality metrics (SNR, TIC, peak count, etc.) for all spectra."""
@@ -184,7 +208,12 @@ def quality(
                 spec = MaldiSpectrum(path)
                 report = qc.assess(spec)
                 reports.append({"ID": path.stem, **asdict(report)})
-            except Exception as exc:
+            except (
+                ValueError,
+                OSError,
+                pd.errors.ParserError,
+                pd.errors.EmptyDataError,
+            ) as exc:
                 n_failed += 1
                 logger.warning("Failed to assess %s: %s", path.name, exc)
             progress.advance(task)
@@ -240,44 +269,91 @@ def _load_extra_handlers(path: Path) -> list[ProcessingHandler]:
     return handlers
 
 
-@app.command("build-driams")
-def build_driams(
+@app.command("build")
+def build(
     spectra_dir: Annotated[
-        Path, typer.Option(help="Directory containing raw .txt spectrum files.")
+        Path,
+        typer.Option(
+            "-s", "--spectra-dir", help="Directory containing raw spectrum files."
+        ),
     ],
     metadata: Annotated[
-        Path, typer.Option(help="Metadata CSV file (must have 'ID' column).")
+        Path, typer.Option("-m", "--metadata", help="Metadata CSV file.")
     ],
     output_dir: Annotated[
-        Path, typer.Option(help="Output directory for the DRIAMS-like dataset.")
+        Path,
+        typer.Option(
+            "-o", "--output-dir", help="Output directory for the standardised dataset."
+        ),
     ],
+    layout: Annotated[
+        InputLayoutType, typer.Option("-l", "--layout", help="Input layout type.")
+    ] = InputLayoutType.flat,
     name: Annotated[
         Optional[str],
         typer.Option(
-            help="Dataset name (for metadata filename). Defaults to output dir name."
+            "-n",
+            "--name",
+            help="Dataset name (for metadata filename). Defaults to output dir name.",
         ),
     ] = None,
     id_column: Annotated[
-        str, typer.Option(help="Column name for spectrum IDs in output metadata.")
-    ] = "code",
+        Optional[str],
+        typer.Option(
+            help="Column name for spectrum IDs. Defaults to 'ID' (flat) or 'Identifier' (bruker).",
+        ),
+    ] = None,
     year_column: Annotated[
         Optional[str],
         typer.Option(
             help="Metadata column to extract year from for year-based subfolders."
         ),
     ] = None,
-    bin_width: Annotated[int, typer.Option(help="Bin width in Daltons.")] = 3,
+    bin_width: Annotated[
+        int, typer.Option("-b", "--bin-width", help="Bin width in Daltons.")
+    ] = 3,
     pipeline: Annotated[
-        Optional[Path], typer.Option(help="JSON/YAML pipeline config.")
+        Optional[Path],
+        typer.Option("-p", "--pipeline", help="JSON/YAML pipeline config."),
     ] = None,
     extra_handlers: Annotated[
         Optional[Path],
         typer.Option(help="JSON/YAML config file defining extra processing handlers."),
     ] = None,
-    n_jobs: Annotated[int, typer.Option(help="Parallel jobs (-1 = all cores).")] = -1,
+    n_jobs: Annotated[
+        int, typer.Option("-j", "--n-jobs", help="Parallel jobs (-1 = all cores).")
+    ] = -1,
+    # Bruker-specific options
+    path_column: Annotated[
+        str,
+        typer.Option(
+            help="Metadata column with path to Bruker directory (bruker layout only)."
+        ),
+    ] = "Path",
+    target_position_column: Annotated[
+        str,
+        typer.Option(
+            help="Metadata column for plate target position (bruker layout only)."
+        ),
+    ] = "target_position",
+    deduplicate: Annotated[
+        bool,
+        typer.Option(help="Keep one spectrum per identifier (bruker layout only)."),
+    ] = True,
+    validate: Annotated[
+        bool,
+        typer.Option(
+            help="Skip empty spectra and warn on duplicates (bruker layout only)."
+        ),
+    ] = True,
 ) -> None:
-    """Build a DRIAMS-like dataset directory from raw spectra and metadata."""
+    """Build a standardised dataset directory from raw spectra and metadata."""
     pipe = _load_pipeline(pipeline)
+
+    # Resolve layout-aware id_column default
+    resolved_id = id_column or (
+        "Identifier" if layout == InputLayoutType.bruker else "ID"
+    )
 
     # Parse extra handlers
     handlers = None
@@ -293,27 +369,45 @@ def build_driams(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        progress.add_task("Building DRIAMS-like dataset...", total=None)
+        progress.add_task("Building dataset...", total=None)
         try:
-            report = build_driams_dataset(
-                spectra_dir=spectra_dir,
-                metadata_csv=metadata,
-                output_dir=output_dir,
+            input_layout: InputLayout
+            if layout == InputLayoutType.flat:
+                input_layout = FlatLayout(
+                    spectra_dir,
+                    metadata,
+                    id_column=resolved_id,
+                    year_column=year_column,
+                )
+            else:
+                input_layout = BrukerTreeLayout(
+                    spectra_dir,
+                    metadata,
+                    id_column=resolved_id,
+                    year_column=year_column or "Year",
+                    path_column=path_column,
+                    target_position_column=target_position_column,
+                    deduplicate=deduplicate,
+                    validate=validate,
+                )
+            builder = DatasetBuilder(
+                input_layout,
+                output_dir,
                 name=name,
-                id_column=id_column,
-                year_column=year_column,
+                id_column=resolved_id,
                 pipeline=pipe,
                 bin_width=bin_width,
                 extra_handlers=handlers,
                 n_jobs=n_jobs,
             )
+            report = builder.build()
         except ValueError as exc:
             console.print(f"[red]Error:[/red] {exc}")
             raise typer.Exit(code=1) from exc
 
     # Summary
     console.print()
-    table = Table(title="DRIAMS Build Summary", show_lines=False)
+    table = Table(title="Build Summary", show_lines=False)
     table.add_column("Metric", style="bold")
     table.add_column("Value", justify="right")
     table.add_row("Spectra processed", str(report.succeeded))
@@ -328,6 +422,8 @@ def build_driams(
             f"Check logs for details."
         )
 
+
+typer_click_object = typer.main.get_command(app)
 
 if __name__ == "__main__":
     app()

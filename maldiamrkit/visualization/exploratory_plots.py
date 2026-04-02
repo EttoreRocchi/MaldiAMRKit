@@ -78,6 +78,16 @@ def _reduce_dimensions(
     return embedding, reducer
 
 
+def _resolve_colors(unique_labels: list, palette: str | dict | None) -> dict:
+    """Build a label-to-color mapping from a palette specification."""
+    import matplotlib.pyplot as plt
+
+    if isinstance(palette, dict):
+        return palette
+    cmap = plt.get_cmap(palette or "tab10")
+    return {lab: cmap(i % cmap.N) for i, lab in enumerate(unique_labels)}
+
+
 def _scatter_embedding(
     embedding: np.ndarray,
     color_by: pd.Series | np.ndarray | None = None,
@@ -137,12 +147,7 @@ def _scatter_embedding(
     else:
         labels = np.asarray(color_by)
         unique_labels = list(dict.fromkeys(labels))
-
-        if isinstance(palette, dict):
-            colors = palette
-        else:
-            cmap = plt.get_cmap(palette or "tab10")
-            colors = {lab: cmap(i % cmap.N) for i, lab in enumerate(unique_labels)}
+        colors = _resolve_colors(unique_labels, palette)
 
         for lab in unique_labels:
             mask = labels == lab
@@ -257,6 +262,7 @@ def plot_tsne(
     n_components: int = 2,
     *,
     perplexity: float = 30.0,
+    random_state: int | None = 42,
     ax: plt.Axes | None = None,
     palette: str | dict | None = None,
     title: str | None = None,
@@ -279,6 +285,9 @@ def plot_tsne(
         Number of t-SNE dimensions.
     perplexity : float, default=30.0
         t-SNE perplexity parameter.
+    random_state : int or None, default=42
+        Random seed for reproducibility.  Pass ``None`` for
+        non-deterministic results.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on.
     palette : str or dict, optional
@@ -310,7 +319,12 @@ def plot_tsne(
     >>> fig, ax = plot_tsne(dataset.X, color_by=labels, perplexity=15)
     """
     embedding, _ = _reduce_dimensions(
-        X, "tsne", n_components, perplexity=perplexity, **tsne_kwargs
+        X,
+        "tsne",
+        n_components,
+        perplexity=perplexity,
+        random_state=random_state,
+        **tsne_kwargs,
     )
 
     return _scatter_embedding(

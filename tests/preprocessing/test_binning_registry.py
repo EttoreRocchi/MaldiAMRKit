@@ -10,8 +10,8 @@ from maldiamrkit.preprocessing.binning import (
     BINNING_REGISTRY,
     _adaptive_edge_fn,
     _custom_edge_fn,
-    _logarithmic_edge_fn,
-    _logarithmic_edges,
+    _proportional_edge_fn,
+    _proportional_edges,
     _uniform_edge_fn,
     _validate_custom_edges,
     bin_spectrum,
@@ -31,24 +31,24 @@ class TestUniformEdgeFn:
             _uniform_edge_fn(mz_min=2000, mz_max=2030, bin_width=0.5)
 
 
-class TestLogarithmicEdgeFn:
-    """Tests for _logarithmic_edge_fn wrapper."""
+class TestProportionalEdgeFn:
+    """Tests for _proportional_edge_fn wrapper."""
 
     def test_valid_input(self):
-        edges = _logarithmic_edge_fn(mz_min=2000, mz_max=5000, bin_width=3)
+        edges = _proportional_edge_fn(mz_min=2000, mz_max=5000, bin_width=3)
         assert edges[0] == 2000
         assert edges[-1] >= 5000
 
     def test_bin_width_below_one_raises(self):
         with pytest.raises(ValueError, match="bin_width must be >= 1"):
-            _logarithmic_edge_fn(mz_min=2000, mz_max=5000, bin_width=0.5)
+            _proportional_edge_fn(mz_min=2000, mz_max=5000, bin_width=0.5)
 
 
-class TestLogarithmicEdgesLastEdge:
-    """Test _logarithmic_edges when last edge < mz_max."""
+class TestProportionalEdgesLastEdge:
+    """Test _proportional_edges when last edge < mz_max."""
 
     def test_last_edge_appended_when_below_mz_max(self):
-        edges = _logarithmic_edges(mz_min=2000, mz_max=2010, bin_width=3)
+        edges = _proportional_edges(mz_min=2000, mz_max=2010, bin_width=3)
         assert edges[-1] >= 2010
 
 
@@ -103,7 +103,7 @@ class TestBinningRegistryExtensibility:
     def test_all_methods_registered(self):
         assert set(BINNING_REGISTRY.keys()) == {
             "uniform",
-            "logarithmic",
+            "proportional",
             "adaptive",
             "custom",
         }

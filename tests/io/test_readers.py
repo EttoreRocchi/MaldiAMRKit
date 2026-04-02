@@ -7,7 +7,8 @@ import csv
 import pandas as pd
 import pytest
 
-from maldiamrkit.io import read_spectrum, sniff_delimiter
+from maldiamrkit.io import read_spectrum
+from maldiamrkit.io.readers import sniff_delimiter
 
 
 class TestSniffDelimiter:
@@ -101,3 +102,32 @@ class TestReadSpectrum:
         df = read_spectrum(f)
         assert df["mass"].iloc[0] == pytest.approx(2000.5)
         assert df["intensity"].iloc[1] == pytest.approx(200.456)
+
+
+class TestBrukerReaderErrors:
+    """Tests for Bruker reader error paths."""
+
+    def test_parse_acqus_missing_param_raises(self, tmp_path):
+        """Verify missing calibration params raise ValueError."""
+        from maldiamrkit.io.readers import _parse_acqus
+
+        acqus = tmp_path / "acqus"
+        # Only write TD, missing all others
+        acqus.write_text("##$TD= 8\n##END=\n")
+        with pytest.raises(ValueError, match="Missing"):
+            _parse_acqus(acqus)
+
+    def test_read_bruker_unknown_source_raises(self, tmp_path):
+        """Verify unknown source raises ValueError."""
+        from maldiamrkit.io.readers import _read_bruker
+
+        # Create minimal acqus
+        acqus_dir = tmp_path / "1" / "1SLin"
+        acqus_dir.mkdir(parents=True)
+        acqus_content = (
+            "##$TD= 8\n##$DELAY= 0\n##$DW= 1\n"
+            "##$ML1= 1.0\n##$ML2= 0.0\n##$ML3= 0.0\n##$BYTORDA= 0\n"
+        )
+        (acqus_dir / "acqus").write_text(acqus_content)
+        with pytest.raises(ValueError, match="Unknown source"):
+            _read_bruker(tmp_path, source="invalid")

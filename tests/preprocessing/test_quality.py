@@ -36,11 +36,12 @@ class TestEstimateSNR:
         assert snr > 0
 
     def test_estimate_snr_empty_noise_region(self):
-        """Test SNR returns inf for empty noise region."""
+        """Test SNR returns finite cap for empty noise region."""
         df = pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
-        snr = estimate_snr(MaldiSpectrum(df), noise_region=(2000, 3000))
+        with pytest.warns(UserWarning, match="no data points"):
+            snr = estimate_snr(MaldiSpectrum(df), noise_region=(2000, 3000))
 
-        assert snr == np.inf
+        assert snr == 1e6
 
     def test_estimate_snr_median_peaks(self, synthetic_maldi):
         """Test SNR with median_peaks signal method."""

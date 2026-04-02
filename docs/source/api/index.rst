@@ -25,6 +25,14 @@ Core Data Structures
 
    maldiamrkit.MaldiSpectrum
    maldiamrkit.MaldiSet
+
+Filters
+-------
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.filters.SpectrumFilter
    maldiamrkit.filters.SpeciesFilter
    maldiamrkit.filters.DrugFilter
    maldiamrkit.filters.QualityFilter
@@ -63,8 +71,8 @@ Transformers
    maldiamrkit.preprocessing.PQNNormalizer
    maldiamrkit.preprocessing.MzMultiTrimmer
 
-Alignment & Detection
----------------------
+Alignment
+---------
 
 .. autosummary::
    :nosignatures:
@@ -73,10 +81,20 @@ Alignment & Detection
    maldiamrkit.alignment.RawWarping
    maldiamrkit.alignment.create_raw_input
    maldiamrkit.alignment.AlignmentStrategy
+
+Peak Detection
+--------------
+
+.. autosummary::
+   :nosignatures:
+
    maldiamrkit.detection.MaldiPeakDetector
 
 Evaluation
 ----------
+
+Metrics
+~~~~~~~
 
 .. autosummary::
    :nosignatures:
@@ -86,12 +104,33 @@ Evaluation
    maldiamrkit.evaluation.sensitivity_score
    maldiamrkit.evaluation.specificity_score
    maldiamrkit.evaluation.categorical_agreement
+
+Reports
+~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
    maldiamrkit.evaluation.amr_classification_report
    maldiamrkit.evaluation.amr_multilabel_report
    maldiamrkit.evaluation.vme_me_curve
+
+Scorers & Encoding
+~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
    maldiamrkit.evaluation.vme_scorer
    maldiamrkit.evaluation.me_scorer
    maldiamrkit.evaluation.LabelEncoder
+
+Splitting
+~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
    maldiamrkit.evaluation.stratified_species_drug_split
    maldiamrkit.evaluation.case_based_split
    maldiamrkit.evaluation.SpeciesDrugStratifiedKFold
@@ -111,16 +150,46 @@ Visualization
    maldiamrkit.visualization.plot_tsne
    maldiamrkit.visualization.plot_umap
 
-Dataset Building
-----------------
+Dataset Building & Loading
+--------------------------
+
+Builder
+~~~~~~~
 
 .. autosummary::
    :nosignatures:
 
-   maldiamrkit.builder.build_driams_dataset
-   maldiamrkit.loader.load_driams_dataset
-   maldiamrkit.builder.ProcessingHandler
-   maldiamrkit.builder.BuildReport
+   maldiamrkit.data.DatasetBuilder
+   maldiamrkit.data.ProcessingHandler
+   maldiamrkit.data.BuildReport
+
+Input Layouts
+~~~~~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.data.InputLayout
+   maldiamrkit.data.FlatLayout
+   maldiamrkit.data.BrukerTreeLayout
+
+Loader
+~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.data.DatasetLoader
+
+Dataset Layouts
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.data.DatasetLayout
+   maldiamrkit.data.DRIAMSLayout
+   maldiamrkit.data.MARISMaLayout
 
 I/O
 ---
@@ -129,4 +198,4 @@ I/O
    :nosignatures:
 
    maldiamrkit.io.read_spectrum
-   maldiamrkit.io.sniff_delimiter
+   maldiamrkit.io.parse_mic_column

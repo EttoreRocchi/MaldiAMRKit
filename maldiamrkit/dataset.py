@@ -6,6 +6,7 @@ import logging
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
@@ -55,7 +56,7 @@ class MaldiSet:
     bin_width : int, default=3
         Bin width for spectra.
     bin_method : str, default='uniform'
-        Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
+        Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
     bin_kwargs : dict, optional
         Additional keyword arguments for binning (e.g., custom_edges, adaptive_min_width).
     verbose : bool, default=False
@@ -97,17 +98,7 @@ class MaldiSet:
     ) -> None:
         self.spectra = spectra
 
-        aggregate_by = aggregate_by or {}
-
-        antibiotics = aggregate_by.get("antibiotics")
-        if isinstance(antibiotics, str):
-            self.antibiotics = [antibiotics]
-        elif isinstance(antibiotics, list):
-            self.antibiotics = antibiotics
-        else:
-            self.antibiotics = None
-
-        self.species = aggregate_by.get("species")
+        self.antibiotics, self.species = self._parse_aggregate_by(aggregate_by)
 
         # Validate that aggregate_by columns exist
         required_columns: list[str] = []
@@ -134,6 +125,22 @@ class MaldiSet:
             logger.info("Dataset created: %d spectra", len(self.spectra))
             if self.antibiotics:
                 logger.info("Tracking antibiotics: %s", self.antibiotics)
+
+    @staticmethod
+    def _parse_aggregate_by(
+        aggregate_by: dict[str, str | list[str]] | None,
+    ) -> tuple[list[str] | None, str | None]:
+        """Parse the aggregate_by dict into antibiotics list and species."""
+        aggregate_by = aggregate_by or {}
+        antibiotics_val = aggregate_by.get("antibiotics")
+        if isinstance(antibiotics_val, str):
+            antibiotics = [antibiotics_val]
+        elif isinstance(antibiotics_val, list):
+            antibiotics = antibiotics_val
+        else:
+            antibiotics = None
+        species = aggregate_by.get("species")
+        return antibiotics, species
 
     @classmethod
     def from_directory(
@@ -176,7 +183,7 @@ class MaldiSet:
         bin_width : int, default=3
             Bin width for spectra.
         bin_method : str, default='uniform'
-            Binning method. One of 'uniform', 'logarithmic', 'adaptive', 'custom'.
+            Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
         bin_kwargs : dict, optional
             Additional keyword arguments for binning.
         n_jobs : int, default=-1
@@ -304,7 +311,10 @@ class MaldiSet:
     def _build_feature_dataframe(self) -> pd.DataFrame:
         """Build raw feature DataFrame from spectra, joined with metadata."""
         bin_kwargs = self.bin_kwargs or {}
-        rows = []
+        ids: list[str] = []
+        arrays: list[np.ndarray] = []
+        columns: pd.Index | None = None
+
         for s in self.spectra:
             sid = s.id
             if sid not in self.meta.index:
@@ -319,15 +329,19 @@ class MaldiSet:
                 if s.is_binned
                 else s.bin(self.bin_width, method=self.bin_method, **bin_kwargs).binned
             )
-            rows.append(binned.set_index("mass")["intensity"].rename(sid))
+            series = binned.set_index("mass")["intensity"]
+            ids.append(sid)
+            arrays.append(series.values)
+            if columns is None:
+                columns = series.index
 
-        if not rows:
+        if not ids:
             raise ValueError(
                 "No spectra matched metadata IDs. "
                 "Check that spectrum file names match the 'ID' column in metadata."
             )
 
-        df = pd.concat(rows, axis=1).T
+        df = pd.DataFrame(np.array(arrays), index=ids, columns=columns)
         if not self.meta.columns.empty:
             df = df.join(self.meta, how="left")
         return df

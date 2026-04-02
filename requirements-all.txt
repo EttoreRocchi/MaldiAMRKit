@@ -1,5 +1,0 @@
-# All optional dependencies
-pyteomics>=4.5
-lxml>=4.9.0
-umap-learn>=0.5
-combatlearn>=1.3

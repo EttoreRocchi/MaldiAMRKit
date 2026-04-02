@@ -33,14 +33,6 @@
 pip install maldiamrkit
 ```
 
-### Optional: mzML/mzXML Format Support
-
-```bash
-pip install maldiamrkit[formats]
-```
-
-Installs [`pyteomics`](https://pyteomics.readthedocs.io/) and `lxml` for reading standard mass spectrometry data formats.
-
 ### Optional: Batch Correction & UMAP
 
 ```bash
@@ -48,12 +40,6 @@ pip install maldiamrkit[batch]
 ```
 
 Installs [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) for ComBat-based batch effect correction and `umap-learn` for UMAP exploratory plots.
-
-### Optional: All Extras
-
-```bash
-pip install maldiamrkit[all]
-```
 
 ### Development Installation
 
@@ -67,7 +53,7 @@ pip install -e .[dev]
 
 ### Preprocessing
 - **Composable Pipeline**: Build custom `PreprocessingPipeline` from individual transformers (smoothing, baseline correction, normalization, trimming), serializable to JSON/YAML
-- **Multiple Binning Strategies**: Uniform, logarithmic, adaptive, and custom bin edges
+- **Multiple Binning Strategies**: Uniform, proportional, adaptive, and custom bin edges
 - **Quality Metrics**: SNR estimation, comprehensive quality reports, and alignment assessment
 - **Replicate Merging**: Mean/median/weighted merging with correlation-based outlier detection
 
@@ -81,15 +67,16 @@ pip install -e .[dev]
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
 
 ### Data Management
-- **DRIAMS Dataset Building & Loading**: Build and load DRIAMS-like dataset directories via `build_driams_dataset()` / `load_driams_dataset()`
+- **Dataset Building & Loading**: `DatasetBuilder` and `DatasetLoader` with pluggable layout adapters (`FlatLayout`, `BrukerTreeLayout`, `DRIAMSLayout`, `MARISMaLayout`)
+- **Bruker Format Support**: Read Bruker flexAnalysis binary data (fid/1r + acqus) natively via `read_spectrum()` on directories
+- **MIC Parsing**: `parse_mic_column()` for parsing MIC strings with qualifiers and European decimals
 - **Composable Filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` combinable with `&`/`|`/`~` operators
-- **mzML/mzXML Support**: Read standard mass spectrometry formats via optional `pyteomics` dependency
-- **Spectrum Export**: Save spectra to CSV or TXT via `MaldiSet.save_spectra()`
+- **Spectrum Export**: Save spectra to CSV or TXT via `MaldiSpectrum.save()` and `MaldiSet.save_spectra()`
 
 ### Visualization & Tools
 - **Exploratory Plots**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
 - **Batch Effect Correction**: Multi-site/multi-instrument correction via [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) (`pip install maldiamrkit[batch]`)
-- **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build-driams` for batch processing
+- **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build` for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter
 - **ML-Ready**: Direct integration with scikit-learn pipelines
 

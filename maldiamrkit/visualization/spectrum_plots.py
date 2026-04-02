@@ -143,23 +143,16 @@ def plot_pseudogel(
     for ax, (label, idx) in zip(
         axes, sorted(groups.items(), key=lambda t: str(t[0])), strict=True
     ):
-        M = X.loc[idx].to_numpy()
-        if sort_by_intensity:
-            order = np.argsort(np.nanmean(M, axis=1))[::-1]
-            M = M[order]
-        if log_scale:
-            M = np.log1p(M)
-
-        im = ax.imshow(
-            M,
-            aspect="auto",
-            interpolation="nearest",
-            cmap=cmap_obj,
-            vmin=vmin,
-            vmax=vmax,
+        im = _render_pseudogel_group(
+            ax,
+            X.loc[idx].to_numpy(),
+            label,
+            log_scale,
+            sort_by_intensity,
+            cmap_obj,
+            vmin,
+            vmax,
         )
-        ax.set_ylabel(f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center")
-        ax.set_yticks([])
 
     _set_pseudogel_xaxis(axes, X)
 
@@ -173,6 +166,29 @@ def plot_pseudogel(
         plt.show()
 
     return fig, axes
+
+
+def _render_pseudogel_group(
+    ax, M, label, log_scale, sort_by_intensity, cmap_obj, vmin, vmax
+):
+    """Render a single group panel in a pseudogel heatmap."""
+    if sort_by_intensity:
+        order = np.argsort(np.nanmean(M, axis=1))[::-1]
+        M = M[order]
+    if log_scale:
+        M = np.log1p(M)
+
+    im = ax.imshow(
+        M,
+        aspect="auto",
+        interpolation="nearest",
+        cmap=cmap_obj,
+        vmin=vmin,
+        vmax=vmax,
+    )
+    ax.set_ylabel(f"{label}\n(n={M.shape[0]})", rotation=0, ha="right", va="center")
+    ax.set_yticks([])
+    return im
 
 
 def _apply_region_filter(

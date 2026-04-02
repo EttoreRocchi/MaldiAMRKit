@@ -16,6 +16,8 @@ array([1])
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -114,19 +116,41 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         result = np.full(len(y), np.nan)
 
         for i, label in enumerate(y):
-            label_str = str(label)
-            if label_str in self._RESISTANT:
-                result[i] = 1
-            elif label_str in self._SUSCEPTIBLE:
-                result[i] = 0
-            elif label_str in self._INTERMEDIATE:
-                if self.intermediate == "susceptible":
-                    result[i] = 0
-                elif self.intermediate == "resistant":
-                    result[i] = 1
-                # "drop" and "nan" -> stays NaN
+            result[i] = self._classify_label(str(label))
 
-        # Check for unrecognized labels (still NaN after encoding)
+        self._validate_unrecognized(y, result)
+
+        if self.intermediate == "drop":
+            mask = ~np.isnan(result)
+            n_dropped = int((~mask).sum())
+            if n_dropped:
+                warnings.warn(
+                    f"intermediate='drop' removed {n_dropped} intermediate "
+                    "samples. Output length differs from input - incompatible "
+                    "with sklearn pipelines that expect consistent sample counts.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            return result[mask].astype(int)
+        if self.intermediate == "nan":
+            return result
+        return result.astype(int)
+
+    def _classify_label(self, label_str: str) -> float:
+        """Map a single label string to its numeric value (1, 0, or NaN)."""
+        if label_str in self._RESISTANT:
+            return 1.0
+        if label_str in self._SUSCEPTIBLE:
+            return 0.0
+        if label_str in self._INTERMEDIATE:
+            if self.intermediate == "susceptible":
+                return 0.0
+            if self.intermediate == "resistant":
+                return 1.0
+        return float("nan")
+
+    def _validate_unrecognized(self, y: np.ndarray, result: np.ndarray) -> None:
+        """Raise ValueError if any labels are unrecognized (unexpected NaN)."""
         unrecognized_mask = np.isnan(result)
         if self.intermediate in ("drop", "nan"):
             intermediate_mask = np.array(
@@ -142,13 +166,6 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
                 f"Unrecognized labels: {bad_labels}. "
                 f"Expected one of R/S/I (or resistant/susceptible/intermediate)."
             )
-
-        if self.intermediate == "drop":
-            mask = ~np.isnan(result)
-            return result[mask].astype(int)
-        if self.intermediate == "nan":
-            return result
-        return result.astype(int)
 
     def fit_transform(self, y, **kwargs):
         """Fit and transform in one step."""
