@@ -54,6 +54,10 @@ class DRIAMSLayout(DatasetLayout):
     id_column : str or None
         Metadata column for spectrum IDs.  ``None`` triggers
         auto-detection (``'code'`` > ``'ID'`` > first column).
+    species_column : str or None
+        Metadata column for species names.  ``None`` triggers
+        auto-detection (case-insensitive match for ``'species'``).
+        The column is renamed to ``'Species'`` for downstream use.
     year : str, int, or None
         Restrict to a single year.
     metadata_dir : str, default="id"
@@ -69,6 +73,7 @@ class DRIAMSLayout(DatasetLayout):
         dataset_dir: str | Path,
         *,
         id_column: str | None = None,
+        species_column: str | None = None,
         year: str | int | None = None,
         metadata_dir: str = "id",
         metadata_suffix: str = "_clean.csv",
@@ -76,6 +81,7 @@ class DRIAMSLayout(DatasetLayout):
     ) -> None:
         self.dataset_dir = Path(dataset_dir)
         self.id_column = id_column
+        self.species_column = species_column
         self.year = str(year) if year is not None else None
         self.metadata_dir = metadata_dir
         self.metadata_suffix = metadata_suffix
@@ -95,6 +101,11 @@ class DRIAMSLayout(DatasetLayout):
         if col != "ID":
             meta = meta.rename(columns={col: "ID"})
         meta["ID"] = meta["ID"].astype(str)
+
+        species_col = self.species_column or _detect_species_column(meta)
+        if species_col is not None and species_col != "Species":
+            meta = meta.rename(columns={species_col: "Species"})
+
         return meta
 
     def collect_spectrum_files(
@@ -256,6 +267,16 @@ def _detect_id_column(meta: pd.DataFrame) -> str:
         if candidate in meta.columns:
             return candidate
     return meta.columns[0]
+
+
+def _detect_species_column(meta: pd.DataFrame) -> str | None:
+    """Auto-detect a species column via case-insensitive match."""
+    if "Species" in meta.columns:
+        return "Species"
+    for col in meta.columns:
+        if col.lower() == "species":
+            return col
+    return None
 
 
 def _discover_driams_metadata(

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import csv
 import itertools
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def sniff_delimiter(path: str | Path, sample_lines: int = 10) -> str:
@@ -309,4 +312,24 @@ def read_spectrum(path: str | Path, *, bruker_source: str = "1r") -> pd.DataFram
         path, sep=delim, comment="#", header=None, names=["mass", "intensity"]
     )
 
+    df = _coerce_numeric(df)
+
+    # If sniffed delimiter produced no valid rows, retry with whitespace regex.
+    if df.empty and delim != r"\s+":
+        df = pd.read_csv(
+            path, sep=r"\s+", comment="#", header=None, names=["mass", "intensity"]
+        )
+        df = _coerce_numeric(df)
+
+    if df.empty:
+        raise ValueError(f"No valid numeric data in {path}")
+
     return df
+
+
+def _coerce_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    """Coerce mass/intensity to numeric and drop unparseable rows."""
+    df = df.copy()
+    df["mass"] = pd.to_numeric(df["mass"], errors="coerce")
+    df["intensity"] = pd.to_numeric(df["intensity"], errors="coerce")
+    return df.dropna(subset=["mass", "intensity"]).reset_index(drop=True)

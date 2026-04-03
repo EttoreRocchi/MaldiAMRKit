@@ -3,6 +3,17 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.1] - 2026-04-03
+
+### Fixed
+
+- **String intensity TypeError**: `read_spectrum()` now coerces `mass` and `intensity` columns to numeric and drops unparseable rows (this fixes embedded headers in spectra). Raises `ValueError` when a file contains no valid numeric data.
+- **Species column case mismatch**: `DRIAMSLayout.discover_metadata()` now normalizes the species column to `"Species"` via case-insensitive auto-detection, fixing `KeyError: 'Species'` on DRIAMS sites that use lowercase `"species"`.
+
+### Added
+
+- `species_column` parameter on `DRIAMSLayout` for explicitly specifying the metadata species column name.
+
 ## [0.11.0] - 2026-04-02
 
 ### Added
