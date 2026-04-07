@@ -268,9 +268,10 @@ class PQNNormalizer:
 
     Parameters
     ----------
-    reference : np.ndarray or None, default=None
+    reference : np.ndarray, list, or None, default=None
         Reference intensity vector. If None, uses TIC normalization only
-        (the full PQN requires a reference from the dataset).
+        (the full PQN requires a reference from the dataset). Lists are
+        converted to arrays internally.
     """
 
     def __init__(self, reference: np.ndarray | list | None = None):

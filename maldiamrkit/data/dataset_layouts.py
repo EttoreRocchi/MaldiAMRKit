@@ -246,9 +246,10 @@ class MARISMaLayout(DatasetLayout):
 
         paths: list[Path] = []
         for _, row in meta.iterrows():
-            rel_path = str(row[self.path_column]).lstrip("/")
-            bruker_dir = self.root_dir / rel_path
-            if not bruker_dir.is_dir():
+            bruker_dir = _resolve_metadata_path(
+                self.root_dir, str(row[self.path_column])
+            )
+            if bruker_dir is None or not bruker_dir.is_dir():
                 continue
             acqus = _find_bruker_acqus(bruker_dir)
             if acqus is not None:
@@ -259,6 +260,30 @@ class MARISMaLayout(DatasetLayout):
     def detect_stage(self) -> str:
         """Return ``'raw'`` as the only available stage."""
         return "raw"
+
+
+def _resolve_metadata_path(root_dir: Path, raw_path: str) -> Path | None:
+    """Resolve a metadata path against *root_dir*, stripping overlapping prefixes.
+
+    Metadata may store absolute-looking paths (e.g. ``/MARISMa/2024/...``)
+    whose leading segments duplicate part of *root_dir*.  This helper tries
+    the literal join first, then progressively strips leading components
+    (up to 3) until the resolved path exists on disk.
+    """
+    rel = raw_path.lstrip("/")
+    candidate = root_dir / rel
+    if candidate.exists():
+        return candidate
+
+    parts = Path(rel).parts
+    for n in range(1, min(len(parts), 4)):
+        if parts[n - 1].lower() == root_dir.name.lower():
+            trimmed = Path(*parts[n:]) if n < len(parts) else Path()
+            candidate = root_dir / trimmed
+            if candidate.exists():
+                return candidate
+
+    return root_dir / rel
 
 
 def _detect_id_column(meta: pd.DataFrame) -> str:

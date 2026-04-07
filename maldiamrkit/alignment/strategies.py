@@ -83,7 +83,27 @@ class AlignmentStrategy(ABC):
 def monotonic_interp(
     mz_axis: np.ndarray, new_positions: np.ndarray, row: np.ndarray
 ) -> np.ndarray:
-    """Perform interpolation with monotonicity enforcement."""
+    """Interpolate a spectrum onto *mz_axis* after a warping transform.
+
+    When *new_positions* is monotonically increasing a simple
+    ``np.interp`` call is used.  Otherwise the positions are sorted and
+    duplicate positions are averaged before interpolation, and a
+    warning is emitted.
+
+    Parameters
+    ----------
+    mz_axis : np.ndarray
+        Target m/z (or index) grid.
+    new_positions : np.ndarray
+        Warped positions corresponding to each element of *row*.
+    row : np.ndarray
+        Intensity values to be re-mapped.
+
+    Returns
+    -------
+    np.ndarray
+        Interpolated intensity array on *mz_axis*.
+    """
     if np.all(np.diff(new_positions) > 0):
         return np.interp(mz_axis, new_positions, row, left=0.0, right=0.0)
 

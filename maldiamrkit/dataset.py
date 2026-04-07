@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from tqdm.auto import tqdm
 
 from .filters import SpectrumFilter
 from .preprocessing.binning import _uniform_edges, get_bin_metadata
@@ -221,13 +222,19 @@ class MaldiSet:
                 n_jobs,
             )
 
-        # Use parallel loading with joblib
-        specs = Parallel(n_jobs=n_jobs, prefer="threads")(
-            delayed(_load_single_spectrum)(
-                p, pipeline, bin_width, bin_method, _bin_kwargs
+        # Load spectra
+        if verbose and n_jobs == 1:
+            specs = [
+                _load_single_spectrum(p, pipeline, bin_width, bin_method, _bin_kwargs)
+                for p in tqdm(spectrum_files, desc="Loading spectra", unit="file")
+            ]
+        else:
+            specs = Parallel(n_jobs=n_jobs, prefer="threads")(
+                delayed(_load_single_spectrum)(
+                    p, pipeline, bin_width, bin_method, _bin_kwargs
+                )
+                for p in spectrum_files
             )
-            for p in spectrum_files
-        )
 
         return cls(
             specs,
@@ -306,6 +313,8 @@ class MaldiSet:
         df = self._apply_subset_filters(df)
         result = df.drop(columns=self.meta_cols)
         self._X_cache = result
+        # Align metadata to match the feature matrix index
+        self.meta = self.meta.loc[self.meta.index.isin(result.index)]
         return result.copy()
 
     def _build_feature_dataframe(self) -> pd.DataFrame:
@@ -315,7 +324,11 @@ class MaldiSet:
         arrays: list[np.ndarray] = []
         columns: pd.Index | None = None
 
-        for s in self.spectra:
+        iterator = self.spectra
+        if self.verbose:
+            iterator = tqdm(self.spectra, desc="Processing spectra", unit="spectrum")
+
+        for s in iterator:
             sid = s.id
             if sid not in self.meta.index:
                 warnings.warn(

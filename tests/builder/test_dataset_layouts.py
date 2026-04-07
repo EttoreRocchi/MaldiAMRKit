@@ -337,3 +337,35 @@ class TestMARISMaLayout:
         pd.DataFrame({"Identifier": []}).to_csv(csv_path, index=False)
         layout = MARISMaLayout(tmp_path, csv_path)
         assert layout.detect_stage() == "raw"
+
+    def test_collect_overlapping_prefix(self, tmp_path):
+        """Metadata paths with leading segment duplicating root_dir.name."""
+        root = tmp_path / "MARISMa"
+        _make_bruker_dir(root, "2024/Staphylococcus/specimen_A")
+        csv_path = tmp_path / "meta.csv"
+        pd.DataFrame(
+            {
+                "Identifier": ["A"],
+                "Path": ["/MARISMa/2024/Staphylococcus/specimen_A"],
+                "target_position": ["0_A1"],
+            }
+        ).to_csv(csv_path, index=False)
+        layout = MARISMaLayout(root, csv_path)
+        files = layout.collect_spectrum_files(None, None)
+        assert len(files) == 1
+
+    def test_collect_no_overlap(self, tmp_path):
+        """Metadata paths without overlapping prefix still work."""
+        root = tmp_path / "data"
+        _make_bruker_dir(root, "specimen_A")
+        csv_path = tmp_path / "meta.csv"
+        pd.DataFrame(
+            {
+                "Identifier": ["A"],
+                "Path": ["specimen_A"],
+                "target_position": ["0_A1"],
+            }
+        ).to_csv(csv_path, index=False)
+        layout = MARISMaLayout(root, csv_path)
+        files = layout.collect_spectrum_files(None, None)
+        assert len(files) == 1

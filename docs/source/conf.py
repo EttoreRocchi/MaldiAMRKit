@@ -26,7 +26,7 @@ if _notebooks_src.exists():
 
 # Project information
 project = "MaldiAMRKit"
-copyright = "2025, Ettore Rocchi"
+copyright = "2025-2026, Ettore Rocchi"
 author = "Ettore Rocchi"
 
 # The full version, including alpha/beta/rc tags
@@ -121,8 +121,7 @@ nitpick_ignore_regex = [
     (r"py:data", r"typing\..*"),
 ]
 
-# Templates and static files
-templates_path = ["_templates"]
+# Static files
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "pydata_sphinx_theme"

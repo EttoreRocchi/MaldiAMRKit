@@ -852,3 +852,114 @@ class TestMaldiSetPlot:
             fig, axes = plot_pseudogel(ds, show=True)
         assert fig is not None
         plt.close(fig)
+
+
+class TestMetaAlignment:
+    """Tests for meta / X / y row alignment after feature building."""
+
+    def test_meta_aligned_with_X(self):
+        """After accessing .X, meta index matches X index."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 4)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s", "3s", "4s"],  # 4s has no spectrum
+                "Drug": ["S", "R", "R", "S"],
+                "Species": ["taxon", "taxon", "taxon", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs, meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
+        )
+        # Before .X, meta has 4 rows
+        assert len(ds.meta) == 4
+        X = ds.X
+        # After .X, meta is trimmed to match
+        assert set(ds.meta.index) == set(X.index)
+        assert len(ds.meta) == len(X)
+
+    def test_meta_aligned_after_species_filter(self):
+        """Meta is trimmed to match X after species filtering."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 4)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s", "3s"],
+                "Drug": ["S", "R", "R"],
+                "Species": ["taxon", "other", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs, meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
+        )
+        X = ds.X
+        assert len(ds.meta) == 2
+        assert set(ds.meta.index) == set(X.index)
+        assert all(ds.meta["Species"] == "taxon")
+
+    def test_meta_aligned_after_antibiotic_filter(self):
+        """Meta is trimmed to match X after antibiotic NaN filtering."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 4)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s", "3s"],
+                "Drug": ["S", np.nan, "R"],
+                "Species": ["taxon", "taxon", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs, meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
+        )
+        X = ds.X
+        assert len(ds.meta) == 2
+        assert set(ds.meta.index) == set(X.index)
+
+    def test_y_aligned_with_X(self):
+        """y and X have identical indices."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 4)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s", "3s", "4s"],
+                "Drug": ["S", "R", "R", "S"],
+                "Species": ["taxon", "taxon", "taxon", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs, meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
+        )
+        X = ds.X
+        y = ds.y
+        assert list(X.index) == list(y.index)
+
+    def test_get_y_single_aligned(self):
+        """get_y_single returns series aligned with X."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 4)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s", "3s", "4s"],
+                "Drug": ["S", "R", "R", "S"],
+                "Species": ["taxon", "taxon", "taxon", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs, meta, aggregate_by={"antibiotics": "Drug", "species": "taxon"}
+        )
+        y_single = ds.get_y_single("Drug")
+        assert list(y_single.index) == list(ds.X.index)
+
+    def test_tqdm_verbose_no_error(self):
+        """verbose=True triggers tqdm without errors."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 3)]
+        meta = pd.DataFrame(
+            {
+                "ID": ["1s", "2s"],
+                "Drug": ["S", "R"],
+                "Species": ["taxon", "taxon"],
+            }
+        )
+        ds = MaldiSet(
+            specs,
+            meta,
+            aggregate_by={"antibiotics": "Drug", "species": "taxon"},
+            verbose=True,
+        )
+        X = ds.X
+        assert X.shape[0] == 2

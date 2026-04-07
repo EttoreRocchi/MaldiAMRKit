@@ -3,6 +3,23 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.2] - 2026-04-07
+
+### Added
+
+- **Metadata pre-filtering in `DatasetLoader.load()`**: When `aggregate_by` specifies species or antibiotics, metadata rows are now filtered *before* matching spectrum files, avoiding unnecessary I/O on large datasets.
+- **`verbose` parameter on `DatasetLoader`**: When `True` (with `n_jobs=1`), shows a tqdm progress bar during spectrum loading. Passed through to `MaldiSet`.
+- **tqdm progress bar in `MaldiSet`**: When `verbose=True`, displays a progress bar during per-spectrum preprocessing and binning.
+
+### Fixed
+
+- **`MaldiSet.meta` / `.X` / `.y` row alignment**: `.meta` now contains only the sample IDs present in `.X` (i.e. spectra that exist on disk and pass `aggregate_by` filters). Previously `.meta` could have extra rows for samples whose spectrum files were missing.
+- **`MARISMaLayout.collect_spectrum_files()` path resolution**: Metadata paths with a leading segment that duplicates `root_dir.name` no longer produce doubled paths.
+
+### Dependencies
+
+- Added `tqdm`.
+
 ## [0.11.1] - 2026-04-03
 
 ### Fixed
@@ -92,7 +109,7 @@ First changelog-tracked release of MaldiAMRKit.
 
 ### Added
 
-- **Spectral preprocessing**: composable pipeline of transformers (smoothing, baseline correction, normalization, trimming) with multiple binning strategies (uniform, logarithmic, adaptive, custom) and raw-spectrum alignment (shift, linear, piecewise, DTW).
+- **Spectral preprocessing**: composable pipeline of transformers (smoothing, baseline correction, normalization, trimming) with multiple binning strategies (uniform, proportional, adaptive, custom) and raw-spectrum alignment (shift, linear, piecewise, DTW).
 - **AMR evaluation**: VME/ME rates, sensitivity, specificity, and classification reports following EUCAST/CLSI conventions; species-drug stratified and case-based splitting to prevent data leakage.
 - **Composable filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, and `MetadataFilter` combinable with `&`, `|`, `~` operators for flexible dataset subsetting.
 - **CLI**: `maldiamrkit preprocess` and `maldiamrkit quality` for batch processing and quality assessment from the command line.

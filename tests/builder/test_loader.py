@@ -293,3 +293,49 @@ class TestDatasetLoader:
         loader = DatasetLoader(DRIAMSLayout(tmp_path), stage="raw", n_jobs=1)
         ds = loader.load()
         assert len(ds.spectra) == 1
+
+
+class TestPrefilterMetadata:
+    """Tests for metadata pre-filtering in DatasetLoader.load()."""
+
+    def test_prefilter_by_species(self, built_dataset):
+        """Pre-filter keeps only spectra matching the requested species."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load(
+            aggregate_by=dict(species="Escherichia coli"),
+        )
+        # Fixture has 3 E. coli and 2 K. pneumoniae
+        assert len(ds.spectra) == 3
+        assert all(ds.meta["Species"] == "Escherichia coli")
+
+    def test_prefilter_by_antibiotics(self, built_dataset):
+        """Pre-filter keeps rows where antibiotic column is not null."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load(
+            aggregate_by=dict(antibiotics="Ceftriaxone"),
+        )
+        # All 5 samples have non-null Ceftriaxone in fixture
+        assert len(ds.spectra) == 5
+        assert ds.antibiotics == ["Ceftriaxone"]
+
+    def test_prefilter_combined(self, built_dataset):
+        """Pre-filter by both species and antibiotics together."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load(
+            aggregate_by=dict(
+                species="Klebsiella pneumoniae", antibiotics="Ceftriaxone"
+            ),
+        )
+        assert len(ds.spectra) == 2
+
+    def test_prefilter_no_aggregate_by(self, built_dataset):
+        """Without aggregate_by, all spectra are loaded."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1).load()
+        assert len(ds.spectra) == 5
+
+    def test_verbose_flag(self, built_dataset):
+        """verbose=True is passed through to MaldiSet."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1, verbose=True).load()
+        assert ds.verbose is True
+
+    def test_verbose_n_jobs_1_tqdm(self, built_dataset):
+        """verbose=True with n_jobs=1 uses tqdm loop without error."""
+        ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1, verbose=True).load()
+        assert len(ds.spectra) == 5

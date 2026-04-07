@@ -168,5 +168,21 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
             )
 
     def fit_transform(self, y, **kwargs):
-        """Fit and transform in one step."""
+        """Fit the encoder and transform labels in one step.
+
+        Parameters
+        ----------
+        y : array-like or pd.DataFrame
+            String labels (R/I/S or resistant/intermediate/susceptible).
+            If a DataFrame is passed, each column is encoded independently.
+        **kwargs : dict
+            Additional keyword arguments (unused, accepted for sklearn
+            compatibility).
+
+        Returns
+        -------
+        ndarray or pd.DataFrame
+            Binary encoded labels. Returns a DataFrame when the input is
+            a DataFrame, preserving column names and index.
+        """
         return self.fit(y).transform(y)
