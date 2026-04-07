@@ -71,8 +71,8 @@ def create_raw_input(
     spectra_dir = Path(spectra_dir)
 
     if sample_ids is None:
-        # Discover all spectrum files
-        files = sorted(spectra_dir.glob(f"*{file_extension}"))
+        # Discover all spectrum files (recursively for year-subdirectory layouts)
+        files = sorted(spectra_dir.rglob(f"*{file_extension}"))
         if not files:
             raise ValueError(
                 f"No files with extension '{file_extension}' found in {spectra_dir}"
