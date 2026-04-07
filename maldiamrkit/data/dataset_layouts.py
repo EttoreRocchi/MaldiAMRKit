@@ -337,7 +337,7 @@ def _load_year_metadata(
     for yd in year_dirs:
         csv_path = yd / f"{yd.name}{suffix}"
         if csv_path.exists():
-            frames.append(pd.read_csv(csv_path))
+            frames.append(pd.read_csv(csv_path, low_memory=False))
             years.append(yd.name)
     if not frames:
         raise FileNotFoundError(
