@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -44,6 +45,7 @@ def plot_distance_heatmap(
     -------
     tuple[Figure, Axes]
     """
+    import matplotlib
     import matplotlib.pyplot as plt
     import seaborn as sns
 
@@ -66,6 +68,13 @@ def plot_distance_heatmap(
         ax.set_title(title)
 
     if show:
+        if not matplotlib.is_interactive():
+            warnings.warn(
+                "matplotlib is using a non-interactive backend; "
+                "plt.show() may not display the figure",
+                UserWarning,
+                stacklevel=2,
+            )
         plt.show()
 
     return fig, ax
@@ -102,6 +111,7 @@ def plot_dendrogram(
     -------
     tuple[Figure, Axes]
     """
+    import matplotlib
     import matplotlib.pyplot as plt
     from scipy.cluster.hierarchy import dendrogram
 
@@ -116,6 +126,13 @@ def plot_dendrogram(
         ax.set_title(title)
 
     if show:
+        if not matplotlib.is_interactive():
+            warnings.warn(
+                "matplotlib is using a non-interactive backend; "
+                "plt.show() may not display the figure",
+                UserWarning,
+                stacklevel=2,
+            )
         plt.show()
 
     return fig, ax
