@@ -46,11 +46,17 @@ def _build_strata(
     species = np.asarray(species, dtype=str)
     strata = np.array([f"{s}__{lab}" for s, lab in zip(species, y, strict=True)])
 
-    # Merge rare strata
+    # Merge rare strata, preserving resistance label to maintain
+    # class balance across the merged group.
     unique, counts = np.unique(strata, return_counts=True)
     rare = set(unique[counts < min_count])
     if rare:
-        strata = np.array([s if s not in rare else "__rare__" for s in strata])
+        strata = np.array(
+            [
+                s if s not in rare else f"__rare_{lab}__"
+                for s, lab in zip(strata, y, strict=True)
+            ]
+        )
 
     return strata
 

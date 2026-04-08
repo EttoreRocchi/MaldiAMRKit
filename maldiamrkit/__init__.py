@@ -8,6 +8,7 @@ Subpackage guide
 - ``maldiamrkit.alignment``      -- Warping, RawWarping, create_raw_input, AlignmentStrategy
 - ``maldiamrkit.detection``      -- MaldiPeakDetector
 - ``maldiamrkit.evaluation``     -- AMR metrics, splitting, LabelEncoder
+- ``maldiamrkit.similarity``     -- spectral_distance, pairwise_distances, clustering, plots
 - ``maldiamrkit.visualization``  -- plot_spectrum, plot_pseudogel, plot_peaks, plot_alignment, plot_pca, plot_tsne, plot_umap
 - ``maldiamrkit.io``             -- read_spectrum, parse_mic_column
 
@@ -22,7 +23,7 @@ Examples
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.11.2"
+__version__ = "0.12.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

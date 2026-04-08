@@ -30,8 +30,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from .data import BrukerTreeLayout, DatasetBuilder, FlatLayout, ProcessingHandler
+from .data.duplicates import DuplicateStrategy
 from .data.input_layouts import InputLayout
 from .io.readers import read_spectrum
+from .preprocessing.binning import BinningMethod
 from .preprocessing.pipeline import preprocess as preprocess_spectrum
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .preprocessing.quality import SpectrumQuality
@@ -55,13 +57,6 @@ def _load_pipeline(path: Path | None) -> PreprocessingPipeline:
     if path.suffix in (".yaml", ".yml"):
         return PreprocessingPipeline.from_yaml(path)
     return PreprocessingPipeline.from_json(path)
-
-
-class BinningMethod(str, Enum):
-    """Supported binning methods."""
-
-    uniform = "uniform"
-    proportional = "proportional"
 
 
 class InputLayoutType(str, Enum):
@@ -336,10 +331,12 @@ def build(
             help="Metadata column for plate target position (bruker layout only)."
         ),
     ] = "target_position",
-    deduplicate: Annotated[
-        bool,
-        typer.Option(help="Keep one spectrum per identifier (bruker layout only)."),
-    ] = True,
+    duplicate_strategy: Annotated[
+        DuplicateStrategy,
+        typer.Option(
+            help="Strategy for handling duplicate spectrum identifiers (bruker layout only)."
+        ),
+    ] = DuplicateStrategy.first,
     validate: Annotated[
         bool,
         typer.Option(
@@ -387,7 +384,7 @@ def build(
                     year_column=year_column or "Year",
                     path_column=path_column,
                     target_position_column=target_position_column,
-                    deduplicate=deduplicate,
+                    duplicate_strategy=duplicate_strategy,
                     validate=validate,
                 )
             builder = DatasetBuilder(

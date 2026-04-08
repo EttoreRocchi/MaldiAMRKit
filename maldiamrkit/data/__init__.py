@@ -10,10 +10,13 @@ Submodules
 
 from .builder import BuildReport, DatasetBuilder, ProcessingHandler
 from .dataset_layouts import DatasetLayout, DRIAMSLayout, MARISMaLayout
+from .duplicates import DuplicateStrategy
 from .input_layouts import BrukerTreeLayout, FlatLayout, InputLayout
 from .loader import DatasetLoader
 
 __all__ = [
+    # Duplicate handling
+    "DuplicateStrategy",
     # Input layouts (for DatasetBuilder)
     "InputLayout",
     "FlatLayout",

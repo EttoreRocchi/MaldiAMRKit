@@ -103,7 +103,7 @@ class TestMergeReplicates:
 
     def test_merge_invalid_method_raises(self, identical_replicates):
         """Invalid method should raise ValueError."""
-        with pytest.raises(ValueError, match="method must be"):
+        with pytest.raises(ValueError, match="is not a valid"):
             merge_replicates(identical_replicates, method="invalid")
 
     def test_merge_weights_length_mismatch_raises(self, identical_replicates):

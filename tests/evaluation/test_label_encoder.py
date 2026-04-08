@@ -27,7 +27,8 @@ class TestLabelEncoder:
 
     def test_intermediate_drop(self):
         enc = LabelEncoder(intermediate="drop")
-        result = enc.fit_transform(["R", "I", "S", "I", "R"])
+        with pytest.warns(UserWarning, match="intermediate='drop' removed"):
+            result = enc.fit_transform(["R", "I", "S", "I", "R"])
         np.testing.assert_array_equal(result, [1, 0, 1])
 
     def test_full_words(self):
@@ -63,7 +64,7 @@ class TestLabelEncoder:
         np.testing.assert_array_equal(enc.classes_, [0, 1])
 
     def test_invalid_intermediate_raises(self):
-        with pytest.raises(ValueError, match="intermediate"):
+        with pytest.raises(ValueError, match="is not a valid"):
             LabelEncoder(intermediate="invalid")
 
     def test_empty_input(self):

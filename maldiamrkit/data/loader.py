@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
@@ -140,6 +141,10 @@ class DatasetLoader:
                 delayed(_load_single)(p) for p in matched_files
             )
 
+        # 6b. Average replicates when the layout used strategy="average"
+        if "_original_id" in meta.columns:
+            spectra, meta = self._average_replicates(spectra, meta)
+
         # 7. Build MaldiSet
         return MaldiSet(
             spectra,
@@ -170,3 +175,68 @@ class DatasetLoader:
                 meta = meta[meta[available].notna().any(axis=1)]
 
         return meta
+
+    @staticmethod
+    def _average_replicates(
+        spectra: list[MaldiSpectrum],
+        meta: pd.DataFrame,
+    ) -> tuple[list[MaldiSpectrum], pd.DataFrame]:
+        """Average replicate spectra that share an ``_original_id``.
+
+        Groups spectra by the ``_original_id`` metadata column, interpolates
+        each group onto a common m/z grid, and averages the intensities.
+
+        Returns the deduplicated spectra list and metadata DataFrame.
+        """
+        matched_ids = meta["ID"].tolist()
+        id_to_spec: dict[str, MaldiSpectrum] = {}
+        for sid, spec in zip(matched_ids, spectra, strict=True):
+            id_to_spec[sid] = spec
+
+        groups: dict[str, list[str]] = {}
+        for _, row in meta.iterrows():
+            orig = row["_original_id"]
+            groups.setdefault(orig, []).append(row["ID"])
+
+        averaged_spectra: list[MaldiSpectrum] = []
+        keep_rows: list[int] = []
+
+        for orig_id, member_ids in groups.items():
+            members = [id_to_spec[m] for m in member_ids if m in id_to_spec]
+            if not members:
+                continue
+
+            if len(members) == 1:
+                averaged_spectra.append(members[0])
+            else:
+                mz_min = max(s.raw["mass"].min() for s in members)
+                mz_max = min(s.raw["mass"].max() for s in members)
+                step = min(np.median(np.diff(s.raw["mass"].values)) for s in members)
+                common_mz = np.arange(mz_min, mz_max, step)
+
+                intensities = np.zeros((len(members), len(common_mz)))
+                for i, s in enumerate(members):
+                    intensities[i] = np.interp(
+                        common_mz, s.raw["mass"].values, s.raw["intensity"].values
+                    )
+
+                avg_intensity = intensities.mean(axis=0)
+                avg_df = pd.DataFrame({"mass": common_mz, "intensity": avg_intensity})
+                avg_spec = MaldiSpectrum(avg_df)
+                avg_spec.id = orig_id
+                averaged_spectra.append(avg_spec)
+
+            first_idx = meta.index[meta["_original_id"] == orig_id][0]
+            keep_rows.append(first_idx)
+
+        meta = meta.loc[keep_rows].copy()
+        meta["ID"] = meta["_original_id"]
+        meta = meta.drop(columns=["_original_id"]).reset_index(drop=True)
+
+        logger.info(
+            "Averaged replicates: %d spectra -> %d unique IDs.",
+            len(spectra),
+            len(averaged_spectra),
+        )
+
+        return averaged_spectra, meta

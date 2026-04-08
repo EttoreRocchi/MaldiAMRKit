@@ -38,7 +38,7 @@ class TestMaldiPeakDetectorInit:
 
     def test_invalid_method_raises(self):
         """Test that invalid method raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown method"):
+        with pytest.raises(ValueError, match="is not a valid"):
             MaldiPeakDetector(method="invalid")
 
 

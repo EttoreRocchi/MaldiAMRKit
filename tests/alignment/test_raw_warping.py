@@ -201,6 +201,66 @@ class TestRawWarpingFitTransform:
         assert len(quality) == len(X)
 
 
+class TestRawWarpingAveraging:
+    """Tests for the _original_id replicate averaging path in transform."""
+
+    @pytest.fixture
+    def spectra_with_original_id(self, tmp_path: Path):
+        """Create spectra with _original_id for averaging."""
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(4):
+            intensity = np.exp(-((mz - 5000 - i) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            with open(tmp_path / f"s{i}.txt", "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+
+        X = create_raw_input(tmp_path, sample_ids=[f"s{i}" for i in range(4)])
+        # s0 and s1 are replicates of "A"; s2 and s3 are replicates of "B"
+        X["_original_id"] = ["A", "A", "B", "B"]
+        return X
+
+    def test_transform_averages_replicates(self, spectra_with_original_id):
+        """Verify _original_id groups are averaged in transform output."""
+        X = spectra_with_original_id
+        warper = RawWarping(method="shift", bin_width=3.0)
+        result = warper.fit_transform(X)
+        assert len(result) == 2
+        assert set(result.index) == {"A", "B"}
+        assert "_original_id" not in result.columns
+
+    def test_transform_without_original_id_passthrough(self, tmp_path: Path):
+        """Verify no averaging when _original_id is absent."""
+        rng = np.random.default_rng(42)
+        mz = np.linspace(2000, 20000, 500)
+        for i in range(3):
+            intensity = np.exp(-((mz - 5000) ** 2) / 50000)
+            intensity += rng.normal(0, 0.01, len(mz))
+            intensity = np.maximum(intensity, 0)
+            with open(tmp_path / f"s{i}.txt", "w") as f:
+                for m, inten in zip(mz, intensity, strict=True):
+                    f.write(f"{m}\t{inten}\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift", bin_width=3.0)
+        result = warper.fit_transform(X)
+        assert len(result) == 3
+
+
+class TestRawWarpingReferenceEdgeCases:
+    """Edge-case tests for reference parameter."""
+
+    def test_reference_out_of_bounds_raises(self, tmp_path: Path):
+        """Verify out-of-bounds integer reference raises ValueError."""
+        for i in range(3):
+            (tmp_path / f"s{i}.txt").write_text("2000\t1.0\n3000\t2.0\n")
+        X = create_raw_input(tmp_path)
+        warper = RawWarping(method="shift", reference=999)
+        with pytest.raises(ValueError, match="out of bounds"):
+            warper.fit(X)
+
+
 class TestRawWarpingPipelineCompatibility:
     """Tests for sklearn Pipeline compatibility."""
 
@@ -314,10 +374,8 @@ class TestRawWarpingErrors:
     def test_fit_invalid_method(self, tmp_path: Path):
         for i in range(3):
             (tmp_path / f"s{i}.txt").write_text("2000\t1.0\n3000\t2.0\n")
-        X = create_raw_input(tmp_path)
-        warper = RawWarping(method="nonexistent")
-        with pytest.raises(ValueError, match="Unknown method"):
-            warper.fit(X)
+        with pytest.raises(ValueError, match="is not a valid"):
+            RawWarping(method="nonexistent")
 
     def test_fit_invalid_reference(self, tmp_path: Path):
         for i in range(3):

@@ -261,6 +261,37 @@ class TestVmeMeCurveCustomLabels:
         assert vme_rates[0] == 0.0
 
 
+class TestComputeMacroAverage:
+    """Tests for _compute_macro_average helper."""
+
+    def test_empty_reports_returns_zeros(self):
+        """Empty reports dict should produce zero-valued metrics."""
+        from maldiamrkit.evaluation.metrics import _compute_macro_average
+
+        macro = _compute_macro_average({})
+        assert macro["vme"] == 0.0
+        assert macro["me"] == 0.0
+        assert macro["n_total"] == 0
+
+    def test_single_drug_equals_drug(self):
+        """Macro average of a single drug should equal that drug's metrics."""
+        from maldiamrkit.evaluation.metrics import _compute_macro_average
+
+        drug_report = {
+            "vme": 0.25,
+            "me": 0.1,
+            "sensitivity": 0.75,
+            "specificity": 0.9,
+            "categorical_agreement": 0.85,
+            "n_resistant": 4,
+            "n_susceptible": 6,
+            "n_total": 10,
+        }
+        macro = _compute_macro_average({"Drug1": drug_report})
+        assert macro["vme"] == pytest.approx(0.25)
+        assert macro["n_total"] == 10
+
+
 class TestAmrMultilabelReport:
     def test_basic(self):
         y_true = pd.DataFrame({"Drug1": [1, 1, 0, 0], "Drug2": [0, 0, 1, 1]})

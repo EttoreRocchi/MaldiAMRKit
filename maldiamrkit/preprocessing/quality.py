@@ -4,11 +4,28 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+
+
+class SignalMethod(str, Enum):
+    """Method for estimating the signal level in SNR computation.
+
+    Attributes
+    ----------
+    max : str
+        Maximum intensity (standard approach).
+    median_peaks : str
+        Median intensity of the top detected peaks (more robust).
+    """
+
+    max = "max"
+    median_peaks = "median_peaks"
+
 
 if TYPE_CHECKING:
     from maldiamrkit.spectrum import MaldiSpectrum
@@ -90,12 +107,12 @@ class SpectrumQuality:
         self,
         noise_region: tuple[float, float] = (19500, 20000),
         peak_prominence: float = 1e-4,
-        signal_method: str = "max",
+        signal_method: str | SignalMethod = SignalMethod.max,
         n_top_peaks: int = 10,
     ):
         self.noise_region = noise_region
         self.peak_prominence = peak_prominence
-        self.signal_method = signal_method
+        self.signal_method = SignalMethod(signal_method)
         self.n_top_peaks = n_top_peaks
 
     def estimate_noise_level(self, spectrum: MaldiSpectrum) -> float:
@@ -257,7 +274,7 @@ class SpectrumQuality:
 def estimate_snr(
     spectrum: MaldiSpectrum,
     noise_region: tuple[float, float] = (19500, 20000),
-    signal_method: str = "max",
+    signal_method: str | SignalMethod = SignalMethod.max,
     n_top_peaks: int = 10,
 ) -> float:
     """
@@ -309,11 +326,7 @@ def estimate_snr(
     >>> print(f"SNR: {snr:.1f}")
     >>> snr_robust = estimate_snr(spec, signal_method="median_peaks")
     """
-    valid_methods = ("max", "median_peaks")
-    if signal_method not in valid_methods:
-        raise ValueError(
-            f"signal_method must be one of {valid_methods}, got {signal_method!r}."
-        )
+    signal_method = SignalMethod(signal_method)
 
     df = _get_spectrum_df(spectrum)
 

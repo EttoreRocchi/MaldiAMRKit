@@ -79,7 +79,7 @@ class TestBinSpectrum:
         self, preprocessed_spectrum: pd.DataFrame
     ):
         """Test that invalid method raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid method"):
+        with pytest.raises(ValueError, match="is not a valid"):
             bin_spectrum(preprocessed_spectrum, method="invalid")
 
     def test_bin_spectrum_custom_without_edges_raises(

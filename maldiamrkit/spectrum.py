@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .io.readers import _find_bruker_acqus, read_spectrum
-from .preprocessing.binning import bin_spectrum
+from .preprocessing.binning import BinningMethod, bin_spectrum
 from .preprocessing.pipeline import preprocess
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 
@@ -216,7 +216,7 @@ class MaldiSpectrum:
     def bin(
         self,
         bin_width: int | float = 3,
-        method: str = "uniform",
+        method: str | BinningMethod = BinningMethod.uniform,
         custom_edges: np.ndarray | list | None = None,
         **kwargs,
     ) -> MaldiSpectrum:

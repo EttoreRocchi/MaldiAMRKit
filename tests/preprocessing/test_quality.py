@@ -70,7 +70,7 @@ class TestEstimateSNR:
 
     def test_estimate_snr_invalid_method(self, synthetic_maldi):
         """Test that invalid signal_method raises ValueError."""
-        with pytest.raises(ValueError, match="signal_method"):
+        with pytest.raises(ValueError, match="is not a valid"):
             estimate_snr(synthetic_maldi, signal_method="invalid")
 
 
@@ -213,6 +213,58 @@ class TestSpectrumQualityReport:
         assert report.baseline_fraction == 0.3
         assert report.noise_level == 10.0
         assert report.dynamic_range == 2.5
+
+
+class TestSpectrumQualityEdgeCases:
+    """Edge-case tests for SpectrumQuality methods."""
+
+    def test_assess_warns_noise_region_outside_range(self):
+        """Verify warning when noise_region exceeds spectrum m/z range."""
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 10000, 500), "intensity": np.ones(500) * 50}
+        )
+        spec = MaldiSpectrum(df)
+        qc = SpectrumQuality(noise_region=(30000, 40000))
+        with pytest.warns(UserWarning):
+            qc.assess(spec)
+
+    def test_assess_all_zero_intensity(self):
+        """Verify assess handles all-zero intensity spectrum."""
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.zeros(1000)}
+        )
+        spec = MaldiSpectrum(df)
+        qc = SpectrumQuality()
+        report = qc.assess(spec)
+        assert report.total_ion_count == 0.0
+        assert report.peak_count == 0
+        assert report.dynamic_range == 0.0
+
+    def test_count_peaks_flat_spectrum(self):
+        """Verify count_peaks returns 0 for a flat constant spectrum."""
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.ones(1000) * 10}
+        )
+        spec = MaldiSpectrum(df)
+        qc = SpectrumQuality()
+        assert qc.count_peaks(spec) == 0
+
+    def test_dynamic_range_all_below_quantile(self):
+        """Verify dynamic range returns 0 when signal_mask is empty."""
+        # All same value => quantile(0.1) == that value => nothing strictly above it
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": np.ones(1000)}
+        )
+        spec = MaldiSpectrum(df)
+        qc = SpectrumQuality()
+        dr = qc.estimate_dynamic_range(spec)
+        assert dr == 0.0
+
+    def test_assess_median_peaks_signal_method(self, synthetic_maldi):
+        """Verify assess with signal_method='median_peaks'."""
+        qc = SpectrumQuality(signal_method="median_peaks")
+        report = qc.assess(synthetic_maldi)
+        assert report.snr > 0
 
 
 class TestSpectrumQualityReproducibility:

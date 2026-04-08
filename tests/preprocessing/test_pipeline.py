@@ -105,7 +105,8 @@ class TestPreprocess:
             }
         )
 
-        result = preprocess(df)
+        with pytest.warns(UserWarning, match="zero"):
+            result = preprocess(df)
 
         # Result should be empty or handle gracefully
         assert len(result) == 0 or result["intensity"].sum() == 0

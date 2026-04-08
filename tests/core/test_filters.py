@@ -248,6 +248,55 @@ class TestFilterRepr:
         assert "max_baseline_fraction" in r
 
 
+class TestFilterDeepComposition:
+    """Tests for deeply nested filter compositions and De Morgan's laws."""
+
+    def test_triple_and_chain(self, sample_meta: pd.DataFrame):
+        """f1 & f2 & f3 should require all three conditions."""
+        f = (
+            SpeciesFilter("Escherichia coli")
+            & QualityFilter(min_snr=5.0)
+            & MetadataFilter("batch_id", lambda v: v == "b1")
+        )
+        kept = [sid for sid, row in sample_meta.iterrows() if f(row)]
+        assert kept == ["s1"]
+
+    def test_triple_or_chain(self, sample_meta: pd.DataFrame):
+        """f1 | f2 | f3 should accept any of three conditions."""
+        f = (
+            SpeciesFilter("Escherichia coli")
+            | SpeciesFilter("Staphylococcus aureus")
+            | QualityFilter(min_snr=6.0)
+        )
+        kept = [sid for sid, row in sample_meta.iterrows() if f(row)]
+        # E. coli: s1, s3; S. aureus: s4; snr>=6: s1, s3, s5
+        assert set(kept) == {"s1", "s3", "s4", "s5"}
+
+    def test_de_morgan_and(self, sample_meta: pd.DataFrame):
+        """~(f1 & f2) should equal (~f1 | ~f2)."""
+        f1 = SpeciesFilter("Escherichia coli")
+        f2 = QualityFilter(min_snr=5.0)
+        lhs = ~(f1 & f2)
+        rhs = (~f1) | (~f2)
+        for _, row in sample_meta.iterrows():
+            assert lhs(row) == rhs(row)
+
+    def test_de_morgan_or(self, sample_meta: pd.DataFrame):
+        """~(f1 | f2) should equal (~f1 & ~f2)."""
+        f1 = SpeciesFilter("Escherichia coli")
+        f2 = QualityFilter(min_snr=5.0)
+        lhs = ~(f1 | f2)
+        rhs = (~f1) & (~f2)
+        for _, row in sample_meta.iterrows():
+            assert lhs(row) == rhs(row)
+
+    def test_double_negation(self, sample_meta: pd.DataFrame):
+        """~~f should be equivalent to f."""
+        f = SpeciesFilter("Escherichia coli")
+        for _, row in sample_meta.iterrows():
+            assert (~~f)(row) == f(row)
+
+
 class TestDrugFilterNaN:
     """Tests for DrugFilter with NaN values."""
 

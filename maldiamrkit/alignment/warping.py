@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..detection.peak_detector import MaldiPeakDetector
-from .strategies import ALIGNMENT_REGISTRY, DTWStrategy
+from .strategies import ALIGNMENT_REGISTRY, AlignmentMethod, DTWStrategy
 
 
 class Warping(BaseEstimator, TransformerMixin):
@@ -67,7 +67,7 @@ class Warping(BaseEstimator, TransformerMixin):
         self,
         peak_detector: MaldiPeakDetector | None = None,
         reference: str | int = "median",
-        method: str = "shift",
+        method: str | AlignmentMethod = AlignmentMethod.shift,
         n_segments: int = 5,
         max_shift: int = 50,
         dtw_radius: int = 10,
@@ -79,7 +79,7 @@ class Warping(BaseEstimator, TransformerMixin):
             binary=True, prominence=1e-5
         )
         self.reference = reference
-        self.method = method
+        self.method = AlignmentMethod(method)
         self.n_segments = n_segments
         self.max_shift = max_shift
         self.dtw_radius = dtw_radius
@@ -129,11 +129,6 @@ class Warping(BaseEstimator, TransformerMixin):
             )
 
         # Validate parameters
-        if self.method not in ALIGNMENT_REGISTRY:
-            raise ValueError(
-                f"Unknown warping method: {self.method}. "
-                f"Must be one of: {', '.join(ALIGNMENT_REGISTRY)}"
-            )
         if self.n_segments < 1:
             raise ValueError(f"n_segments must be >= 1, got {self.n_segments}")
         if self.max_shift < 0:
@@ -164,11 +159,6 @@ class Warping(BaseEstimator, TransformerMixin):
 
     def _get_strategy(self):
         """Build strategy instance from current parameters."""
-        if self.method not in ALIGNMENT_REGISTRY:
-            raise ValueError(
-                f"Unknown warping method {self.method}. "
-                f"Must be one of: {', '.join(ALIGNMENT_REGISTRY)}"
-            )
         cls = ALIGNMENT_REGISTRY[self.method]
         if self.method == "shift":
             return cls(max_shift=self.max_shift)

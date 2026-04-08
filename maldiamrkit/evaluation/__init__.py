@@ -1,6 +1,6 @@
 """Evaluation utilities for AMR prediction."""
 
-from .label_encoder import LabelEncoder
+from .label_encoder import IntermediateHandling, LabelEncoder
 from .metrics import (
     amr_classification_report,
     amr_multilabel_report,
@@ -38,5 +38,6 @@ __all__ = [
     "SpeciesDrugStratifiedKFold",
     "CaseGroupedKFold",
     # Label encoding
+    "IntermediateHandling",
     "LabelEncoder",
 ]

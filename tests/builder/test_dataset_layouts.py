@@ -15,10 +15,6 @@ from maldiamrkit.data.dataset_layouts import (
     _discover_driams_metadata,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def _make_bruker_dir(root: Path, rel_path: str) -> Path:
     """Create a minimal Bruker directory with acqus + fid."""
@@ -40,11 +36,6 @@ def _make_bruker_dir(root: Path, rel_path: str) -> Path:
     return root / rel_path
 
 
-# ---------------------------------------------------------------------------
-# _detect_id_column
-# ---------------------------------------------------------------------------
-
-
 class TestDetectIdColumn:
     """Tests for the _detect_id_column helper."""
 
@@ -62,11 +53,6 @@ class TestDetectIdColumn:
         """Verify first column is fallback."""
         meta = pd.DataFrame({"specimen": [1], "year": [2]})
         assert _detect_id_column(meta) == "specimen"
-
-
-# ---------------------------------------------------------------------------
-# _discover_driams_metadata
-# ---------------------------------------------------------------------------
 
 
 class TestDiscoverDriamsMetadata:
@@ -126,11 +112,6 @@ class TestDiscoverDriamsMetadata:
         """Verify FileNotFoundError when no CSV files exist at all."""
         with pytest.raises(FileNotFoundError, match="No metadata CSV files"):
             _discover_driams_metadata(tmp_path, None)
-
-
-# ---------------------------------------------------------------------------
-# DRIAMSLayout
-# ---------------------------------------------------------------------------
 
 
 class TestDRIAMSLayout:
@@ -223,16 +204,11 @@ class TestDRIAMSLayout:
             layout.collect_spectrum_files("binned_3", None)
 
 
-# ---------------------------------------------------------------------------
-# MARISMaLayout
-# ---------------------------------------------------------------------------
-
-
 class TestMARISMaLayout:
     """Tests for MARISMaLayout navigation."""
 
-    def test_discover_metadata_deduplicate_true(self, tmp_path):
-        """Verify deduplicate=True drops duplicates by ID."""
+    def test_discover_metadata_strategy_first(self, tmp_path):
+        """Verify duplicate_strategy='first' drops duplicates by ID."""
         csv_path = tmp_path / "meta.csv"
         pd.DataFrame(
             {
@@ -245,8 +221,8 @@ class TestMARISMaLayout:
         meta = layout.discover_metadata()
         assert len(meta) == 2
 
-    def test_discover_metadata_deduplicate_false(self, tmp_path):
-        """Verify deduplicate=False creates combined IDs."""
+    def test_discover_metadata_strategy_keep_all(self, tmp_path):
+        """Verify duplicate_strategy='keep_all' creates combined IDs."""
         csv_path = tmp_path / "meta.csv"
         pd.DataFrame(
             {
@@ -255,7 +231,7 @@ class TestMARISMaLayout:
                 "target_position": ["0_A1", "0_A2"],
             }
         ).to_csv(csv_path, index=False)
-        layout = MARISMaLayout(tmp_path, csv_path, deduplicate=False)
+        layout = MARISMaLayout(tmp_path, csv_path, duplicate_strategy="keep_all")
         meta = layout.discover_metadata()
         assert "A_0_A1" in meta["ID"].values
         assert "A_0_A2" in meta["ID"].values

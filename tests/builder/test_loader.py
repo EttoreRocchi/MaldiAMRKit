@@ -339,3 +339,53 @@ class TestPrefilterMetadata:
         """verbose=True with n_jobs=1 uses tqdm loop without error."""
         ds = DatasetLoader(DRIAMSLayout(built_dataset), n_jobs=1, verbose=True).load()
         assert len(ds.spectra) == 5
+
+
+class TestAverageReplicates:
+    """Tests for DatasetLoader._average_replicates."""
+
+    def test_groups_averaged_correctly(self):
+        """Verify replicate groups are averaged and metadata is cleaned."""
+        from maldiamrkit import MaldiSpectrum
+        from maldiamrkit.data.loader import DatasetLoader
+
+        mz = np.linspace(2000, 20000, 100)
+        s0 = MaldiSpectrum(pd.DataFrame({"mass": mz, "intensity": np.ones(100) * 10}))
+        s1 = MaldiSpectrum(pd.DataFrame({"mass": mz, "intensity": np.ones(100) * 20}))
+        s2 = MaldiSpectrum(pd.DataFrame({"mass": mz, "intensity": np.ones(100) * 30}))
+
+        meta = pd.DataFrame(
+            {
+                "ID": ["s0_rep1", "s0_rep2", "s1_rep1"],
+                "Species": ["E. coli", "E. coli", "K. pneumoniae"],
+                "_original_id": ["s0", "s0", "s1"],
+            }
+        )
+
+        spectra = [s0, s1, s2]
+        avg_specs, avg_meta = DatasetLoader._average_replicates(spectra, meta)
+
+        assert len(avg_specs) == 2
+        assert len(avg_meta) == 2
+        assert "_original_id" not in avg_meta.columns
+        assert set(avg_meta["ID"]) == {"s0", "s1"}
+
+    def test_single_member_group_passthrough(self):
+        """Verify single-member groups pass through without averaging."""
+        from maldiamrkit import MaldiSpectrum
+        from maldiamrkit.data.loader import DatasetLoader
+
+        mz = np.linspace(2000, 20000, 100)
+        s0 = MaldiSpectrum(pd.DataFrame({"mass": mz, "intensity": np.ones(100) * 10}))
+
+        meta = pd.DataFrame(
+            {
+                "ID": ["s0_rep1"],
+                "Species": ["E. coli"],
+                "_original_id": ["s0"],
+            }
+        )
+
+        avg_specs, avg_meta = DatasetLoader._average_replicates([s0], meta)
+        assert len(avg_specs) == 1
+        assert avg_meta["ID"].iloc[0] == "s0"

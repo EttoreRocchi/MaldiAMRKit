@@ -69,10 +69,8 @@ class TestWarpingFit:
 
     def test_fit_invalid_method_raises(self, binned_dataset: pd.DataFrame):
         """Test that invalid method raises ValueError."""
-        warper = Warping(method="invalid")
-
-        with pytest.raises(ValueError, match="Unknown warping method"):
-            warper.fit(binned_dataset)
+        with pytest.raises(ValueError, match="is not a valid"):
+            Warping(method="invalid")
 
 
 class TestWarpingTransform:
@@ -298,7 +296,7 @@ class TestWarpingValidation:
         w = Warping(method="shift")
         w.fit(binned_dataset)
         w.method = "nonexistent"
-        with pytest.raises(ValueError, match="Unknown"):
+        with pytest.raises(KeyError):
             w.transform(binned_dataset)
 
     def test_reference_quality_warning(self, binned_dataset: pd.DataFrame):

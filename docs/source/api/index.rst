@@ -13,6 +13,7 @@ organized by module.
    alignment
    detection
    evaluation
+   similarity
    builder
    visualization
    io
@@ -135,6 +136,19 @@ Splitting
    maldiamrkit.evaluation.case_based_split
    maldiamrkit.evaluation.SpeciesDrugStratifiedKFold
    maldiamrkit.evaluation.CaseGroupedKFold
+
+Similarity
+----------
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.similarity.spectral_distance
+   maldiamrkit.similarity.pairwise_distances
+   maldiamrkit.similarity.cluster_spectra
+   maldiamrkit.similarity.hierarchical_clustering
+   maldiamrkit.similarity.plot_distance_heatmap
+   maldiamrkit.similarity.plot_dendrogram
 
 Visualization
 -------------

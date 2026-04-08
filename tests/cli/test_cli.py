@@ -266,7 +266,7 @@ class TestBuildDRIAMSCommand:
             "--n-jobs",
             "--path-column",
             "--target-positi",  # truncated in Rich-formatted help output
-            "--deduplicate",
+            "--duplicate-str",  # truncated in Rich-formatted help output
             "--validate",
         ]:
             assert opt in output, f"Missing option: {opt}"

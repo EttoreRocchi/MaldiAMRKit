@@ -17,10 +17,32 @@ array([1])
 from __future__ import annotations
 
 import warnings
+from enum import Enum
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class IntermediateHandling(str, Enum):
+    """Strategy for handling intermediate (I) resistance labels.
+
+    Attributes
+    ----------
+    susceptible : str
+        Map intermediate to susceptible (0).
+    resistant : str
+        Map intermediate to resistant (1).
+    drop : str
+        Remove intermediate samples.
+    nan : str
+        Map intermediate to NaN.
+    """
+
+    susceptible = "susceptible"
+    resistant = "resistant"
+    drop = "drop"
+    nan = "nan"
 
 
 class LabelEncoder(BaseEstimator, TransformerMixin):
@@ -62,13 +84,11 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
     _SUSCEPTIBLE = {"S", "s", "susceptible", "Susceptible"}
     _INTERMEDIATE = {"I", "i", "intermediate", "Intermediate"}
 
-    def __init__(self, intermediate: str = "susceptible") -> None:
-        if intermediate not in ("susceptible", "resistant", "drop", "nan"):
-            raise ValueError(
-                f"intermediate must be 'susceptible', 'resistant', 'drop', "
-                f"or 'nan', got {intermediate!r}"
-            )
-        self.intermediate = intermediate
+    def __init__(
+        self,
+        intermediate: str | IntermediateHandling = IntermediateHandling.susceptible,
+    ) -> None:
+        self.intermediate = IntermediateHandling(intermediate)
 
     def fit(self, y: np.ndarray | pd.DataFrame, **kwargs: object) -> LabelEncoder:
         """Fit the encoder (no-op, just sets ``classes_``).
@@ -77,6 +97,9 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         ----------
         y : array-like
             Labels to learn from (unused beyond validation).
+        **kwargs : dict
+            Additional keyword arguments (unused, accepted for sklearn
+            compatibility).
 
         Returns
         -------
@@ -129,7 +152,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
                     "samples. Output length differs from input - incompatible "
                     "with sklearn pipelines that expect consistent sample counts.",
                     UserWarning,
-                    stacklevel=3,
+                    stacklevel=2,
                 )
             return result[mask].astype(int)
         if self.intermediate == "nan":

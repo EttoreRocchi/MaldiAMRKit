@@ -160,7 +160,40 @@ class TestBuildStrataRareMerging:
         y = np.array(["R", "R", "R", "R", "S"])
         species = np.array(["A", "A", "A", "A", "B"])
         strata = _build_strata(y, species, min_count=2)
-        assert "__rare__" in strata
+        # Rare strata are now merged per resistance label
+        assert any("__rare_" in s for s in strata)
+
+
+class TestBuildStrataEdgeCases:
+    """Edge-case tests for _build_strata helper."""
+
+    def test_all_same_species_single_stratum(self):
+        """All same species + same label => single stratum."""
+        from maldiamrkit.evaluation.splitting import _build_strata
+
+        y = np.array(["R", "R", "R", "R"])
+        species = np.array(["A", "A", "A", "A"])
+        strata = _build_strata(y, species, min_count=1)
+        assert len(set(strata)) == 1
+
+    def test_min_count_1_no_merging(self):
+        """min_count=1 should never merge strata."""
+        from maldiamrkit.evaluation.splitting import _build_strata
+
+        y = np.array(["R", "S", "R", "S"])
+        species = np.array(["A", "A", "B", "B"])
+        strata = _build_strata(y, species, min_count=1)
+        # Should have 4 unique strata (A_R, A_S, B_R, B_S)
+        assert len(set(strata)) == 4
+
+
+class TestCaseGroupedKFoldEdgeCases:
+    """Edge-case tests for CaseGroupedKFold."""
+
+    def test_get_n_splits_returns_configured_value(self):
+        """get_n_splits should return the configured n_splits."""
+        cv = CaseGroupedKFold(n_splits=7)
+        assert cv.get_n_splits() == 7
 
 
 class TestCaseBasedSplitNumpy:

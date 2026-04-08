@@ -109,6 +109,8 @@ class TestBinningRegistryExtensibility:
         }
 
     def test_custom_method_registration(self):
+        """Custom registry keys not in the Enum are rejected by Enum coercion."""
+
         def my_edges(*, mz_min, mz_max, **kwargs):
             return np.array([mz_min, (mz_min + mz_max) / 2, mz_max])
 
@@ -120,12 +122,12 @@ class TestBinningRegistryExtensibility:
                     "intensity": np.ones(100),
                 }
             )
-            binned, meta = bin_spectrum(df, method="test_method")
-            assert len(binned) == 2
+            with pytest.raises(ValueError, match="is not a valid"):
+                bin_spectrum(df, method="test_method")
         finally:
             del BINNING_REGISTRY["test_method"]
 
     def test_invalid_method_raises(self):
         df = pd.DataFrame({"mass": [2000, 3000], "intensity": [1.0, 1.0]})
-        with pytest.raises(ValueError, match="Invalid method"):
+        with pytest.raises(ValueError, match="is not a valid"):
             bin_spectrum(df, method="nonexistent")

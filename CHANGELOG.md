@@ -3,6 +3,27 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.0] - 2026-04-08
+
+### Added
+
+- **Spectral similarity module** (`maldiamrkit.similarity`): pairwise distance matrices with Wasserstein, DTW, cosine, spectral contrast angle, and Pearson metrics; hierarchical, HDBSCAN, and K-medoids clustering via `cluster_spectra()` interface; silhouette scores and metadata concordance (ARI, NMI) evaluation; distance heatmap and dendrogram plotting utilities.
+- **Duplicate handling module** (`maldiamrkit.data.duplicates`): `DuplicateStrategy` enum (`first`, `last`, `drop`, `keep_all`, `average`) with `apply_metadata_strategy()` and `apply_index_strategy()` helpers, replacing `deduplicate` booleans across layouts.
+- **Replicate averaging in `DatasetLoader`**: when `duplicate_strategy="average"`, spectra sharing the same original ID are interpolated to a common m/z grid and averaged.
+- **`deprecated()` decorator**: marks callables as deprecated with configurable `removed_in` version.
+
+### Changed
+
+- **Enum-based configuration across the library**: all string method/strategy parameters now accept typed enums (`BinningMethod`, `MergingMethod`, `SignalMethod`, `AlignmentMethod`, `PeakMethod`, `IntermediateHandling`) alongside plain strings.
+- **CLI `build` command**: `--deduplicate` flag replaced by `--duplicate-strategy` option.
+- **`BrukerTreeLayout` and `MARISMaLayout`**: `deduplicate` parameter replaced by `duplicate_strategy`.
+
+### Fixed
+
+- **`ShiftStrategy`**: apply `np.round()` on median shifts to avoid sub-sample drift.
+- **`_build_strata()`**: preserve resistance label when merging rare strata to maintain class balance.
+- **`MedianNormalizer`**: warn when median intensity is zero (empty/flat spectrum).
+
 ## [0.11.2] - 2026-04-07
 
 ### Added

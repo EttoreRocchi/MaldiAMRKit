@@ -1,10 +1,10 @@
 """Preprocessing functions for MALDI-TOF spectra."""
 
-from .binning import bin_spectrum, get_bin_metadata
-from .merging import detect_outlier_replicates, merge_replicates
+from .binning import BinningMethod, bin_spectrum, get_bin_metadata
+from .merging import MergingMethod, detect_outlier_replicates, merge_replicates
 from .pipeline import preprocess
 from .preprocessing_pipeline import PreprocessingPipeline
-from .quality import SpectrumQuality, SpectrumQualityReport, estimate_snr
+from .quality import SignalMethod, SpectrumQuality, SpectrumQualityReport, estimate_snr
 from .transformers import (
     ClipNegatives,
     LogTransform,
@@ -23,12 +23,15 @@ __all__ = [
     "PreprocessingPipeline",
     "preprocess",
     # Binning
+    "BinningMethod",
     "bin_spectrum",
     "get_bin_metadata",
     # Merging
+    "MergingMethod",
     "merge_replicates",
     "detect_outlier_replicates",
     # Quality
+    "SignalMethod",
     "estimate_snr",
     "SpectrumQuality",
     "SpectrumQualityReport",

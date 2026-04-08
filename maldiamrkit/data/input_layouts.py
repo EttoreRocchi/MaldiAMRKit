@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
+from .duplicates import DuplicateStrategy, apply_metadata_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -156,10 +157,18 @@ class BrukerTreeLayout(InputLayout):
         Column with relative path to the Bruker directory.
     target_position_column : str, default="target_position"
         Column for the plate target position.
-    deduplicate : bool, default=True
-        If ``True``, keep one spectrum per identifier (first target
-        position).  If ``False``, load all target positions as
-        separate spectra with IDs ``{identifier}_{target_position}``.
+    duplicate_strategy : str or DuplicateStrategy, default ``"first"``
+        How to handle duplicate specimen identifiers (e.g. the same
+        sample measured at multiple MALDI target positions):
+
+        * ``"first"``  -- keep the first occurrence (default).
+        * ``"last"``   -- keep the last occurrence.
+        * ``"drop"``   -- remove all duplicates.
+        * ``"keep_all"`` -- keep every replicate, appending the
+          target-position value to the ID
+          (``{identifier}_{target_position}``).
+        * ``"average"`` -- tag replicates for downstream averaging
+          (adds ``_original_id`` column).
     validate : bool, default=True
         If ``True``, skip empty spectra (all-zero ``fid``) and warn
         on duplicate spectra (SHA256 hash matching).
@@ -174,7 +183,7 @@ class BrukerTreeLayout(InputLayout):
         year_column: str = "Year",
         path_column: str = "Path",
         target_position_column: str = "target_position",
-        deduplicate: bool = True,
+        duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
         validate: bool = True,
     ) -> None:
         self.root_dir = Path(root_dir)
@@ -183,7 +192,7 @@ class BrukerTreeLayout(InputLayout):
         self.year_column = year_column
         self.path_column = path_column
         self.target_position_column = target_position_column
-        self.deduplicate = deduplicate
+        self.duplicate_strategy = DuplicateStrategy(duplicate_strategy)
         self.validate = validate
         self._year_map: dict[str, str] = {}
         self._id_to_path: dict[str, Path] = {}
@@ -191,19 +200,16 @@ class BrukerTreeLayout(InputLayout):
     def discover_spectra(self) -> list[Path]:
         """Resolve Bruker directories from metadata paths.
 
-        When ``deduplicate=True``, keeps one spectrum per identifier.
-        When ``deduplicate=False``, loads all target positions with
-        combined IDs. Optionally validates for empty and duplicate
-        spectra.
+        Applies :attr:`duplicate_strategy` to handle specimens that
+        appear at multiple target positions.  Optionally validates
+        for empty and duplicate spectra.
         """
         meta = self._read_raw_metadata()
-        if self.deduplicate:
-            meta = meta.drop_duplicates(subset="ID", keep="first")
-        else:
-            meta["ID"] = (
-                meta["ID"] + "_" + meta[self.target_position_column].astype(str)
-            )
-            meta = meta.drop_duplicates(subset="ID", keep="first")
+        meta = apply_metadata_strategy(
+            meta,
+            self.duplicate_strategy,
+            suffix_col=self.target_position_column,
+        )
 
         paths: list[Path] = []
         seen_hashes: dict[str, str] = {}
@@ -259,13 +265,11 @@ class BrukerTreeLayout(InputLayout):
     def discover_metadata(self) -> pd.DataFrame:
         """Read metadata CSV, normalise ID column."""
         meta = self._read_raw_metadata()
-        if self.deduplicate:
-            meta = meta.drop_duplicates(subset="ID", keep="first")
-        else:
-            meta["ID"] = (
-                meta["ID"] + "_" + meta[self.target_position_column].astype(str)
-            )
-            meta = meta.drop_duplicates(subset="ID", keep="first")
+        meta = apply_metadata_strategy(
+            meta,
+            self.duplicate_strategy,
+            suffix_col=self.target_position_column,
+        )
         if self._id_to_path:
             meta = meta[meta["ID"].isin(self._id_to_path.keys())]
         return meta.reset_index(drop=True)

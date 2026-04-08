@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
+from .duplicates import DuplicateStrategy, apply_metadata_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,15 @@ class DRIAMSLayout(DatasetLayout):
         Filename suffix for metadata CSV files.
     spectrum_ext : str, default=".txt"
         File extension for spectrum files (including the dot).
+    duplicate_strategy : str or DuplicateStrategy, default ``"first"``
+        How to handle duplicate spectrum IDs (e.g. the same sample
+        appearing in multiple year subdirectories):
+
+        * ``"first"``  -- keep the first occurrence (default).
+        * ``"last"``   -- keep the last occurrence.
+        * ``"drop"``   -- remove all duplicates.
+        * ``"keep_all"`` -- keep every replicate with ``_repN`` suffixes.
+        * ``"average"`` -- tag replicates for downstream averaging.
     """
 
     def __init__(
@@ -78,6 +88,7 @@ class DRIAMSLayout(DatasetLayout):
         metadata_dir: str = "id",
         metadata_suffix: str = "_clean.csv",
         spectrum_ext: str = ".txt",
+        duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
     ) -> None:
         self.dataset_dir = Path(dataset_dir)
         self.id_column = id_column
@@ -86,6 +97,7 @@ class DRIAMSLayout(DatasetLayout):
         self.metadata_dir = metadata_dir
         self.metadata_suffix = metadata_suffix
         self.spectrum_ext = spectrum_ext
+        self.duplicate_strategy = DuplicateStrategy(duplicate_strategy)
 
     def discover_metadata(self) -> pd.DataFrame:
         """Load metadata CSV(s) from the metadata directory."""
@@ -101,6 +113,7 @@ class DRIAMSLayout(DatasetLayout):
         if col != "ID":
             meta = meta.rename(columns={col: "ID"})
         meta["ID"] = meta["ID"].astype(str)
+        meta = apply_metadata_strategy(meta, self.duplicate_strategy)
 
         species_col = self.species_column or _detect_species_column(meta)
         if species_col is not None and species_col != "Species":
@@ -177,10 +190,18 @@ class MARISMaLayout(DatasetLayout):
         Column with relative path to the Bruker directory.
     target_position_column : str, default="target_position"
         Column for the plate target position.
-    deduplicate : bool, default=True
-        If ``True``, keep one spectrum per identifier (first target
-        position).  If ``False``, load all target positions as
-        separate spectra with IDs ``{identifier}_{target_position}``.
+    duplicate_strategy : str or DuplicateStrategy, default ``"first"``
+        How to handle duplicate specimen identifiers (e.g. the same
+        sample measured at multiple MALDI target positions):
+
+        * ``"first"``  -- keep the first occurrence (default).
+        * ``"last"``   -- keep the last occurrence.
+        * ``"drop"``   -- remove all duplicates.
+        * ``"keep_all"`` -- keep every replicate, appending the
+          target-position value to the ID
+          (``{identifier}_{target_position}``).
+        * ``"average"`` -- tag replicates for downstream averaging
+          (adds ``_original_id`` column).
     year : str, int, or None
         Restrict to a single year.
     """
@@ -193,7 +214,7 @@ class MARISMaLayout(DatasetLayout):
         id_column: str = "Identifier",
         path_column: str = "Path",
         target_position_column: str = "target_position",
-        deduplicate: bool = True,
+        duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
         year: str | int | None = None,
     ) -> None:
         self.root_dir = Path(root_dir)
@@ -201,7 +222,7 @@ class MARISMaLayout(DatasetLayout):
         self.id_column = id_column
         self.path_column = path_column
         self.target_position_column = target_position_column
-        self.deduplicate = deduplicate
+        self.duplicate_strategy = DuplicateStrategy(duplicate_strategy)
         self.year = str(year) if year is not None else None
 
     def discover_metadata(self) -> pd.DataFrame:
@@ -216,13 +237,11 @@ class MARISMaLayout(DatasetLayout):
             meta = meta.rename(columns={self.id_column: "ID"})
         meta["ID"] = meta["ID"].astype(str)
 
-        if self.deduplicate:
-            meta = meta.drop_duplicates(subset="ID", keep="first")
-        else:
-            meta["ID"] = (
-                meta["ID"] + "_" + meta[self.target_position_column].astype(str)
-            )
-            meta = meta.drop_duplicates(subset="ID", keep="first")
+        meta = apply_metadata_strategy(
+            meta,
+            self.duplicate_strategy,
+            suffix_col=self.target_position_column,
+        )
 
         if self.year is not None and "Year" in meta.columns:
             meta = meta[meta["Year"].astype(str) == self.year]

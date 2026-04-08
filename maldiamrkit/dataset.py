@@ -12,7 +12,7 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .filters import SpectrumFilter
-from .preprocessing.binning import _uniform_edges, get_bin_metadata
+from .preprocessing.binning import BinningMethod, _uniform_edges, get_bin_metadata
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .spectrum import MaldiSpectrum
 
@@ -23,7 +23,7 @@ def _load_single_spectrum(
     path: Path,
     pipeline: PreprocessingPipeline | None,
     bin_width: int,
-    bin_method: str,
+    bin_method: str | BinningMethod,
     bin_kwargs: dict,
 ) -> MaldiSpectrum:
     """Load and process a single spectrum (helper for parallel loading)."""
@@ -93,7 +93,7 @@ class MaldiSet:
         *,
         aggregate_by: dict[str, str | list[str]] | None = None,
         bin_width: int = 3,
-        bin_method: str = "uniform",
+        bin_method: str | BinningMethod = BinningMethod.uniform,
         bin_kwargs: dict | None = None,
         verbose: bool = False,
     ) -> None:
@@ -152,7 +152,7 @@ class MaldiSet:
         aggregate_by: dict[str, str | list[str]] | None = None,
         pipeline: PreprocessingPipeline | None = None,
         bin_width: int = 3,
-        bin_method: str = "uniform",
+        bin_method: str | BinningMethod = BinningMethod.uniform,
         bin_kwargs: dict | None = None,
         n_jobs: int = -1,
         verbose: bool = False,

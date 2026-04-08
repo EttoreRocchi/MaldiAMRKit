@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from maldiamrkit.io.readers import (
@@ -160,6 +161,70 @@ class TestReadSpectrumBruker:
         df = read_spectrum(DATA_DIR / "1s.txt")
         assert list(df.columns) == ["mass", "intensity"]
         assert len(df) > 0
+
+
+class TestTofToMassBoundary:
+    """Boundary-value tests for _tof_to_mass calibration."""
+
+    def test_ml1_zero_raises(self):
+        """ML1=0 should raise ValueError."""
+        with pytest.raises(ValueError, match="ML1 must be positive"):
+            _tof_to_mass(0.0, 400.0, 0.0, np.array([19000.0]))
+
+    def test_ml1_negative_raises(self):
+        """ML1<0 should raise ValueError."""
+        with pytest.raises(ValueError, match="ML1 must be positive"):
+            _tof_to_mass(-1.0, 400.0, 0.0, np.array([19000.0]))
+
+    def test_single_tof_point(self):
+        """Single-element TOF array should produce single m/z value."""
+        mass = _tof_to_mass(5000000.0, 400.0, 0.0, np.array([19000.0]))
+        assert mass.shape == (1,)
+        assert mass[0] > 0
+
+    def test_large_tof_array_shape(self):
+        """100k-element TOF array should produce same-shape output."""
+        tof = np.linspace(19000, 20000, 100_000)
+        mass = _tof_to_mass(5000000.0, 400.0, 0.0, tof)
+        assert mass.shape == (100_000,)
+
+    def test_ml3_zero_uses_linear_path(self):
+        """ML3=0 should produce valid positive m/z via the linear formula."""
+        tof = np.array([19000.0, 19100.0])
+        mass = _tof_to_mass(5000000.0, 400.0, 0.0, tof)
+        assert np.all(mass > 0)
+        # Verify monotonicity
+        assert mass[1] > mass[0]
+
+    def test_negative_discriminant_raises(self):
+        """Invalid calibration producing negative discriminant should raise."""
+        # ML3 very large negative => discriminant goes negative
+        tof = np.array([19000.0])
+        with pytest.raises(ValueError, match="negative discriminant"):
+            _tof_to_mass(5000000.0, 400.0, -1e10, tof)
+
+
+class TestCoerceNumericEdgeCases:
+    """Edge-case tests for _coerce_numeric."""
+
+    def test_mixed_types_coerced(self):
+        """Non-numeric values in columns should be dropped."""
+        from maldiamrkit.io.readers import _coerce_numeric
+
+        df = pd.DataFrame(
+            {"mass": ["2000", "abc", "3000"], "intensity": ["1", "2", "3"]}
+        )
+        result = _coerce_numeric(df)
+        assert len(result) == 2
+        assert result["mass"].dtype == np.float64
+
+    def test_all_non_numeric_returns_empty(self):
+        """All non-numeric values should produce an empty DataFrame."""
+        from maldiamrkit.io.readers import _coerce_numeric
+
+        df = pd.DataFrame({"mass": ["abc", "def"], "intensity": ["ghi", "jkl"]})
+        result = _coerce_numeric(df)
+        assert len(result) == 0
 
 
 @pytest.mark.skipif(

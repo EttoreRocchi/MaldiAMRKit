@@ -15,10 +15,6 @@ from maldiamrkit.data.input_layouts import (
     _extract_year,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def _make_bruker_dir(
     root: Path,
@@ -65,11 +61,6 @@ def _make_bruker_metadata(
     pd.DataFrame(entries).to_csv(csv_path, index=False)
 
 
-# ---------------------------------------------------------------------------
-# _extract_year
-# ---------------------------------------------------------------------------
-
-
 class TestExtractYear:
     """Tests for the _extract_year helper function."""
 
@@ -102,11 +93,6 @@ class TestExtractYear:
         """Verify non-4-digit numeric strings raise ValueError."""
         with pytest.raises(ValueError, match="Cannot extract year"):
             _extract_year("24")
-
-
-# ---------------------------------------------------------------------------
-# FlatLayout
-# ---------------------------------------------------------------------------
 
 
 class TestFlatLayout:
@@ -209,11 +195,6 @@ class TestFlatLayout:
         assert layout.get_id(Path("/some/dir/spectrum_1.txt")) == "spectrum_1"
 
 
-# ---------------------------------------------------------------------------
-# BrukerTreeLayout
-# ---------------------------------------------------------------------------
-
-
 class TestBrukerTreeLayout:
     """Tests for BrukerTreeLayout discovery and validation."""
 
@@ -228,17 +209,17 @@ class TestBrukerTreeLayout:
             year_column="Year",
             path_column="Path",
             target_position_column="target_position",
-            deduplicate=False,
+            duplicate_strategy="keep_all",
             validate=False,
         )
         assert layout.root_dir == tmp_path
-        assert layout.deduplicate is False
+        assert layout.duplicate_strategy.value == "keep_all"
         assert layout.validate is False
         assert layout._year_map == {}
         assert layout._id_to_path == {}
 
-    def test_discover_spectra_deduplicate_true(self, tmp_path):
-        """Verify deduplicate=True keeps first spectrum per ID."""
+    def test_discover_spectra_strategy_first(self, tmp_path):
+        """Verify duplicate_strategy='first' keeps first spectrum per ID."""
         root = tmp_path / "root"
         _make_bruker_dir(root, "specimen_A/0_A1")
         _make_bruker_dir(
@@ -266,8 +247,8 @@ class TestBrukerTreeLayout:
         paths = layout.discover_spectra()
         assert len(paths) == 1
 
-    def test_discover_spectra_deduplicate_false(self, tmp_path):
-        """Verify deduplicate=False creates combined IDs."""
+    def test_discover_spectra_strategy_keep_all(self, tmp_path):
+        """Verify duplicate_strategy='keep_all' creates combined IDs."""
         root = tmp_path / "root"
         _make_bruker_dir(root, "specimen_A/0_A1")
         _make_bruker_dir(
@@ -291,7 +272,9 @@ class TestBrukerTreeLayout:
                 },
             ],
         )
-        layout = BrukerTreeLayout(root, csv_path, deduplicate=False, validate=False)
+        layout = BrukerTreeLayout(
+            root, csv_path, duplicate_strategy="keep_all", validate=False
+        )
         paths = layout.discover_spectra()
         assert len(paths) == 2
         # IDs should be combined
@@ -480,8 +463,8 @@ class TestBrukerTreeLayout:
         assert len(meta) == 1
         assert meta["ID"].iloc[0] == "specimen_A"
 
-    def test_discover_metadata_deduplicate_false(self, tmp_path):
-        """Verify deduplicate=False creates combined IDs in metadata."""
+    def test_discover_metadata_strategy_keep_all(self, tmp_path):
+        """Verify duplicate_strategy='keep_all' creates combined IDs in metadata."""
         root = tmp_path / "root"
         _make_bruker_dir(root, "specimen_A/0_A1")
         _make_bruker_dir(
@@ -505,7 +488,9 @@ class TestBrukerTreeLayout:
                 },
             ],
         )
-        layout = BrukerTreeLayout(root, csv_path, deduplicate=False, validate=False)
+        layout = BrukerTreeLayout(
+            root, csv_path, duplicate_strategy="keep_all", validate=False
+        )
         layout.discover_spectra()
         meta = layout.discover_metadata()
         assert "specimen_A_0_A1" in meta["ID"].values

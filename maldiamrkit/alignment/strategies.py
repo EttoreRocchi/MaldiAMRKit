@@ -8,10 +8,32 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from tslearn.metrics import dtw_path
+
+
+class AlignmentMethod(str, Enum):
+    """Supported alignment/warping methods.
+
+    Attributes
+    ----------
+    shift : str
+        Rigid global shift alignment.
+    linear : str
+        Linear (affine) recalibration.
+    piecewise : str
+        Piecewise-linear recalibration.
+    dtw : str
+        Dynamic time warping alignment.
+    """
+
+    shift = "shift"
+    linear = "linear"
+    piecewise = "piecewise"
+    dtw = "dtw"
 
 
 class AlignmentStrategy(ABC):
@@ -171,7 +193,7 @@ class ShiftStrategy(AlignmentStrategy):
             return row
 
         shifts = _match_peaks_to_ref(peaks, ref_peaks)
-        shift = int(np.median(shifts)) if len(shifts) else 0
+        shift = int(np.round(np.median(shifts))) if len(shifts) else 0
         shift = np.clip(shift, -self.max_shift, self.max_shift)
 
         if shift > 0:
@@ -226,7 +248,7 @@ def _robust_linear_fit(
         Coefficients of the linear fit ``ref = a * sample + b``.
     """
     A = np.vstack([sample, np.ones_like(sample)]).T
-    a, b = np.linalg.lstsq(A, ref, rcond=None)[0]
+    a, b = np.linalg.lstsq(A, ref, rcond=1e-10)[0]
 
     if len(sample) > 2:
         residuals = ref - (a * sample + b)
@@ -236,7 +258,7 @@ def _robust_linear_fit(
             inlier_mask = np.abs(residuals - np.median(residuals)) <= cutoff
             if inlier_mask.sum() >= 2:
                 A_inlier = A[inlier_mask]
-                a, b = np.linalg.lstsq(A_inlier, ref[inlier_mask], rcond=None)[0]
+                a, b = np.linalg.lstsq(A_inlier, ref[inlier_mask], rcond=1e-10)[0]
 
     return a, b
 

@@ -10,18 +10,20 @@ import pandas as pd
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from ..data.duplicates import DuplicateStrategy, apply_index_strategy
 from ..detection.peak_detector import MaldiPeakDetector
 from ..io.readers import read_spectrum
-from ..preprocessing.binning import bin_spectrum
+from ..preprocessing.binning import BinningMethod, bin_spectrum
 from ..preprocessing.pipeline import preprocess
 from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
-from .strategies import ALIGNMENT_REGISTRY
+from .strategies import ALIGNMENT_REGISTRY, AlignmentMethod
 
 
 def create_raw_input(
     spectra_dir: str | Path,
     sample_ids: list[str] | None = None,
     file_extension: str = ".txt",
+    duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
 ) -> pd.DataFrame:
     """
     Create input DataFrame for RawWarping from a directory of spectrum files.
@@ -39,6 +41,17 @@ def create_raw_input(
         in spectra_dir and uses filenames (without extension) as sample IDs.
     file_extension : str, default=".txt"
         File extension for spectrum files.
+    duplicate_strategy : str or DuplicateStrategy, default ``"first"``
+        How to handle duplicate sample IDs (e.g. the same sample
+        appearing in multiple year subdirectories):
+
+        * ``"first"``  -- keep the first occurrence (default).
+        * ``"last"``   -- keep the last occurrence.
+        * ``"drop"``   -- remove all duplicates.
+        * ``"keep_all"`` -- keep every replicate with ``_repN`` suffixes.
+        * ``"average"`` -- keep all replicates and add an
+          ``_original_id`` column so that
+          :meth:`RawWarping.transform` can group and average them.
 
     Returns
     -------
@@ -83,7 +96,9 @@ def create_raw_input(
         # Build paths from sample IDs
         paths = [str(spectra_dir / f"{sid}{file_extension}") for sid in sample_ids]
 
-    return pd.DataFrame({"path": paths}, index=sample_ids)
+    df = pd.DataFrame({"path": paths}, index=sample_ids)
+    df = apply_index_strategy(df, DuplicateStrategy(duplicate_strategy))
+    return df
 
 
 class RawWarping(BaseEstimator, TransformerMixin):
@@ -177,9 +192,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        method: str = "shift",
+        method: str | AlignmentMethod = AlignmentMethod.shift,
         bin_width: float = 3,
-        bin_method: str = "uniform",
+        bin_method: str | BinningMethod = BinningMethod.uniform,
         bin_kwargs: dict | None = None,
         max_shift_da: float = 50.0,
         n_segments: int = 5,
@@ -192,9 +207,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
         interp_step: float = 0.5,
         n_jobs: int = 1,
     ) -> None:
-        self.method = method
+        self.method = AlignmentMethod(method)
         self.bin_width = bin_width
-        self.bin_method = bin_method
+        self.bin_method = BinningMethod(bin_method)
         self.bin_kwargs = bin_kwargs
         self.max_shift_da = max_shift_da
         self.n_segments = n_segments
@@ -234,6 +249,11 @@ class RawWarping(BaseEstimator, TransformerMixin):
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute reference spectrum from raw data.
+
+        Parameters
+        ----------
+        paths : list[str]
+            Paths to raw spectrum files.
 
         Returns
         -------
@@ -328,12 +348,6 @@ class RawWarping(BaseEstimator, TransformerMixin):
             raise ValueError(
                 "Input DataFrame must have a 'path' column with file paths. "
                 "Use create_raw_input() to create the input DataFrame."
-            )
-
-        # Validate method
-        if self.method not in ALIGNMENT_REGISTRY:
-            raise ValueError(
-                f"Unknown method: {self.method}. Use: {', '.join(ALIGNMENT_REGISTRY)}"
             )
 
         # Store preprocessing config
@@ -461,6 +475,14 @@ class RawWarping(BaseEstimator, TransformerMixin):
         result = pd.DataFrame(
             np.vstack(aligned_rows), index=X.index, columns=self.output_columns_
         )
+
+        # Average replicates when create_raw_input used strategy="average"
+        if "_original_id" in X.columns:
+            original_ids = X["_original_id"]
+            result["_original_id"] = original_ids.values
+            averaged = result.groupby("_original_id").mean()
+            averaged.index.name = None
+            result = averaged
 
         return result
 

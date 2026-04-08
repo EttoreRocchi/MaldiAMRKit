@@ -133,7 +133,8 @@ class TestTICNormalizer:
 
     def test_all_zero_unchanged(self):
         df = _make_df(np.zeros(100))
-        result = TICNormalizer()(df)
+        with pytest.warns(UserWarning, match="TIC total is zero"):
+            result = TICNormalizer()(df)
         assert (result["intensity"] == 0).all()
 
     def test_inf_in_input(self):
@@ -154,7 +155,8 @@ class TestMedianNormalizer:
 
     def test_all_zero_unchanged(self):
         df = _make_df(np.zeros(100))
-        result = MedianNormalizer()(df)
+        with pytest.warns(UserWarning, match="Median intensity is zero"):
+            result = MedianNormalizer()(df)
         assert (result["intensity"] == 0).all()
 
     def test_constant_input(self):
@@ -254,7 +256,8 @@ class TestMedianNormalizerEdges:
         from maldiamrkit.preprocessing.transformers import MedianNormalizer
 
         df = _make_df(np.zeros(50))
-        result = MedianNormalizer()(df)
+        with pytest.warns(UserWarning, match="Median intensity is zero"):
+            result = MedianNormalizer()(df)
         assert result["intensity"].sum() == 0.0
 
 

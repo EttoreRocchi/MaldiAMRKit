@@ -18,10 +18,27 @@ Examples
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+
+
+class MergingMethod(str, Enum):
+    """Supported replicate merging methods.
+
+    Attributes
+    ----------
+    mean : str
+        Arithmetic mean (optionally weighted).
+    median : str
+        Element-wise median.
+    """
+
+    mean = "mean"
+    median = "median"
+
 
 if TYPE_CHECKING:
     from maldiamrkit.spectrum import MaldiSpectrum
@@ -62,7 +79,7 @@ def _to_common_grid(
 
 def merge_replicates(
     spectra: list[MaldiSpectrum],
-    method: str = "mean",
+    method: str | MergingMethod = MergingMethod.mean,
     weights: np.ndarray | list[float] | None = None,
 ) -> pd.DataFrame:
     """Merge replicate spectra into a single consensus spectrum.
@@ -96,9 +113,7 @@ def merge_replicates(
     if not spectra:
         raise ValueError("spectra must not be empty.")
 
-    valid_methods = ("mean", "median")
-    if method not in valid_methods:
-        raise ValueError(f"method must be one of {valid_methods}, got {method!r}.")
+    method = MergingMethod(method)
 
     dfs = [s.raw for s in spectra]
 

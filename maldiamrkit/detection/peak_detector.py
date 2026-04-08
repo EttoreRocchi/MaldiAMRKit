@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+from enum import Enum
+
 import gudhi
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from scipy.signal import find_peaks
 from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class PeakMethod(str, Enum):
+    """Supported peak detection methods.
+
+    Attributes
+    ----------
+    local : str
+        Local maxima detection via ``scipy.signal.find_peaks``.
+    ph : str
+        Persistent homology based peak detection.
+    """
+
+    local = "local"
+    ph = "ph"
 
 
 class MaldiPeakDetector(BaseEstimator, TransformerMixin):
@@ -34,13 +51,21 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         Number of parallel jobs for peak detection. Use -1 for all available
         cores, 1 for sequential processing. Parallelization is particularly
         beneficial for the "ph" method which is CPU-intensive.
+    prominence : float or None, default=None
+        Minimum prominence of peaks (recommended: 1e-5 to 1e-2).
+        Passed to :func:`scipy.signal.find_peaks` when ``method="local"``.
+    height : float or None, default=None
+        Minimum height of peaks.
+        Passed to :func:`scipy.signal.find_peaks` when ``method="local"``.
+    distance : int or None, default=None
+        Minimum distance between peaks in bins.
+        Passed to :func:`scipy.signal.find_peaks` when ``method="local"``.
+    width : float or None, default=None
+        Minimum width of peaks.
+        Passed to :func:`scipy.signal.find_peaks` when ``method="local"``.
     **kwargs :
-        Additional keyword arguments passed to scipy.signal.find_peaks
-        when method="local". Common parameters:
-        - prominence : float, minimum prominence of peaks (recommended: 1e-5 to 1e-2)
-        - height : float, minimum height of peaks
-        - distance : int, minimum distance between peaks in bins
-        - width : float, minimum width of peaks
+        Additional keyword arguments passed to
+        :func:`scipy.signal.find_peaks` when ``method="local"``.
 
     Notes
     -----
@@ -66,7 +91,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        method: str = "local",
+        method: str | PeakMethod = PeakMethod.local,
         binary: bool = True,
         persistence_threshold: float = 1e-6,
         n_jobs: int = 1,
@@ -76,7 +101,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         width: float | None = None,
         **kwargs,
     ) -> None:
-        self.method = method
+        self.method = PeakMethod(method)
         self.binary = binary
         self.persistence_threshold = persistence_threshold
         self.n_jobs = n_jobs
@@ -90,11 +115,6 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             val = getattr(self, param)
             if val is not None:
                 self.kwargs.setdefault(param, val)
-
-        if self.method not in ["local", "ph"]:
-            raise ValueError(
-                f"Unknown method '{self.method}'. Must be one of: 'local', 'ph'"
-            )
 
     def fit(self, X: pd.DataFrame, y=None):
         """

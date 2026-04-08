@@ -249,6 +249,13 @@ class MedianNormalizer:
         median = df["intensity"].median()
         if median > 0:
             df["intensity"] = df["intensity"] / median
+        else:
+            warnings.warn(
+                "Median intensity is zero - spectrum has no signal. "
+                "This may indicate a failed acquisition.",
+                UserWarning,
+                stacklevel=2,
+            )
         return df
 
     def to_dict(self) -> dict:

@@ -2,11 +2,33 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Callable
 
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+
+
+class BinningMethod(str, Enum):
+    """Supported binning methods.
+
+    Attributes
+    ----------
+    uniform : str
+        Fixed-width bins across the m/z range.
+    proportional : str
+        Bin width scales linearly with m/z.
+    adaptive : str
+        Smaller bins in peak-dense regions.
+    custom : str
+        User-provided bin edges.
+    """
+
+    uniform = "uniform"
+    proportional = "proportional"
+    adaptive = "adaptive"
+    custom = "custom"
 
 
 def _uniform_edges(
@@ -31,7 +53,8 @@ def _uniform_edges(
     np.ndarray
         Array of bin edges.
     """
-    return np.arange(mz_min, mz_max + bin_width, bin_width)
+    n_bins = round((mz_max - mz_min) / bin_width)
+    return np.linspace(mz_min, mz_max, n_bins + 1)
 
 
 def _proportional_edges(
@@ -370,7 +393,7 @@ def bin_spectrum(
     mz_min: int = 2000,
     mz_max: int = 20000,
     bin_width: int | float = 3,
-    method: str = "uniform",
+    method: str | BinningMethod = BinningMethod.uniform,
     custom_edges: np.ndarray | list | None = None,
     adaptive_min_width: float = 1.0,
     adaptive_max_width: float = 10.0,
@@ -442,10 +465,7 @@ def bin_spectrum(
     >>> edges = [2000, 5000, 10000, 15000, 20000]
     >>> binned, metadata = bin_spectrum(df, method='custom', custom_edges=edges)
     """
-    if method not in BINNING_REGISTRY:
-        raise ValueError(
-            f"Invalid method '{method}'. Must be one of {tuple(BINNING_REGISTRY)}."
-        )
+    method = BinningMethod(method)
 
     if mz_min >= mz_max:
         raise ValueError(f"mz_min ({mz_min}) must be less than mz_max ({mz_max}).")

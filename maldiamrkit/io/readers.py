@@ -104,6 +104,14 @@ def _tof_to_mass(ml1: float, ml2: float, ml3: float, tof: np.ndarray) -> np.ndar
     Implements the quadratic TOF calibration equation used by Bruker
     flexAnalysis (reference: MARISMa ``SpectrumObject.tof2mass``).
 
+    The calibration solves ``a*x^2 + b*x + c = 0`` where ``a = ML3``,
+    ``b = sqrt(1e12 / ML1)``, ``c = ML2 - TOF``, and
+    ``m/z = ((-b + sqrt(b^2 - 4ac)) / (2a))^2``.  When ``ML3 = 0``
+    (linear calibration), this degenerates to ``m/z = (c / b)^2``.
+    The ``-b + sqrt(...)`` root is selected to match the MARISMa
+    reference implementation; this yields physical (positive) m/z for
+    the typical case where ``ML3 >= 0`` and ``ML1 > 0``.
+
     Parameters
     ----------
     ml1, ml2, ml3 : float
