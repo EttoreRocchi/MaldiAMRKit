@@ -14,6 +14,8 @@ organized by module.
    detection
    evaluation
    similarity
+   differential
+   drift
    builder
    visualization
    io
@@ -149,6 +151,52 @@ Similarity
    maldiamrkit.similarity.hierarchical_clustering
    maldiamrkit.similarity.plot_distance_heatmap
    maldiamrkit.similarity.plot_dendrogram
+
+Differential Analysis
+---------------------
+
+Analysis
+~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.differential.DifferentialAnalysis
+   maldiamrkit.differential.StatisticalTest
+   maldiamrkit.differential.CorrectionMethod
+
+Plots
+~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.differential.plot_volcano
+   maldiamrkit.differential.plot_manhattan
+   maldiamrkit.differential.plot_drug_comparison
+   maldiamrkit.differential.DrugComparisonKind
+
+Drift Monitoring
+----------------
+
+Monitor
+~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.drift.DriftMonitor
+
+Plots
+~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.drift.plot_reference_drift
+   maldiamrkit.drift.plot_pca_drift
+   maldiamrkit.drift.plot_peak_stability
+   maldiamrkit.drift.plot_effect_size_drift
 
 Visualization
 -------------

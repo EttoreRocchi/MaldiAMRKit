@@ -9,6 +9,8 @@ Subpackage guide
 - ``maldiamrkit.detection``      -- MaldiPeakDetector
 - ``maldiamrkit.evaluation``     -- AMR metrics, splitting, LabelEncoder
 - ``maldiamrkit.similarity``     -- spectral_distance, pairwise_distances, clustering, plots
+- ``maldiamrkit.differential``   -- DifferentialAnalysis, plot_volcano, plot_manhattan, plot_drug_comparison
+- ``maldiamrkit.drift``          -- DriftMonitor, plot_reference_drift, plot_pca_drift, plot_peak_stability, plot_effect_size_drift
 - ``maldiamrkit.visualization``  -- plot_spectrum, plot_pseudogel, plot_peaks, plot_alignment, plot_pca, plot_tsne, plot_umap
 - ``maldiamrkit.io``             -- read_spectrum, parse_mic_column
 
@@ -23,7 +25,7 @@ Examples
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

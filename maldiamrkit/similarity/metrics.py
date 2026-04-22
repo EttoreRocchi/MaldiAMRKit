@@ -51,6 +51,8 @@ def _wasserstein_distance(
     """Earth-mover distance between two raw spectra.
 
     Uses m/z positions as the support and intensities as weights.
+    Any negative intensity values (which would break scipy's
+    non-negative weight precondition) are clipped to zero.
     """
     from scipy.stats import wasserstein_distance as _wd
 
@@ -61,6 +63,8 @@ def _wasserstein_distance(
             "Wasserstein distance requires raw spectra with m/z values, "
             "not binned vectors."
         )
+    int_a = np.clip(np.asarray(int_a, dtype=float), 0.0, None)
+    int_b = np.clip(np.asarray(int_b, dtype=float), 0.0, None)
     return float(_wd(mz_a, mz_b, int_a, int_b))
 
 

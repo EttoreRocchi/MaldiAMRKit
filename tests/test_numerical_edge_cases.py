@@ -123,34 +123,39 @@ class TestShiftAlignmentRounding:
 
 
 class TestUniformBinningStability:
-    """Verify uniform binning produces consistent edge counts with float widths."""
+    """Verify uniform binning produces exact-width edges deterministically."""
 
     def test_float_bin_width_consistent_edges(self):
-        """np.linspace-based edges should be deterministic for float widths."""
+        """Edge generation is deterministic for float widths, and every
+        bin has exactly the requested width (the last edge may extend
+        past mz_max)."""
         from maldiamrkit.preprocessing.binning import _uniform_edges
 
         edges_a = _uniform_edges(2000.0, 20000.0, 3.1)
         edges_b = _uniform_edges(2000.0, 20000.0, 3.1)
         np.testing.assert_array_equal(edges_a, edges_b)
-        # Should cover the full range
         assert edges_a[0] == 2000.0
-        assert edges_a[-1] == 20000.0
+        # Last edge is the smallest multiple of bin_width past mz_max
+        assert edges_a[-1] >= 20000.0
+        assert edges_a[-1] - 20000.0 < 3.1
+        np.testing.assert_allclose(np.diff(edges_a), 3.1)
 
     def test_edges_cover_full_range(self):
-        """First edge == mz_min, last edge == mz_max exactly."""
+        """First edge == mz_min; last edge >= mz_max with exact widths."""
         from maldiamrkit.preprocessing.binning import _uniform_edges
 
         edges = _uniform_edges(2000.0, 20000.0, 3.0)
         assert edges[0] == 2000.0
+        # 18000/3 = 6000 bins exactly -> last edge is 20000.0
         assert edges[-1] == 20000.0
 
     def test_edge_spacing_uniform(self):
-        """All bin widths should be approximately equal."""
+        """All bin widths should be exactly equal."""
         from maldiamrkit.preprocessing.binning import _uniform_edges
 
         edges = _uniform_edges(2000.0, 20000.0, 3.0)
         widths = np.diff(edges)
-        assert np.std(widths) < 1e-10  # essentially uniform
+        np.testing.assert_allclose(widths, 3.0)
 
 
 class TestBrukerCalibrationEdgeCases:

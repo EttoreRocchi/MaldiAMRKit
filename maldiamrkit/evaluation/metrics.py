@@ -254,25 +254,35 @@ def vme_me_curve(
         Decision thresholds (sorted ascending).
     """
     y_true = np.asarray(y_true)
-    y_score = np.asarray(y_score)
+    y_score = np.asarray(y_score, dtype=float)
+
+    y_binary = (y_true == resistant_label).astype(np.int64)
+    total_pos = int(y_binary.sum())
+    total_neg = int(y_binary.size - total_pos)
 
     thresholds = np.sort(np.unique(y_score))
+    if thresholds.size == 0:
+        empty = np.empty(0, dtype=float)
+        return empty, empty, thresholds
 
-    vme_rates = np.empty(len(thresholds))
-    me_rates = np.empty(len(thresholds))
+    order = np.argsort(y_score, kind="mergesort")
+    sorted_score = y_score[order]
+    sorted_pos = y_binary[order]
+    sorted_neg = 1 - sorted_pos
 
-    for i, t in enumerate(thresholds):
-        y_pred = (y_score >= t).astype(int)
-        # Map back to original labels if needed
-        if resistant_label != 1:
-            labels = sorted(set(y_true))
-            susceptible_label = [lab for lab in labels if lab != resistant_label][0]
-            y_pred = np.where(y_pred == 1, resistant_label, susceptible_label)
+    cum_pos = np.concatenate(([0], np.cumsum(sorted_pos)))
+    cum_neg = np.concatenate(([0], np.cumsum(sorted_neg)))
 
-        vme_rates[i] = very_major_error_rate(y_true, y_pred, resistant_label)
-        me_rates[i] = major_error_rate(y_true, y_pred, resistant_label)
+    # Number of samples strictly below each threshold (predicted negative).
+    left = np.searchsorted(sorted_score, thresholds, side="left")
+    fn = cum_pos[left]
+    tn = cum_neg[left]
+    tp = total_pos - fn
+    fp = total_neg - tn
 
-    return vme_rates, me_rates, thresholds
+    vme_rates = np.where((fn + tp) > 0, fn / np.maximum(fn + tp, 1), 0.0)
+    me_rates = np.where((fp + tn) > 0, fp / np.maximum(fp + tn, 1), 0.0)
+    return vme_rates.astype(float), me_rates.astype(float), thresholds
 
 
 def amr_classification_report(

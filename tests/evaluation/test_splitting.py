@@ -150,6 +150,22 @@ class TestCaseGroupedKFold:
         with pytest.raises(ValueError, match="groups"):
             list(cv.split(X, y))
 
+    def test_requires_y_for_stratification(self, amr_data):
+        X, _, _, case_ids = amr_data
+        cv = CaseGroupedKFold(n_splits=3)
+        with pytest.raises(ValueError, match="y"):
+            list(cv.split(X, y=None, groups=case_ids))
+
+    def test_class_balance_preserved(self, amr_data):
+        """Each fold should have both classes present (StratifiedGroupKFold)."""
+        X, y, _, case_ids = amr_data
+        cv = CaseGroupedKFold(n_splits=5)
+        for train_idx, test_idx in cv.split(X, y, groups=case_ids):
+            train_classes = set(np.unique(y[train_idx]))
+            test_classes = set(np.unique(y[test_idx]))
+            assert 0 in train_classes and 1 in train_classes
+            assert 0 in test_classes and 1 in test_classes
+
 
 class TestBuildStrataRareMerging:
     """Test rare strata merging in _build_strata."""

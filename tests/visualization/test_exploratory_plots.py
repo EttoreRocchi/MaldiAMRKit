@@ -46,6 +46,15 @@ class TestReduceDimensions:
     def test_pca_shape(self, small_X):
         emb, reducer = _reduce_dimensions(small_X, "pca", n_components=2)
         assert emb.shape == (30, 2)
+        # Default standardize=True -> Pipeline(StandardScaler, PCA)
+        assert hasattr(reducer, "named_steps")
+        assert hasattr(reducer.named_steps["pca"], "explained_variance_ratio_")
+
+    def test_pca_no_standardize(self, small_X):
+        emb, reducer = _reduce_dimensions(
+            small_X, "pca", n_components=2, standardize=False
+        )
+        assert emb.shape == (30, 2)
         assert hasattr(reducer, "explained_variance_ratio_")
 
     def test_tsne_shape(self, small_X):

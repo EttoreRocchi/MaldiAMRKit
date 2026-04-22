@@ -3,6 +3,19 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.13.0] - 2026-04-22
+
+### Added
+
+- **Differential analysis module** (`maldiamrkit.differential`): `DifferentialAnalysis` class for per-bin statistical testing (Mann-Whitney U, Welch's t-test) between resistant and susceptible groups, with multiple-testing correction (Benjamini-Hochberg and Benjamini-Yekutieli FDR, Bonferroni), log2 fold change, and Cohen's d effect size; `from_maldi_set()` constructor, `top_peaks()` / `significant_peaks()` selectors, and `compare_drugs()` for multi-drug significance matrices.
+- **Pre-test filtering in `DifferentialAnalysis.run()`**: `mz_ranges` (single tuple or list of `(low, high)` tuples) restricts testing to m/z windows of interest; `peak_detector` (a `MaldiPeakDetector` instance) further restricts testing to bins that are peaks in at least one spectrum.
+- **Differential visualizations**: `plot_volcano()` (log2FC vs. -log10 adjusted p-value with direction-coloured points and threshold lines), `plot_manhattan()` (p-value significance along the m/z axis), and `plot_drug_comparison()` with `kind="heatmap"` (compact boolean matrix) or `kind="upset"` (pure-matplotlib UpSet-style intersection plot across drugs).
+- **Drift monitoring module** (`maldiamrkit.drift`): `DriftMonitor` anchors a baseline on the earliest timestamps (defaulting to the first 20% of sorted samples) and reports three views of temporal drift: 
+    - `monitor()` - cosine/Wasserstein distance of per-window median spectra to the baseline reference,
+    - `monitor_pca()` - centroid trajectory and dispersion in a baseline-fitted PCA space,
+    - `monitor_peak_stability()` / `monitor_effect_sizes()` - Jaccard overlap of top-k differential peaks per window vs. baseline plus per-peak Cohen's d over time.
+- **Drift visualizations**: `plot_reference_drift`, `plot_pca_drift` (centroid trajectory + time-colored points and dispersion-scaled markers), `plot_peak_stability`, `plot_effect_size_drift`.
+
 ## [0.12.0] - 2026-04-08
 
 ### Added

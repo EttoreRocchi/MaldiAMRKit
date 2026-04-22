@@ -11,8 +11,8 @@ from collections.abc import Iterator
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import (
-    GroupKFold,
     GroupShuffleSplit,
+    StratifiedGroupKFold,
     StratifiedKFold,
     StratifiedShuffleSplit,
 )
@@ -245,15 +245,20 @@ class SpeciesDrugStratifiedKFold:
 
 
 class CaseGroupedKFold:
-    """K-fold cross-validation keeping patient cases together.
+    """K-fold cross-validation keeping patient cases together and stratified by ``y``.
 
-    All samples from the same case/patient are always in the same fold.
-    Implements the sklearn splitter interface.
+    All samples from the same case/patient are always in the same fold,
+    and folds are stratified on the resistance label to preserve class
+    balance. Wraps :class:`sklearn.model_selection.StratifiedGroupKFold`.
 
     Parameters
     ----------
     n_splits : int, default=5
         Number of folds.
+    shuffle : bool, default=False
+        Whether to shuffle group order before splitting.
+    random_state : int or None, default=None
+        Random seed (used only when ``shuffle=True``).
 
     Examples
     --------
@@ -262,8 +267,15 @@ class CaseGroupedKFold:
     ...     X_train, X_test = X[train_idx], X[test_idx]
     """
 
-    def __init__(self, n_splits: int = 5):
+    def __init__(
+        self,
+        n_splits: int = 5,
+        shuffle: bool = True,
+        random_state: int | None = None,
+    ):
         self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.random_state = random_state
 
     def get_n_splits(
         self,
@@ -280,14 +292,14 @@ class CaseGroupedKFold:
         y: np.ndarray | None = None,
         groups: np.ndarray | None = None,
     ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """Generate train/test indices for each fold.
+        """Generate stratified, group-preserving train/test indices for each fold.
 
         Parameters
         ----------
         X : array-like
             Feature matrix.
-        y : array-like, optional
-            Labels (passed through but not used for splitting).
+        y : array-like
+            Resistance labels. Required for stratification.
         groups : array-like
             Case/patient identifiers. Required.
 
@@ -299,10 +311,16 @@ class CaseGroupedKFold:
         Raises
         ------
         ValueError
-            If groups is None.
+            If ``groups`` or ``y`` is None.
         """
         if groups is None:
             raise ValueError("groups (case_ids) must be provided for CaseGroupedKFold")
+        if y is None:
+            raise ValueError("y must be provided for CaseGroupedKFold stratification")
 
-        gkf = GroupKFold(n_splits=self.n_splits)
-        yield from gkf.split(X, y, groups=groups)
+        sgkf = StratifiedGroupKFold(
+            n_splits=self.n_splits,
+            shuffle=self.shuffle,
+            random_state=self.random_state,
+        )
+        yield from sgkf.split(X, y, groups=groups)

@@ -11,6 +11,8 @@ Interactive tutorials demonstrating MaldiAMRKit usage.
    notebooks/03_alignment
    notebooks/04_evaluation
    notebooks/05_exploration
+   notebooks/06_differential_analysis
+   notebooks/07_drift_monitoring
 
 Example Workflows
 -----------------

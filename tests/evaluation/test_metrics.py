@@ -147,6 +147,25 @@ class TestVmeMeCurve:
         # At lowest threshold (0.2): both predicted resistant -> VME=0
         assert vme_rates[0] == 0.0
 
+    def test_matches_per_threshold_reference(self):
+        """Vectorised implementation must match a per-threshold loop
+        calling the canonical VME/ME functions element-wise."""
+        rng = np.random.default_rng(0)
+        n = 200
+        y_true = rng.integers(0, 2, size=n)
+        y_score = rng.random(n)
+
+        vme, me, thresholds = vme_me_curve(y_true, y_score)
+
+        exp_vme = np.empty_like(vme)
+        exp_me = np.empty_like(me)
+        for i, t in enumerate(thresholds):
+            y_pred = (y_score >= t).astype(int)
+            exp_vme[i] = very_major_error_rate(y_true, y_pred)
+            exp_me[i] = major_error_rate(y_true, y_pred)
+        np.testing.assert_allclose(vme, exp_vme)
+        np.testing.assert_allclose(me, exp_me)
+
 
 class TestAmrClassificationReport:
     """Tests for the full classification report."""

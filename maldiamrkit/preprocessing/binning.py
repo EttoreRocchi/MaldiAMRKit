@@ -37,7 +37,13 @@ def _uniform_edges(
     bin_width: float,
 ) -> np.ndarray:
     """
-    Generate uniform bin edges with fixed width.
+    Generate uniform bin edges with exact ``bin_width``.
+
+    Edges are ``mz_min, mz_min + bin_width, ..., last_edge`` where
+    ``last_edge >= mz_max`` is the first multiple of ``bin_width`` past
+    ``mz_max``.  The last bin may therefore extend slightly beyond
+    ``mz_max``; all other bins have width exactly equal to the
+    requested ``bin_width``.
 
     Parameters
     ----------
@@ -53,8 +59,10 @@ def _uniform_edges(
     np.ndarray
         Array of bin edges.
     """
-    n_bins = round((mz_max - mz_min) / bin_width)
-    return np.linspace(mz_min, mz_max, n_bins + 1)
+    span = mz_max - mz_min
+    n_bins = int(np.ceil(span / bin_width))
+    n_bins = max(n_bins, 1)
+    return mz_min + bin_width * np.arange(n_bins + 1, dtype=float)
 
 
 def _proportional_edges(

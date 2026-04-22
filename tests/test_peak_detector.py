@@ -315,6 +315,46 @@ class TestPeakDetectorPHEdges:
         assert "n_peaks" in stats.columns
         assert stats.iloc[0]["n_peaks"] > 0
 
+    @pytest.mark.slow
+    def test_ph_indices_match_true_maxima(self):
+        """PH peak indices land exactly on the injected maxima (no
+        value-proximity heuristic)."""
+        signal = np.zeros(200)
+        signal[40] = 1.0
+        signal[90] = 0.8
+        signal[160] = 1.2
+        X = pd.DataFrame([signal], columns=[str(i) for i in range(200)])
+        detector = MaldiPeakDetector(
+            method="ph", persistence_threshold=0.5, binary=True
+        )
+        detector.fit(X)
+        result = detector.transform(X)
+        detected = np.flatnonzero(result.iloc[0].to_numpy())
+        assert set(detected.tolist()) == {40, 90, 160}
+
+    @pytest.mark.slow
+    def test_ph_plateau_no_ambiguity(self):
+        """On a plateau of equal values, the heuristic would pick an
+        ambiguous index; the direct cell-index recovery must pick a
+        single well-defined local maximum per persistent component."""
+        signal = np.zeros(100)
+        signal[30:35] = 0.9  # five-sample plateau
+        signal[70] = 1.0
+        X = pd.DataFrame([signal], columns=[str(i) for i in range(100)])
+        detector = MaldiPeakDetector(
+            method="ph", persistence_threshold=0.5, binary=True
+        )
+        detector.fit(X)
+        result = detector.transform(X)
+        detected = np.flatnonzero(result.iloc[0].to_numpy())
+        # The 0.9 plateau gives one persistent 0D component;
+        # the 1.0 point gives another. Expect exactly two peaks.
+        assert len(detected) == 2
+        assert 70 in detected.tolist()
+        # The plateau peak must land somewhere inside the plateau.
+        plateau_peak = [i for i in detected.tolist() if i != 70]
+        assert 30 <= plateau_peak[0] <= 34
+
 
 class TestPeakDetectorEdgeCases:
     """Additional edge case tests for peak detector."""

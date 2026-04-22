@@ -126,6 +126,21 @@ class TestSpecificMetrics:
         with pytest.raises(TypeError, match="requires raw spectra"):
             spectral_distance(a, a, metric="dtw")
 
+    def test_wasserstein_handles_negative_intensities(self):
+        """Negative intensities are clipped to zero so scipy's
+        non-negative-weight precondition is respected."""
+        import pandas as pd
+
+        mz = np.linspace(2000.0, 3000.0, 50)
+        int_a = np.abs(np.sin(mz / 200.0))
+        int_b = int_a.copy()
+        int_b[5] = -0.3  # inject a negative
+        df_a = pd.DataFrame({"mass": mz, "intensity": int_a})
+        df_b = pd.DataFrame({"mass": mz, "intensity": int_b})
+        d = spectral_distance(df_a, df_b, metric="wasserstein")
+        assert np.isfinite(d)
+        assert d >= 0.0
+
 
 class TestMetricRegistry:
     """METRIC_REGISTRY completeness and dispatcher validation."""

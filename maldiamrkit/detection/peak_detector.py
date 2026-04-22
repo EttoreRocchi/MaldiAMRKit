@@ -182,61 +182,42 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         Notes
         -----
         The algorithm:
-        1. Negates the signal for superlevel set analysis
-        2. Computes 0D persistence using cubical complexes
-        3. Filters features by persistence threshold
-        4. Maps birth values back to peak indices using local maxima constraint
+        1. Negates the signal so that ``row``'s maxima become sub-level
+           minima (0D component births).
+        2. Builds a 1D cubical complex and computes 0D persistence.
+        3. Recovers the exact birth-cell index for each pair.
+        4. Filters pairs by ``persistence >= persistence_threshold``.
         """
         if np.allclose(row, row[0]):
             return np.array([], dtype=int)
 
-        # Negate signal for superlevel analysis (peaks become valleys)
+        # Negate signal for sub-level-set filtration on the negated signal
+        # (so that peaks of ``row`` become births of 0D features).
         signal = -row
         signal = signal - signal.min()
 
         cc = gudhi.CubicalComplex(top_dimensional_cells=signal[np.newaxis, :])
-        persistence_diagram = cc.persistence()
+        cc.persistence()
+        regular_pairs, essential_pairs = cc.cofaces_of_persistence_pairs()
 
-        # Find all local maxima in original signal for accurate index mapping
-        local_maxima, _ = find_peaks(row)
-        local_maxima_set = set(local_maxima)
+        regular = regular_pairs[0] if len(regular_pairs) else np.empty((0, 2), int)
+        essential = essential_pairs[0] if len(essential_pairs) else np.empty(0, int)
+        signal_max = float(np.max(signal))
 
-        peak_indices = []
-        signal_max = np.max(signal)
+        peak_indices: list[int] = []
 
-        for dim, (birth, death) in persistence_diagram:
-            if dim != 0:
-                continue
+        if regular.size:
+            births = signal[regular[:, 0]]
+            deaths = signal[regular[:, 1]]
+            persistences = deaths - births
+            keep = persistences >= self.persistence_threshold
+            peak_indices.extend(int(i) for i in regular[keep, 0].tolist())
 
-            persistence = (
-                (death - birth) if not np.isinf(death) else (signal_max - birth)
-            )
-
-            if persistence >= self.persistence_threshold:
-                # Find candidates close to birth intensity.
-                # Tolerance is 10% of persistence + small epsilon to handle
-                # near-zero persistence.  This heuristic may miss the exact
-                # birth index when multiple points have similar values; the
-                # fallback chain below mitigates this.
-                tol = persistence * 0.1 + 1e-10
-                candidates = np.where(np.abs(signal - birth) < tol)[0]
-
-                # Prefer candidates that are local maxima in original signal
-                maxima_candidates = [c for c in candidates if c in local_maxima_set]
-
-                if maxima_candidates:
-                    # Use the candidate closest to birth value among local maxima
-                    idx = maxima_candidates[
-                        np.argmin(np.abs(signal[maxima_candidates] - birth))
-                    ]
-                elif len(candidates) > 0:
-                    # Fallback: use closest candidate
-                    idx = candidates[np.argmin(np.abs(signal[candidates] - birth))]
-                else:
-                    # Last resort: global argmin
-                    idx = np.argmin(np.abs(signal - birth))
-
-                peak_indices.append(idx)
+        if essential.size:
+            essential_births = signal[essential]
+            persistences = signal_max - essential_births
+            keep = persistences >= self.persistence_threshold
+            peak_indices.extend(int(i) for i in essential[keep].tolist())
 
         return np.array(sorted(set(peak_indices)), dtype=int)
 

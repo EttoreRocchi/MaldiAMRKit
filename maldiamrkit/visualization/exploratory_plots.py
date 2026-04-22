@@ -15,6 +15,8 @@ def _reduce_dimensions(
     X: pd.DataFrame | np.ndarray,
     method: str,
     n_components: int = 2,
+    *,
+    standardize: bool = True,
     **kwargs,
 ) -> tuple[np.ndarray, object]:
     """Compute a low-dimensional embedding.
@@ -27,6 +29,14 @@ def _reduce_dimensions(
         Dimensionality reduction algorithm.
     n_components : int, default=2
         Number of output dimensions.
+    standardize : bool, default=True
+        If ``True``, features are zero-mean / unit-variance scaled
+        before the reducer is fit, so no single high-intensity bin can
+        dominate the embedding.  For ``"pca"`` this yields a
+        ``Pipeline(StandardScaler -> PCA)`` whose ``transform`` applies
+        both steps consistently at inference time (see
+        :class:`maldiamrkit.drift.DriftMonitor`).  Set to ``False`` only
+        if features are already on a comparable scale.
     **kwargs : dict
         Extra keyword arguments forwarded to the reducer constructor.
 
@@ -35,8 +45,11 @@ def _reduce_dimensions(
     embedding : np.ndarray
         Array of shape ``(n_samples, n_components)``.
     reducer : object
-        The fitted reducer (useful for extracting explained variance
-        from PCA).
+        The fitted reducer.  For ``"pca"`` with ``standardize=True``,
+        returns a :class:`sklearn.pipeline.Pipeline` whose last step is
+        the PCA estimator (accessible via
+        ``reducer.named_steps['pca']`` for e.g.
+        ``explained_variance_ratio_``).
 
     Raises
     ------
@@ -45,18 +58,28 @@ def _reduce_dimensions(
     ValueError
         If *method* is not one of the supported algorithms.
     """
-    arr = np.asarray(X)
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    arr = np.asarray(X, dtype=float)
 
     if method == "pca":
         from sklearn.decomposition import PCA
 
-        reducer = PCA(n_components=n_components, **kwargs)
+        pca = PCA(n_components=n_components, **kwargs)
+        if standardize:
+            reducer: object = Pipeline([("scaler", StandardScaler()), ("pca", pca)])
+        else:
+            reducer = pca
         embedding = reducer.fit_transform(arr)
 
     elif method == "tsne":
         from sklearn.manifold import TSNE
 
-        reducer = TSNE(n_components=n_components, **kwargs)
+        tsne = TSNE(n_components=n_components, **kwargs)
+        if standardize:
+            arr = StandardScaler().fit_transform(arr)
+        reducer = tsne
         embedding = reducer.fit_transform(arr)
 
     elif method == "umap":
@@ -67,7 +90,10 @@ def _reduce_dimensions(
                 "umap-learn is required for UMAP plots. "
                 "Install it with: pip install maldiamrkit[batch]"
             ) from None
-        reducer = umap.UMAP(n_components=n_components, **kwargs)
+        umap_reducer = umap.UMAP(n_components=n_components, **kwargs)
+        if standardize:
+            arr = StandardScaler().fit_transform(arr)
+        reducer = umap_reducer
         embedding = reducer.fit_transform(arr)
 
     else:
@@ -235,7 +261,10 @@ def plot_pca(
     >>> fig, ax = plot_pca(dataset.X, color_by=dataset.meta["Species"])
     """
     embedding, reducer = _reduce_dimensions(X, "pca", n_components, **pca_kwargs)
-    var = reducer.explained_variance_ratio_ * 100
+    pca_estimator = (
+        reducer.named_steps["pca"] if hasattr(reducer, "named_steps") else reducer
+    )
+    var = pca_estimator.explained_variance_ratio_ * 100
 
     xlabel = f"PC1 ({var[0]:.1f}%)"
     ylabel = f"PC2 ({var[1]:.1f}%)" if n_components >= 2 else None

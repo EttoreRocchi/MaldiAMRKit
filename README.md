@@ -66,6 +66,15 @@ pip install -e .[dev]
 - **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
 
+### Differential Analysis
+- **`DifferentialAnalysis`**: Per-bin statistical testing (Mann-Whitney U, Welch's t-test) between resistant and susceptible groups, with multiple-testing correction, log2 fold change, and Cohen's d effect size
+- **Peak Selection**: `top_peaks()` by adjusted p-value, `significant_peaks()` with fold-change and p-value thresholds, `compare_drugs()` for multi-drug boolean significance matrices
+- **AMR-Aware Plots**: `plot_volcano()`, `plot_manhattan()` along the m/z axis, and `plot_drug_comparison()` with binary heatmap or UpSet-style intersection view
+
+### Drift Monitoring
+- **`DriftMonitor`**: Anchor a baseline on early timestamps (default: first 20%) and track temporal drift via three complementary views - reference similarity of per-window median spectra, PCA centroid trajectory in a baseline-fitted PCA space, and Jaccard stability of top-k differential peaks over time
+- **Trajectory Plots**: `plot_reference_drift`, `plot_pca_drift`, `plot_peak_stability`, `plot_effect_size_drift`
+
 ### Data Management
 - **Dataset Building & Loading**: `DatasetBuilder` and `DatasetLoader` with pluggable layout adapters (`FlatLayout`, `BrukerTreeLayout`, `DRIAMSLayout`, `MARISMaLayout`)
 - **Bruker Format Support**: Read Bruker flexAnalysis binary data (fid/1r + acqus) natively via `read_spectrum()` on directories
@@ -159,6 +168,8 @@ For more detailed examples, see the notebooks:
 - [Alignment](notebooks/03_alignment.ipynb) - Warping methods and alignment quality
 - [Evaluation](notebooks/04_evaluation.ipynb) - AMR metrics, label encoding, and stratified splitting
 - [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
+- [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
+- [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
 
 ## Contributing
 
