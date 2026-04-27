@@ -98,12 +98,27 @@ class TestPcaDrift:
         assert isinstance(ax, plt.Axes)
         plt.close(fig)
 
-    def test_draws_arrows(self, pca_df):
-        from matplotlib.patches import FancyArrowPatch
-
+    def test_draws_polyline_connector(self, pca_df):
+        """Consecutive windows are joined by a single thin grey polyline
+        (replaces the per-segment FancyArrowPatches)."""
         fig, ax = plot_pca_drift(pca_df, show=False)
-        arrows = [p for p in ax.patches if isinstance(p, FancyArrowPatch)]
-        assert len(arrows) == len(pca_df) - 1
+        # The scatter is a PathCollection on ax.collections; the
+        # polyline is a Line2D on ax.lines with `len(pca_df)` vertices.
+        connector_lines = [ln for ln in ax.lines if len(ln.get_xdata()) == len(pca_df)]
+        assert connector_lines, "expected a Line2D connector across all centroids"
+        plt.close(fig)
+
+    def test_baseline_end_marks_first_post_point(self, pca_df):
+        """baseline_end rings the first post-baseline point."""
+        # Pick a timestamp between pca_df's first and second rows so at
+        # least one point is 'post-baseline'.
+        cut = pd.to_datetime(pca_df["window_start"]).iloc[0]
+        fig, ax = plot_pca_drift(pca_df, baseline_end=cut, show=False)
+        # The highlight scatter creates a second PathCollection with 1 point.
+        extra = [c for c in ax.collections if c.get_offsets().shape[0] == 1]
+        assert extra, "expected a single-point highlight scatter"
+        annotations = [t.get_text() for t in ax.texts]
+        assert any("post-baseline" in t for t in annotations)
         plt.close(fig)
 
     def test_single_row_ok(self, pca_df):

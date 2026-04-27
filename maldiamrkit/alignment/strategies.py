@@ -28,12 +28,21 @@ class AlignmentMethod(str, Enum):
         Piecewise-linear recalibration.
     dtw : str
         Dynamic time warping alignment.
+    quadratic : str
+        Quadratic polynomial recalibration.
+    cubic : str
+        Cubic polynomial recalibration.
+    lowess : str
+        Non-linear LOWESS (Cleveland 1979) recalibration.
     """
 
     shift = "shift"
     linear = "linear"
     piecewise = "piecewise"
     dtw = "dtw"
+    quadratic = "quadratic"
+    cubic = "cubic"
+    lowess = "lowess"
 
 
 class AlignmentStrategy(ABC):
@@ -452,9 +461,240 @@ class DTWStrategy(AlignmentStrategy):
         return ref_mz, aligned_intensity
 
 
+class PolynomialStrategy(AlignmentStrategy):
+    """Polynomial alignment via ``numpy.polyfit`` on matched peak pairs.
+
+    Used for both the ``"quadratic"`` (``degree=2``) and ``"cubic"``
+    (``degree=3``) warping methods. When fewer than ``degree + 1``
+    matched peak pairs are available, falls back to
+    :class:`ShiftStrategy` to avoid an under-determined fit.
+
+    Parameters
+    ----------
+    max_shift : float
+        Maximum allowed shift passed through to the shift fallback.
+    degree : int
+        Polynomial degree. ``2`` for quadratic, ``3`` for cubic.
+    """
+
+    def __init__(self, max_shift: float, degree: int) -> None:
+        if degree < 1:
+            raise ValueError(f"degree must be >= 1, got {degree}")
+        self.max_shift = max_shift
+        self.degree = degree
+        self._fallback = ShiftStrategy(max_shift)
+
+    def _fit_polynomial(self, sample: np.ndarray, ref: np.ndarray) -> np.ndarray:
+        """Fit a polynomial of ``self.degree`` mapping sample to reference."""
+        return np.polyfit(sample, ref, self.degree)
+
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
+        """Apply polynomial warping to a binned spectrum."""
+        if len(peaks) < self.degree + 1 or len(ref_peaks) < self.degree + 1:
+            return self._fallback.align_binned(row, peaks, ref_peaks, mz_axis)
+
+        sample, ref = _match_peak_pairs(peaks, ref_peaks)
+        coeffs = self._fit_polynomial(sample, ref)
+        new_positions = np.polyval(coeffs, mz_axis)
+        return monotonic_interp(mz_axis, new_positions, row)
+
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Apply polynomial m/z warping to a raw spectrum."""
+        if len(peaks_mz) < self.degree + 1 or len(ref_peaks_mz) < self.degree + 1:
+            return self._fallback.align_raw(
+                mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity
+            )
+
+        sample, ref = _match_peak_pairs(peaks_mz, ref_peaks_mz)
+        coeffs = self._fit_polynomial(sample, ref)
+        return np.polyval(coeffs, mz), intensity
+
+
+def _lowess_fit(
+    x: np.ndarray,
+    y: np.ndarray,
+    frac: float,
+    it: int,
+) -> np.ndarray:
+    """Locally-weighted scatterplot smoothing (Cleveland 1979).
+
+    Lightweight pure-numpy implementation that fits a local linear
+    regression at each data point using a tricube kernel on the
+    ``frac * n`` nearest neighbours, with ``it`` robustness reweighting
+    iterations using bisquare residual weights. Input ``x`` must be
+    sorted in ascending order.
+
+    Parameters
+    ----------
+    x, y : np.ndarray
+        One-dimensional arrays of the same length; ``x`` sorted.
+    frac : float
+        Smoothing bandwidth, fraction of data used for each local fit,
+        in the half-open interval ``(0, 1]``.
+    it : int
+        Number of robustness reweighting iterations. ``0`` disables it.
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed ``y`` values at each ``x``.
+    """
+    n = len(x)
+    if n == 0:
+        return np.empty(0, dtype=float)
+    k = max(int(np.ceil(frac * n)), 2)
+    k = min(k, n)
+
+    fitted = np.empty(n, dtype=float)
+    residual_weights = np.ones(n, dtype=float)
+
+    for _ in range(it + 1):
+        for i in range(n):
+            distances = np.abs(x - x[i])
+            nearest = np.argsort(distances)[:k]
+            h = distances[nearest].max()
+            if h == 0:
+                fitted[i] = np.average(y[nearest], weights=residual_weights[nearest])
+                continue
+            u = np.clip(distances[nearest] / h, 0.0, 1.0)
+            kernel = (1.0 - u**3) ** 3
+            w = kernel * residual_weights[nearest]
+            total = w.sum()
+            if total <= 0:
+                fitted[i] = y[i]
+                continue
+            xn = x[nearest]
+            yn = y[nearest]
+            mean_x = np.sum(w * xn) / total
+            mean_y = np.sum(w * yn) / total
+            dx = xn - mean_x
+            denom = np.sum(w * dx * dx)
+            if denom <= 0:
+                fitted[i] = mean_y
+            else:
+                beta = np.sum(w * dx * (yn - mean_y)) / denom
+                fitted[i] = mean_y + beta * (x[i] - mean_x)
+
+        residuals = y - fitted
+        s = np.median(np.abs(residuals))
+        if s == 0:
+            break
+        u = np.clip(residuals / (6.0 * s), -1.0, 1.0)
+        residual_weights = (1.0 - u**2) ** 2
+
+    return fitted
+
+
+class LOWESSStrategy(AlignmentStrategy):
+    """Non-linear LOWESS alignment on matched peak pairs.
+
+    Fits a LOWESS (Cleveland 1979) regression of the form
+    ``ref = f(sample)`` on the matched peak pairs, then applies the
+    fitted function to the full m/z axis by linear interpolation
+    between the fitted peak positions.
+
+    Parameters
+    ----------
+    max_shift : float
+        Maximum allowed shift passed through to the shift fallback.
+    frac : float
+        LOWESS smoothing bandwidth (fraction of matched peaks used for
+        each local fit). Must be in ``(0, 1]``.
+    it : int
+        Number of LOWESS robustness iterations. Must be ``>= 0``.
+    """
+
+    _MIN_PEAKS = 3
+
+    def __init__(self, max_shift: float, frac: float, it: int) -> None:
+        if not (0.0 < frac <= 1.0):
+            raise ValueError(f"frac must be in (0, 1], got {frac}")
+        if it < 0:
+            raise ValueError(f"it must be >= 0, got {it}")
+        self.max_shift = max_shift
+        self.frac = frac
+        self.it = it
+        self._fallback = ShiftStrategy(max_shift)
+
+    def _fit_positions(
+        self, sample: np.ndarray, ref: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return (sorted_sample, fitted_ref) on the matched peak pairs."""
+        order = np.argsort(sample)
+        sample_sorted = sample[order].astype(float)
+        ref_sorted = ref[order].astype(float)
+        fitted = _lowess_fit(sample_sorted, ref_sorted, self.frac, self.it)
+        return sample_sorted, fitted
+
+    def align_binned(
+        self,
+        row: np.ndarray,
+        peaks: np.ndarray,
+        ref_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> np.ndarray:
+        """Apply LOWESS warping to a binned spectrum."""
+        if len(peaks) < self._MIN_PEAKS or len(ref_peaks) < self._MIN_PEAKS:
+            return self._fallback.align_binned(row, peaks, ref_peaks, mz_axis)
+
+        sample, ref = _match_peak_pairs(peaks, ref_peaks)
+        sample_sorted, fitted = self._fit_positions(sample, ref)
+        new_positions = np.interp(
+            mz_axis,
+            sample_sorted,
+            fitted,
+            left=fitted[0] + (mz_axis[0] - sample_sorted[0]),
+            right=fitted[-1] + (mz_axis[-1] - sample_sorted[-1]),
+        )
+        return monotonic_interp(mz_axis, new_positions, row)
+
+    def align_raw(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray,
+        ref_peaks_mz: np.ndarray,
+        ref_mz: np.ndarray,
+        ref_intensity: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Apply LOWESS m/z warping to a raw spectrum."""
+        if len(peaks_mz) < self._MIN_PEAKS or len(ref_peaks_mz) < self._MIN_PEAKS:
+            return self._fallback.align_raw(
+                mz, intensity, peaks_mz, ref_peaks_mz, ref_mz, ref_intensity
+            )
+
+        sample, ref = _match_peak_pairs(peaks_mz, ref_peaks_mz)
+        sample_sorted, fitted = self._fit_positions(sample, ref)
+        new_mz = np.interp(
+            mz,
+            sample_sorted,
+            fitted,
+            left=fitted[0] + (mz[0] - sample_sorted[0]),
+            right=fitted[-1] + (mz[-1] - sample_sorted[-1]),
+        )
+        return new_mz, intensity
+
+
 ALIGNMENT_REGISTRY: dict[str, type[AlignmentStrategy]] = {
     "shift": ShiftStrategy,
     "linear": LinearStrategy,
     "piecewise": PiecewiseStrategy,
     "dtw": DTWStrategy,
+    "quadratic": PolynomialStrategy,
+    "cubic": PolynomialStrategy,
+    "lowess": LOWESSStrategy,
 }

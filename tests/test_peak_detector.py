@@ -205,7 +205,7 @@ class TestPeakDetectorPlot:
 
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, ax = plot_peaks(detector, binned_dataset, indices=[0])
+        fig, ax = plot_peaks(detector, binned_dataset, indices=[0], show=False)
         assert fig is not None
         plt.close(fig)
 
@@ -215,7 +215,7 @@ class TestPeakDetectorPlot:
 
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, axes = plot_peaks(detector, binned_dataset, indices=[0, 1])
+        fig, axes = plot_peaks(detector, binned_dataset, indices=[0, 1], show=False)
         assert fig is not None
         assert len(axes) == 2
         plt.close(fig)
@@ -235,9 +235,75 @@ class TestPeakDetectorPlot:
 
         detector = MaldiPeakDetector(method="local", prominence=1e-4)
         detector.fit(binned_dataset)
-        fig, ax = plot_peaks(detector, binned_dataset)  # indices=None
+        fig, ax = plot_peaks(detector, binned_dataset, show=False)
         assert fig is not None
         plt.close(fig)
+
+    def test_plot_peaks_all_indices(self, binned_dataset: pd.DataFrame):
+        """indices='all' plots every spectrum in X."""
+        from maldiamrkit.visualization import plot_peaks
+
+        detector = MaldiPeakDetector(method="local", prominence=1e-4)
+        detector.fit(binned_dataset)
+        fig, axes = plot_peaks(detector, binned_dataset, indices="all", show=False)
+        assert len(axes) == len(binned_dataset)
+        plt.close(fig)
+
+    def test_plot_peaks_multi_panel_shares_x(self, binned_dataset: pd.DataFrame):
+        """Stacked panels must share the x-axis."""
+        from maldiamrkit.visualization import plot_peaks
+
+        detector = MaldiPeakDetector(method="local", prominence=1e-4)
+        detector.fit(binned_dataset)
+        fig, axes = plot_peaks(detector, binned_dataset, indices=[0, 1], show=False)
+        # sharex: each axis shares its sibling's X transform
+        assert axes[0].get_shared_x_axes().joined(axes[0], axes[1])
+        plt.close(fig)
+
+    def test_plot_peaks_axvlines_opt_in(self, binned_dataset: pd.DataFrame):
+        """Axvlines are off by default; opt-in via show_axvlines=True."""
+        from maldiamrkit.visualization import plot_peaks
+
+        detector = MaldiPeakDetector(method="local", prominence=1e-4)
+        detector.fit(binned_dataset)
+        fig, ax = plot_peaks(
+            detector, binned_dataset, indices=[0], show_axvlines=False, show=False
+        )
+        # No dashed vertical lines (axvline creates Line2D with linestyle='--')
+        dashed = [ln for ln in ax.lines if ln.get_linestyle() == "--"]
+        assert len(dashed) == 0
+        plt.close(fig)
+
+        fig, ax = plot_peaks(
+            detector, binned_dataset, indices=[0], show_axvlines=True, show=False
+        )
+        dashed = [ln for ln in ax.lines if ln.get_linestyle() == "--"]
+        assert len(dashed) > 0
+        plt.close(fig)
+
+    def test_plot_peaks_reuse_ax(self, binned_dataset: pd.DataFrame):
+        """ax= override works for single-spectrum plots."""
+        from maldiamrkit.visualization import plot_peaks
+
+        detector = MaldiPeakDetector(method="local", prominence=1e-4)
+        detector.fit(binned_dataset)
+        _fig, ax_ext = plt.subplots()
+        fig, ax = plot_peaks(
+            detector, binned_dataset, indices=[0], ax=ax_ext, show=False
+        )
+        assert ax is ax_ext
+        plt.close("all")
+
+    def test_plot_peaks_ax_rejects_multi(self, binned_dataset: pd.DataFrame):
+        """ax= is not accepted when plotting multiple spectra."""
+        from maldiamrkit.visualization import plot_peaks
+
+        detector = MaldiPeakDetector(method="local", prominence=1e-4)
+        detector.fit(binned_dataset)
+        _fig, ax_ext = plt.subplots()
+        with pytest.raises(ValueError, match="ax"):
+            plot_peaks(detector, binned_dataset, indices=[0, 1], ax=ax_ext, show=False)
+        plt.close("all")
 
 
 class TestPeakStatisticsEdgeCases:

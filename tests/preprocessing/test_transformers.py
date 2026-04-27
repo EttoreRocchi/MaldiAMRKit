@@ -10,15 +10,20 @@ import pytest
 
 from maldiamrkit.preprocessing import (
     ClipNegatives,
+    ConvexHullBaseline,
     LogTransform,
+    MedianBaseline,
     MedianNormalizer,
+    MovingAverageSmooth,
     MzMultiTrimmer,
     MzTrimmer,
     PQNNormalizer,
+    PreprocessingPipeline,
     SavitzkyGolaySmooth,
     SNIPBaseline,
     SqrtTransform,
     TICNormalizer,
+    TopHatBaseline,
 )
 
 
@@ -343,3 +348,217 @@ class TestMzMultiTrimmerExtras:
         d = trimmer.to_dict()
         assert d["name"] == "MzMultiTrimmer"
         assert d["mz_ranges"] == [(2000, 5000), (8000, 12000)]
+
+
+def _make_df_with_baseline(
+    n: int = 500,
+    peak_positions: tuple[int, ...] = (100, 250, 400),
+    peak_amplitude: float = 10.0,
+    baseline_slope: float = 2.0,
+    baseline_intercept: float = 5.0,
+):
+    """Create a synthetic spectrum with a known linear baseline and peaks."""
+    mz = np.linspace(2000, 20000, n)
+    baseline = baseline_intercept + baseline_slope * np.linspace(0, 1, n)
+    intensity = baseline.copy()
+    for pos in peak_positions:
+        intensity[pos] += peak_amplitude
+    return pd.DataFrame({"mass": mz, "intensity": intensity})
+
+
+class TestTopHatBaseline:
+    """Tests for TopHatBaseline."""
+
+    def test_removes_flat_baseline(self):
+        df = _make_df(np.full(500, 42.0))
+        result = TopHatBaseline(half_window=20)(df)
+        assert np.allclose(result["intensity"].values, 0.0, atol=1e-10)
+
+    def test_preserves_narrow_peak(self):
+        df = _make_df_with_baseline(
+            n=500,
+            peak_positions=(250,),
+            peak_amplitude=20.0,
+            baseline_slope=0.0,
+            baseline_intercept=5.0,
+        )
+        result = TopHatBaseline(half_window=20)(df)
+        assert (result["intensity"] >= 0).all()
+        assert result["intensity"].iloc[250] > 15.0
+        mask = np.ones(500, dtype=bool)
+        mask[245:256] = False
+        assert result["intensity"][mask].max() < 1e-6
+
+    def test_clips_negative_residuals(self):
+        df = _make_df(np.linspace(0, 100, 500))
+        result = TopHatBaseline(half_window=20)(df)
+        assert (result["intensity"] >= 0).all()
+
+    def test_invalid_half_window_raises(self):
+        df = _make_df(np.ones(500))
+        with pytest.raises(ValueError, match="positive integer"):
+            TopHatBaseline(half_window=0)(df)
+
+    def test_window_too_large_raises(self):
+        df = _make_df(np.ones(10))
+        with pytest.raises(ValueError, match="exceeds data length"):
+            TopHatBaseline(half_window=100)(df)
+
+    def test_to_dict_repr(self):
+        t = TopHatBaseline(half_window=75)
+        assert t.to_dict() == {"name": "TopHatBaseline", "half_window": 75}
+        assert repr(t) == "TopHatBaseline(half_window=75)"
+
+
+class TestConvexHullBaseline:
+    """Tests for ConvexHullBaseline."""
+
+    def test_removes_linear_baseline(self):
+        df = _make_df_with_baseline(
+            n=500,
+            peak_positions=(250,),
+            peak_amplitude=50.0,
+            baseline_slope=10.0,
+            baseline_intercept=5.0,
+        )
+        result = ConvexHullBaseline()(df)
+        assert (result["intensity"] >= 0).all()
+        assert result["intensity"].iloc[250] > 40.0
+        mask = np.ones(500, dtype=bool)
+        mask[245:256] = False
+        assert result["intensity"][mask].max() < 1.0
+
+    def test_flat_input_returns_zero(self):
+        df = _make_df(np.full(500, 7.0))
+        result = ConvexHullBaseline()(df)
+        assert np.allclose(result["intensity"].values, 0.0, atol=1e-10)
+
+    def test_short_input_no_crash(self):
+        df = _make_df([1.0, 2.0])
+        result = ConvexHullBaseline()(df)
+        assert len(result) == 2
+        assert (result["intensity"] >= 0).all()
+
+    def test_to_dict_repr(self):
+        t = ConvexHullBaseline()
+        assert t.to_dict() == {"name": "ConvexHullBaseline"}
+        assert repr(t) == "ConvexHullBaseline()"
+
+
+class TestMedianBaseline:
+    """Tests for MedianBaseline."""
+
+    def test_removes_slow_baseline(self):
+        df = _make_df_with_baseline(
+            n=500,
+            peak_positions=(250,),
+            peak_amplitude=30.0,
+            baseline_slope=5.0,
+            baseline_intercept=2.0,
+        )
+        result = MedianBaseline(half_window=30, iterations=1)(df)
+        assert (result["intensity"] >= 0).all()
+        assert result["intensity"].iloc[250] > 20.0
+
+    def test_iterations_does_not_invert(self):
+        df = _make_df(np.full(500, 3.0))
+        r1 = MedianBaseline(half_window=30, iterations=1)(df)
+        r3 = MedianBaseline(half_window=30, iterations=3)(df)
+        assert np.allclose(r1["intensity"].values, 0.0, atol=1e-10)
+        assert np.allclose(r3["intensity"].values, 0.0, atol=1e-10)
+
+    def test_invalid_half_window_raises(self):
+        df = _make_df(np.ones(500))
+        with pytest.raises(ValueError, match="half_window"):
+            MedianBaseline(half_window=0)(df)
+
+    def test_invalid_iterations_raises(self):
+        df = _make_df(np.ones(500))
+        with pytest.raises(ValueError, match="iterations"):
+            MedianBaseline(half_window=30, iterations=0)(df)
+
+    def test_window_too_large_raises(self):
+        df = _make_df(np.ones(10))
+        with pytest.raises(ValueError, match="exceeds data length"):
+            MedianBaseline(half_window=100)(df)
+
+    def test_to_dict_repr(self):
+        t = MedianBaseline(half_window=50, iterations=2)
+        assert t.to_dict() == {
+            "name": "MedianBaseline",
+            "half_window": 50,
+            "iterations": 2,
+        }
+        assert repr(t) == "MedianBaseline(half_window=50, iterations=2)"
+
+
+class TestMovingAverageSmooth:
+    """Tests for MovingAverageSmooth."""
+
+    def test_smooths_gaussian_noise(self):
+        rng = np.random.default_rng(0)
+        values = rng.normal(loc=10.0, scale=1.0, size=500)
+        df = _make_df(values)
+        result = MovingAverageSmooth(window_length=7)(df)
+        assert result["intensity"].std() < df["intensity"].std()
+        assert np.isclose(result["intensity"].mean(), df["intensity"].mean(), atol=0.1)
+
+    def test_constant_input_unchanged(self):
+        df = _make_df(np.full(500, 42.0))
+        result = MovingAverageSmooth(window_length=5)(df)
+        assert np.allclose(result["intensity"].values, 42.0, atol=1e-10)
+
+    def test_even_window_raises(self):
+        df = _make_df(np.ones(500))
+        with pytest.raises(ValueError, match="odd integer"):
+            MovingAverageSmooth(window_length=6)(df)
+
+    def test_window_too_small_raises(self):
+        df = _make_df(np.ones(500))
+        with pytest.raises(ValueError, match="odd integer"):
+            MovingAverageSmooth(window_length=1)(df)
+
+    def test_window_exceeds_data_raises(self):
+        df = _make_df(np.ones(7))
+        with pytest.raises(ValueError, match="exceeds data length"):
+            MovingAverageSmooth(window_length=21)(df)
+
+    def test_to_dict_repr(self):
+        t = MovingAverageSmooth(window_length=11)
+        assert t.to_dict() == {"name": "MovingAverageSmooth", "window_length": 11}
+        assert repr(t) == "MovingAverageSmooth(window_length=11)"
+
+
+class TestNewTransformersPipelineSerialization:
+    """Round-trip serialization via PreprocessingPipeline for new transformers."""
+
+    def _build_pipeline(self) -> PreprocessingPipeline:
+        return PreprocessingPipeline(
+            [
+                ("smooth", MovingAverageSmooth(window_length=7)),
+                ("tophat", TopHatBaseline(half_window=50)),
+                ("hull", ConvexHullBaseline()),
+                ("median_base", MedianBaseline(half_window=40, iterations=2)),
+            ]
+        )
+
+    def test_dict_round_trip_preserves_params(self):
+        pipe = self._build_pipeline()
+        pipe2 = PreprocessingPipeline.from_dict(pipe.to_dict())
+        assert pipe.step_names == pipe2.step_names
+        for (_, a), (_, b) in zip(pipe.steps, pipe2.steps, strict=True):
+            assert a.to_dict() == b.to_dict()
+
+    def test_dict_round_trip_produces_identical_output(self):
+        pipe = self._build_pipeline()
+        pipe2 = PreprocessingPipeline.from_dict(pipe.to_dict())
+        df = _make_df_with_baseline(
+            n=500,
+            peak_positions=(120, 260, 400),
+            peak_amplitude=25.0,
+            baseline_slope=8.0,
+            baseline_intercept=3.0,
+        )
+        out1 = pipe(df.copy())
+        out2 = pipe2(df.copy())
+        pd.testing.assert_frame_equal(out1, out2)

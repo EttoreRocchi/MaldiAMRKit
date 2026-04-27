@@ -53,12 +53,14 @@ pip install -e .[dev]
 
 ### Preprocessing
 - **Composable Pipeline**: Build custom `PreprocessingPipeline` from individual transformers (smoothing, baseline correction, normalization, trimming), serializable to JSON/YAML
+- **Smoothing**: Savitzky-Golay and moving-average filters
+- **Baseline Correction**: SNIP, morphological top-hat, lower-convex-hull, and iterative rolling-median baselines
 - **Multiple Binning Strategies**: Uniform, proportional, adaptive, and custom bin edges
-- **Quality Metrics**: SNR estimation, comprehensive quality reports, and alignment assessment
+- **Quality Metrics**: SNR estimation, MAD-based noise estimation, comprehensive quality reports, and alignment assessment
 - **Replicate Merging**: Mean/median/weighted merging with correlation-based outlier detection
 
 ### Alignment & Detection
-- **Spectral Alignment**: Shift, linear, piecewise, and DTW warping for both binned and raw full-resolution spectra
+- **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra
 - **Peak Detection**: Local maxima and persistent homology methods
 
 ### Evaluation

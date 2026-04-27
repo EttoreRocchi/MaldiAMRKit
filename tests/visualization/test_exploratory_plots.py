@@ -104,6 +104,77 @@ class TestScatterEmbedding:
         fig, ax = _scatter_embedding(emb, color_by=labels, palette=palette, show=False)
         assert isinstance(fig, Figure)
 
+    def test_rs_labels_rendered_as_susceptible_resistant(self):
+        """R/S labels auto-map to the readable 'Susceptible'/'Resistant' strings."""
+        rs = np.array(["R", "S", "R", "S"] * 8)[:30]
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig, ax = _scatter_embedding(emb, color_by=rs, show=False)
+        legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+        assert any("Susceptible" in t for t in legend_texts)
+        assert any("Resistant" in t for t in legend_texts)
+
+    def test_rs_labels_order_s_then_r(self):
+        """Groups render in S -> I -> R order, not alphabetical."""
+        rs = np.array(["R"] * 10 + ["S"] * 20)
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig, ax = _scatter_embedding(emb, color_by=rs, show=False)
+        legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+        assert "Susceptible" in legend_texts[0]
+        assert "Resistant" in legend_texts[1]
+
+    def test_binary_labels_mapped(self):
+        """0/1 labels auto-map to Susceptible/Resistant."""
+        bin_labels = np.array([0, 1, 0, 1] * 8)[:30]
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig, ax = _scatter_embedding(emb, color_by=bin_labels, show=False)
+        legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+        assert any("Susceptible" in t for t in legend_texts)
+        assert any("Resistant" in t for t in legend_texts)
+
+    def test_label_map_override(self):
+        """User label_map overrides the defaults."""
+        bin_labels = np.array([0, 1, 0, 1] * 8)[:30]
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig, ax = _scatter_embedding(
+            emb,
+            color_by=bin_labels,
+            label_map={0: "Yes", 1: "No"},
+            show=False,
+        )
+        legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+        assert set(legend_texts) == {"Yes", "No"}
+
+    def test_marker_size_auto_scales_with_n(self):
+        """s=None shrinks marker for large n."""
+        from maldiamrkit.visualization.exploratory_plots import _auto_marker_size
+
+        assert _auto_marker_size(10) > _auto_marker_size(1000)
+
+    def test_legend_loc_outside(self, labels):
+        """legend_loc='outside' places the legend outside the axes box."""
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig, ax = _scatter_embedding(
+            emb,
+            color_by=labels,
+            legend_loc="outside",
+            show=False,
+        )
+        # Outside legends have bbox_to_anchor > 1 on x.
+        legend = ax.get_legend()
+        assert legend is not None
+        bbox = legend.get_bbox_to_anchor().transformed(ax.transAxes.inverted())
+        assert bbox.xmin > 1.0
+
+    def test_grid_enabled_by_default(self, labels):
+        """Grid is drawn by default; disabled via grid=False."""
+        emb = np.random.default_rng(0).standard_normal((30, 2))
+        fig1, ax1 = _scatter_embedding(emb, color_by=labels, show=False)
+        fig2, ax2 = _scatter_embedding(emb, color_by=labels, grid=False, show=False)
+        gridlines_on = any(line.get_visible() for line in ax1.get_xgridlines())
+        gridlines_off = any(line.get_visible() for line in ax2.get_xgridlines())
+        assert gridlines_on
+        assert not gridlines_off
+
 
 class TestPlotPCA:
     def test_returns_fig_ax(self, small_X, labels):
@@ -153,6 +224,7 @@ class TestPlotTSNE:
         assert ax.get_title() == "t-SNE"
 
 
+@pytest.mark.filterwarnings("ignore:n_jobs value .* overridden")
 class TestPlotUMAP:
     @pytest.fixture(autouse=True)
     def _require_umap(self):

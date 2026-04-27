@@ -28,6 +28,14 @@ Alignment Strategies
 .. autoclass:: maldiamrkit.alignment.AlignmentStrategy
    :members:
 
+Alignment Methods
+-----------------
+
+.. autoclass:: maldiamrkit.alignment.AlignmentMethod
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Utility Functions
 -----------------
 

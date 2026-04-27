@@ -53,6 +53,7 @@ class TestTTest:
         assert np.isnan(stat)
         assert p == 1.0
 
+    @pytest.mark.filterwarnings("ignore:Precision loss occurred")
     def test_identical_constant_groups_returns_nan(self):
         stat, p = _t_test(np.ones(5), np.ones(5))
         assert np.isnan(stat)

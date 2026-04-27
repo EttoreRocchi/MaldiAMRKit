@@ -9,8 +9,11 @@ from maldiamrkit.alignment.strategies import (
     ALIGNMENT_REGISTRY,
     DTWStrategy,
     LinearStrategy,
+    LOWESSStrategy,
     PiecewiseStrategy,
+    PolynomialStrategy,
     ShiftStrategy,
+    _lowess_fit,
     _match_peak_pairs,
     _match_peaks_to_ref,
     _nearest_ref_indices,
@@ -261,8 +264,144 @@ class TestAlignmentRegistry:
     """Tests for ALIGNMENT_REGISTRY."""
 
     def test_all_methods_registered(self):
-        assert set(ALIGNMENT_REGISTRY.keys()) == {"shift", "linear", "piecewise", "dtw"}
+        assert set(ALIGNMENT_REGISTRY.keys()) == {
+            "shift",
+            "linear",
+            "piecewise",
+            "dtw",
+            "quadratic",
+            "cubic",
+            "lowess",
+        }
 
     def test_registry_values_are_strategy_classes(self):
         for cls in ALIGNMENT_REGISTRY.values():
             assert issubclass(cls, ShiftStrategy.__mro__[1])
+
+    def test_polynomial_registered_for_quadratic_and_cubic(self):
+        assert ALIGNMENT_REGISTRY["quadratic"] is PolynomialStrategy
+        assert ALIGNMENT_REGISTRY["cubic"] is PolynomialStrategy
+
+
+class TestPolynomialStrategy:
+    """Tests for PolynomialStrategy."""
+
+    @pytest.mark.parametrize("degree", [2, 3])
+    def test_recovers_polynomial_miscalibration_binned(self, degree: int):
+        mz_axis = np.arange(500, dtype=float)
+        ref_peaks = np.array([50, 150, 300, 450], dtype=float)
+        # Known polynomial miscalibration: sample_mz = ref_mz - small correction
+        true_coeffs = np.array([1e-5, 0.0, 1.0, 0.0])[-(degree + 1) :]
+        peaks = np.polyval(true_coeffs, ref_peaks)
+        row = np.zeros(500)
+        for p in peaks.astype(int):
+            if 0 <= p < 500:
+                row[p] = 1.0
+
+        strategy = PolynomialStrategy(max_shift=50, degree=degree)
+        out = strategy.align_binned(row, peaks, ref_peaks, mz_axis)
+        assert out.shape == row.shape
+        # Most mass should now sit near the reference peaks
+        peak_mass = sum(out[int(p) - 2 : int(p) + 3].sum() for p in ref_peaks)
+        assert peak_mass > 0.5 * row.sum()
+
+    def test_degree_zero_raises(self):
+        with pytest.raises(ValueError, match="degree"):
+            PolynomialStrategy(max_shift=50, degree=0)
+
+    @pytest.mark.parametrize("degree", [2, 3])
+    def test_falls_back_when_too_few_peaks(self, degree: int):
+        mz_axis = np.arange(100, dtype=float)
+        row = np.zeros(100)
+        row[10] = 1.0
+        peaks = np.array([10])
+        ref_peaks = np.array([12])
+        strategy = PolynomialStrategy(max_shift=50, degree=degree)
+        out = strategy.align_binned(row, peaks, ref_peaks, mz_axis)
+        # Behaves like ShiftStrategy: peak moves from index 10 to index 12
+        assert np.argmax(out) == 12
+
+    def test_align_raw_quadratic(self):
+        mz = np.linspace(2000.0, 20000.0, 500)
+        intensity = np.zeros(500)
+        peaks_mz = np.array([2500.0, 7500.0, 12500.0, 17500.0])
+        ref_peaks_mz = peaks_mz + 1e-4 * peaks_mz**2 - 0.5 * peaks_mz
+        strategy = PolynomialStrategy(max_shift=50.0, degree=2)
+        new_mz, new_int = strategy.align_raw(
+            mz, intensity, peaks_mz, ref_peaks_mz, mz, intensity
+        )
+        assert new_mz.shape == mz.shape
+        np.testing.assert_array_equal(new_int, intensity)
+
+
+class TestLowessFit:
+    """Tests for the in-repo LOWESS helper."""
+
+    def test_fits_linear_signal_exactly(self):
+        x = np.linspace(0.0, 10.0, 50)
+        y = 2.0 * x + 1.0
+        fitted = _lowess_fit(x, y, frac=0.5, it=0)
+        np.testing.assert_allclose(fitted, y, atol=1e-6)
+
+    def test_smooths_noise(self):
+        rng = np.random.default_rng(0)
+        x = np.linspace(0.0, 10.0, 200)
+        y = np.sin(x) + rng.normal(0, 0.2, 200)
+        fitted = _lowess_fit(x, y, frac=0.3, it=2)
+        assert np.std(fitted - np.sin(x)) < np.std(y - np.sin(x))
+
+    def test_empty_input(self):
+        fitted = _lowess_fit(np.empty(0), np.empty(0), frac=0.3, it=1)
+        assert fitted.size == 0
+
+
+class TestLOWESSStrategy:
+    """Tests for LOWESSStrategy."""
+
+    @pytest.mark.filterwarnings("ignore:Warping produced non-monotonic")
+    def test_recovers_nonlinear_drift_binned(self):
+        mz_axis = np.arange(500, dtype=float)
+        ref_peaks = np.array([50, 150, 250, 350, 450], dtype=float)
+        # Non-linear drift: sinusoidal offset
+        drift = 3 * np.sin(ref_peaks / 60.0)
+        peaks = ref_peaks + drift
+        row = np.zeros(500)
+        for p in peaks.astype(int):
+            if 0 <= p < 500:
+                row[p] = 1.0
+
+        strategy = LOWESSStrategy(max_shift=50, frac=0.6, it=1)
+        out = strategy.align_binned(row, peaks, ref_peaks, mz_axis)
+        assert out.shape == row.shape
+        peak_mass = sum(out[int(p) - 2 : int(p) + 3].sum() for p in ref_peaks)
+        assert peak_mass > 0.5 * row.sum()
+
+    def test_falls_back_when_too_few_peaks(self):
+        mz_axis = np.arange(100, dtype=float)
+        row = np.zeros(100)
+        row[10] = 1.0
+        strategy = LOWESSStrategy(max_shift=50, frac=0.5, it=0)
+        out = strategy.align_binned(row, np.array([10]), np.array([12]), mz_axis)
+        assert np.argmax(out) == 12
+
+    def test_align_raw_passes_through_intensity(self):
+        mz = np.linspace(2000.0, 20000.0, 500)
+        intensity = np.arange(500.0)
+        peaks_mz = np.array([3000.0, 5000.0, 10000.0, 15000.0, 18000.0])
+        ref_peaks_mz = peaks_mz + 2.0 * np.sin(peaks_mz / 5000.0)
+        strategy = LOWESSStrategy(max_shift=50.0, frac=0.5, it=1)
+        new_mz, new_int = strategy.align_raw(
+            mz, intensity, peaks_mz, ref_peaks_mz, mz, intensity
+        )
+        assert new_mz.shape == mz.shape
+        np.testing.assert_array_equal(new_int, intensity)
+
+    def test_invalid_frac_raises(self):
+        with pytest.raises(ValueError, match="frac"):
+            LOWESSStrategy(max_shift=50, frac=0.0, it=1)
+        with pytest.raises(ValueError, match="frac"):
+            LOWESSStrategy(max_shift=50, frac=1.5, it=1)
+
+    def test_invalid_it_raises(self):
+        with pytest.raises(ValueError, match="it"):
+            LOWESSStrategy(max_shift=50, frac=0.3, it=-1)

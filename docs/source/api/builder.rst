@@ -57,3 +57,11 @@ BuildReport
 
 .. autoclass:: maldiamrkit.data.BuildReport
    :no-members:
+
+Duplicate Handling
+------------------
+
+.. autoclass:: maldiamrkit.data.DuplicateStrategy
+   :members:
+   :undoc-members:
+   :show-inheritance:

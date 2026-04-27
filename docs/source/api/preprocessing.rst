@@ -33,7 +33,19 @@ Each transformer is a callable operating on a DataFrame with ``mass`` and
 .. autoclass:: maldiamrkit.preprocessing.SavitzkyGolaySmooth
    :members:
 
+.. autoclass:: maldiamrkit.preprocessing.MovingAverageSmooth
+   :members:
+
 .. autoclass:: maldiamrkit.preprocessing.SNIPBaseline
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.TopHatBaseline
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.ConvexHullBaseline
+   :members:
+
+.. autoclass:: maldiamrkit.preprocessing.MedianBaseline
    :members:
 
 .. autoclass:: maldiamrkit.preprocessing.MzTrimmer
@@ -76,6 +88,11 @@ Binning
 .. autofunction:: maldiamrkit.preprocessing.bin_spectrum
 
 .. autofunction:: maldiamrkit.preprocessing.get_bin_metadata
+
+.. autoclass:: maldiamrkit.preprocessing.BinningMethod
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Binning Methods
 ~~~~~~~~~~~~~~~
@@ -128,6 +145,11 @@ Quality Metrics
    :no-members:
    :show-inheritance:
 
+.. autoclass:: maldiamrkit.preprocessing.SignalMethod
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Usage Example
 ~~~~~~~~~~~~~
 
@@ -153,3 +175,8 @@ Replicate Merging
 .. autofunction:: maldiamrkit.preprocessing.merge_replicates
 
 .. autofunction:: maldiamrkit.preprocessing.detect_outlier_replicates
+
+.. autoclass:: maldiamrkit.preprocessing.MergingMethod
+   :members:
+   :undoc-members:
+   :show-inheritance:

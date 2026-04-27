@@ -3,6 +3,26 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.14.0] - 2026-04-27
+
+### Added
+
+- **New preprocessing transformers**: `TopHatBaseline` (morphological top-hat), `ConvexHullBaseline` (parameter-free lower-convex-hull), `MedianBaseline` (iterative rolling-median), and `MovingAverageSmooth` (uniform moving-average), all `PreprocessingPipeline`-serialisable.
+- **MAD noise estimation**: `SpectrumQuality.estimate_mad_noise()` with configurable scaling `constant` and per-call `mz_region` override.
+- **New warping methods**: `method="quadratic"` / `"cubic"` polynomial recalibration via `numpy.polyfit` (with shift-alignment fallback), and `method="lowess"` non-linear LOWESS recalibration with `lowess_frac` and `lowess_it` parameters.
+- **`DatasetLayout.postprocess_spectrum` hook**: virtual method called by `DatasetLoader.load()` after each spectrum, letting layouts apply dataset-specific fix-ups without touching the loader.
+- **DRIAMS m/z fixes**: `DRIAMSLayout` rewrites `binned_N/` bin indices to real m/z (`mz_min` / `mz_max` kwargs), fixing every downstream m/z-aware API; new `normalize_tic` kwarg for opt-in per-spectrum TIC re-normalization, and new `id_transform` kwarg for metadata ID canonicalisation.
+
+### Changed
+
+- **Plot API overhaul** across all 15 public plot functions: consistent `(fig, ax)` returns and `show=True`, default titles, dynamic `figsize`, legend sample counts, susceptibility-aware group ordering (S, then I, then R) with human-readable labels, unified `random_state` / `label_map` / `legend_loc` on dimensionality-reduction plots, metric-aware colourbar bounds and optional clustering on `plot_distance_heatmap`, `annotate_top_k` on `plot_volcano` / `plot_manhattan`, and reference lines / baseline markers on the drift plots.
+- **`Warping.transform` non-monotonic warning** aggregated once per call instead of one warning per sample.
+- **Backwards-compatible deprecations**: `plot_spectrum(binned=...)` and `plot_pseudogel(sort_by_intensity=...)` emit `DeprecationWarning`.
+
+### Fixed
+
+- **MARISMa loading**: `DatasetLoader.load()` matches spectrum files by `MaldiSpectrum._infer_id(...)` instead of `Path.name`, so MARISMa datasets with `duplicate_strategy="keep_all"` load end-to-end.
+
 ## [0.13.0] - 2026-04-22
 
 ### Added

@@ -98,49 +98,114 @@ def feature_matrix():
 class TestPlotSpectrum:
     """Tests for the plot_spectrum function."""
 
-    def test_returns_axes_type(self, binned_maldi_spectrum):
-        """Verify plot_spectrum returns a matplotlib Axes."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=True)
+    def test_returns_fig_and_axes_type(self, binned_maldi_spectrum):
+        """Verify plot_spectrum returns (Figure, Axes)."""
+        fig, ax = plot_spectrum(binned_maldi_spectrum, stage="binned", show=False)
+        assert isinstance(fig, Figure)
         assert isinstance(ax, Axes)
         plt.close("all")
 
-    def test_binned_true_uses_barplot(self, binned_maldi_spectrum):
-        """Verify binned=True path executes without error."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=True)
-        assert isinstance(ax, Axes)
+    def test_binned_stage_uses_barplot(self, binned_maldi_spectrum):
+        """Verify stage='binned' renders bars and auto-titles with stage."""
+        fig, ax = plot_spectrum(binned_maldi_spectrum, stage="binned", show=False)
         assert "(binned)" in ax.get_title()
+        # ax.bar creates Rectangle patches; verify at least one exists.
+        patches = [p for p in ax.patches]
+        assert len(patches) > 0
         plt.close("all")
 
-    def test_binned_false_uses_lineplot(self, binned_maldi_spectrum):
-        """Verify binned=False path uses line plot."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=False)
-        assert isinstance(ax, Axes)
-        assert "(binned)" not in ax.get_title()
+    def test_raw_stage_uses_lineplot(self, binned_maldi_spectrum):
+        """Verify stage='raw' uses a line plot."""
+        fig, ax = plot_spectrum(binned_maldi_spectrum, stage="raw", show=False)
+        assert "(raw)" in ax.get_title()
+        assert len(ax.lines) >= 1
         plt.close("all")
 
     def test_custom_ax_reused(self, binned_maldi_spectrum):
         """Verify that a user-provided Axes is reused."""
-        fig, ax_ext = plt.subplots()
-        ax = plot_spectrum(binned_maldi_spectrum, binned=False, ax=ax_ext)
+        _fig, ax_ext = plt.subplots()
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="raw", ax=ax_ext, show=False
+        )
         assert ax is ax_ext
         plt.close("all")
 
-    def test_title_contains_spectrum_id(self, binned_maldi_spectrum):
-        """Verify that the plot title contains the spectrum ID."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=True)
+    def test_title_auto_contains_spectrum_id(self, binned_maldi_spectrum):
+        """Verify that the auto-generated title contains the spectrum ID."""
+        fig, ax = plot_spectrum(binned_maldi_spectrum, stage="binned", show=False)
         assert binned_maldi_spectrum.id in ax.get_title()
         plt.close("all")
 
-    def test_kwargs_forwarded_no_error(self, binned_maldi_spectrum):
-        """Verify extra kwargs are forwarded to the plotting function."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=False, color="red")
-        assert isinstance(ax, Axes)
+    def test_title_override(self, binned_maldi_spectrum):
+        """Verify explicit `title=` overrides the auto-generated one."""
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="binned", title="Custom", show=False
+        )
+        assert ax.get_title() == "Custom"
         plt.close("all")
 
-    def test_ylim_starts_at_zero(self, binned_maldi_spectrum):
-        """Verify y-axis lower limit is 0."""
-        ax = plot_spectrum(binned_maldi_spectrum, binned=False)
-        assert ax.get_ylim()[0] == 0
+    def test_color_kwarg(self, binned_maldi_spectrum):
+        """Verify `color=` is accepted for both stages."""
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="raw", color="red", show=False
+        )
+        assert ax.lines[0].get_color() == "red"
+        plt.close("all")
+
+    def test_ylim_override(self, binned_maldi_spectrum):
+        """Explicit ylim is respected."""
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="raw", ylim=(-0.1, 2.0), show=False
+        )
+        lo, hi = ax.get_ylim()
+        assert lo == pytest.approx(-0.1)
+        assert hi == pytest.approx(2.0)
+        plt.close("all")
+
+    def test_log_y(self, binned_maldi_spectrum):
+        """log_y=True switches the y-axis to log scale."""
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="raw", log_y=True, show=False
+        )
+        assert ax.get_yscale() == "log"
+        plt.close("all")
+
+    def test_peaks_overlay(self, binned_maldi_spectrum):
+        """`peaks=` draws a scatter layer with the given m/z values."""
+        mass = binned_maldi_spectrum.binned["mass"].to_numpy()
+        picks = list(mass[::50][:3])
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum, stage="binned", peaks=picks, show=False
+        )
+        collections = [c for c in ax.collections]
+        assert any(c.get_offsets().shape[0] == len(picks) for c in collections)
+        plt.close("all")
+
+    def test_highlight_regions(self, binned_maldi_spectrum):
+        """`highlight_regions=` adds axvspans."""
+        fig, ax = plot_spectrum(
+            binned_maldi_spectrum,
+            stage="binned",
+            highlight_regions=[(2000, 3000), (8000, 9000)],
+            show=False,
+        )
+        # axvspan creates Rectangle patches whose width == region extent.
+        widths = sorted({float(p.get_width()) for p in ax.patches})
+        assert 1000.0 in widths  # axvspan rectangles are 1000 Da wide
+        plt.close("all")
+
+    def test_deprecated_binned_true(self, binned_maldi_spectrum):
+        """Backwards compat: `binned=True` still works but warns."""
+        with pytest.warns(DeprecationWarning, match="binned=.*deprecated"):
+            fig, ax = plot_spectrum(binned_maldi_spectrum, binned=True, show=False)
+        assert "(binned)" in ax.get_title()
+        plt.close("all")
+
+    def test_deprecated_binned_false(self, binned_maldi_spectrum):
+        """Backwards compat: `binned=False` falls back to preprocessed/raw."""
+        with pytest.warns(DeprecationWarning, match="binned=.*deprecated"):
+            fig, ax = plot_spectrum(binned_maldi_spectrum, binned=False, show=False)
+        assert "(binned)" not in ax.get_title()
         plt.close("all")
 
 
@@ -186,10 +251,11 @@ class TestPlotPseudogel:
         plt.close("all")
 
     def test_sort_by_intensity_false(self, pseudogel_dataset):
-        """Verify sort_by_intensity=False does not raise."""
-        fig, axes = plot_pseudogel(
-            pseudogel_dataset, sort_by_intensity=False, show=False
-        )
+        """Verify the deprecated sort_by_intensity=False still works."""
+        with pytest.warns(DeprecationWarning, match="sort_by_intensity"):
+            fig, axes = plot_pseudogel(
+                pseudogel_dataset, sort_by_intensity=False, show=False
+            )
         assert fig is not None
         plt.close("all")
 

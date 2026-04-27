@@ -2,23 +2,47 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import warnings
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
     from ..detection.peak_detector import MaldiPeakDetector
+
+
+def _show_with_warning(show: bool) -> None:
+    """Match the ``show=True`` pattern used in sibling plot modules."""
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    if show:
+        if not matplotlib.is_interactive():
+            warnings.warn(
+                "matplotlib is using a non-interactive backend; "
+                "plt.show() may not display the figure",
+                UserWarning,
+                stacklevel=3,
+            )
+        plt.show()
 
 
 def plot_peaks(
     detector: MaldiPeakDetector,
     X: pd.DataFrame,
-    indices: int | list[int] | None = None,
+    indices: int | list[int] | str | None = None,
+    *,
     xlim: tuple[float, float] | None = None,
-    figsize: tuple[float, float] = (14, 6),
+    figsize: tuple[float, float] | None = None,
     alpha: float = 0.7,
-):
+    show_axvlines: bool = False,
+    ax: Axes | None = None,
+    show: bool = True,
+) -> tuple[Figure, Any]:
     """Plot detected peaks overlaid on original spectra.
 
     Parameters
@@ -27,37 +51,69 @@ def plot_peaks(
         Fitted peak detector.
     X : pd.DataFrame or pd.Series
         Input spectra with shape (n_samples, n_bins).
-    indices : int or list of int, optional
-        Indices of spectra to plot. If None, plots the first spectrum.
+    indices : int, list of int, "all", or None, default=None
+        Indices of spectra to plot.  ``None`` plots the first spectrum
+        (unchanged from prior behaviour); ``"all"`` plots every
+        spectrum in ``X``.
     xlim : tuple of (float, float), optional
-        X-axis limits for zooming into specific m/z range.
-    figsize : tuple of (float, float), default=(14, 6)
-        Figure size in inches.
+        X-axis limits for zooming into a specific m/z range.
+    figsize : tuple of (float, float), optional
+        Figure size in inches.  When ``None``, defaults to
+        ``(14, 3 * n_spectra)`` so stacking many spectra gives a
+        proportionally tall figure.  Ignored when ``ax`` is provided.
     alpha : float, default=0.7
         Transparency for spectrum lines.
+    show_axvlines : bool, default=False
+        If True, draw a dashed vertical line at each detected peak.
+        Default off because the scatter markers alone already mark
+        peak positions, and the vertical lines become visually noisy
+        with dense peak sets.
+    ax : matplotlib.axes.Axes, optional
+        Pre-existing axes to plot on.  Only honoured when exactly one
+        spectrum is plotted; multi-panel calls always create a new
+        Figure.
+    show : bool, default=True
+        Call ``plt.show()`` at the end.
 
     Raises
     ------
     ValueError
-        If any index in ``indices`` is out of bounds for the data.
+        If any index in ``indices`` is out of bounds for the data, or
+        if an ``ax`` is provided together with multiple spectra.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The generated figure.
-    axes : Axes or array of Axes
-        The subplot axes.
+        The figure holding the peak panels.
+    axes : Axes or ndarray of Axes
+        A single ``Axes`` when ``indices`` resolves to one spectrum,
+        otherwise an ndarray of ``Axes`` (one per spectrum, stacked
+        vertically with shared x-axis).
     """
     import matplotlib.pyplot as plt
 
     X, indices, mz_axis = _normalize_peak_inputs(X, indices)
+    n_spectra = len(indices)
 
-    # Detect peaks for selected spectra using public API
+    # Detect peaks for selected spectra using the public API
     peaks_df = detector.transform(X.iloc[indices])
 
-    n_spectra = len(indices)
-    fig, axes = plt.subplots(n_spectra, 1, figsize=figsize, squeeze=False)
-    axes = axes.flatten()
+    if ax is not None and n_spectra > 1:
+        raise ValueError(
+            "plot_peaks(ax=...) is only supported when a single spectrum is "
+            f"plotted (got {n_spectra})."
+        )
+
+    if ax is not None:
+        fig = ax.get_figure()
+        axes = np.array([ax])
+    else:
+        if figsize is None:
+            figsize = (14, max(3.0, 3.0 * n_spectra))
+        fig, axes = plt.subplots(
+            n_spectra, 1, figsize=figsize, squeeze=False, sharex=True
+        )
+        axes = axes.flatten()
 
     for plot_idx, spectrum_idx in enumerate(indices):
         row = X.iloc[spectrum_idx].values
@@ -72,9 +128,13 @@ def plot_peaks(
             spectrum_idx,
             xlim,
             alpha,
+            show_axvlines,
         )
 
-    plt.tight_layout()
+    if ax is None:
+        fig.tight_layout()
+
+    _show_with_warning(show)
 
     if n_spectra == 1:
         return fig, axes[0]
@@ -88,8 +148,15 @@ def _normalize_peak_inputs(X, indices):
 
     if indices is None:
         indices = [0]
+    elif isinstance(indices, str):
+        if indices.lower() == "all":
+            indices = list(range(len(X)))
+        else:
+            raise ValueError(f"String `indices` must be 'all', got {indices!r}.")
     elif isinstance(indices, int):
         indices = [indices]
+    else:
+        indices = list(indices)
 
     for idx in indices:
         if idx < 0 or idx >= len(X):
@@ -104,7 +171,17 @@ def _normalize_peak_inputs(X, indices):
     return X, indices, mz_axis
 
 
-def _draw_peak_panel(ax, mz_axis, row, peaks, method, spectrum_idx, xlim, alpha):
+def _draw_peak_panel(
+    ax,
+    mz_axis,
+    row,
+    peaks,
+    method,
+    spectrum_idx,
+    xlim,
+    alpha,
+    show_axvlines,
+):
     """Draw a single peak detection panel on the given axes."""
     ax.plot(mz_axis, row, color="black", linewidth=1, alpha=alpha, label="Spectrum")
 
@@ -118,14 +195,15 @@ def _draw_peak_panel(ax, mz_axis, row, peaks, method, spectrum_idx, xlim, alpha)
             label=f"Peaks (n={len(peaks)})",
             marker="o",
         )
-        for peak in peaks:
-            ax.axvline(
-                mz_axis[peak],
-                color="red",
-                linestyle="--",
-                alpha=0.3,
-                linewidth=0.8,
-            )
+        if show_axvlines:
+            for peak in peaks:
+                ax.axvline(
+                    mz_axis[peak],
+                    color="red",
+                    linestyle="--",
+                    alpha=0.3,
+                    linewidth=0.8,
+                )
 
     ax.set_xlabel("m/z" if np.issubdtype(mz_axis.dtype, np.number) else "Index")
     ax.set_ylabel("Intensity")

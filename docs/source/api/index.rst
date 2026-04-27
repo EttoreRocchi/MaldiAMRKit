@@ -67,7 +67,11 @@ Transformers
    maldiamrkit.preprocessing.SqrtTransform
    maldiamrkit.preprocessing.LogTransform
    maldiamrkit.preprocessing.SavitzkyGolaySmooth
+   maldiamrkit.preprocessing.MovingAverageSmooth
    maldiamrkit.preprocessing.SNIPBaseline
+   maldiamrkit.preprocessing.TopHatBaseline
+   maldiamrkit.preprocessing.ConvexHullBaseline
+   maldiamrkit.preprocessing.MedianBaseline
    maldiamrkit.preprocessing.MzTrimmer
    maldiamrkit.preprocessing.TICNormalizer
    maldiamrkit.preprocessing.MedianNormalizer

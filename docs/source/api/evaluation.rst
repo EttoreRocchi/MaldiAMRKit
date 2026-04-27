@@ -115,6 +115,11 @@ Label Encoding
    :undoc-members:
    :show-inheritance:
 
+.. autoclass:: maldiamrkit.evaluation.IntermediateHandling
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Label Encoding Example
 ~~~~~~~~~~~~~~~~~~~~~~
 

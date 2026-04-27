@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+from scipy.stats import median_abs_deviation, norm
 
 
 class SignalMethod(str, Enum):
@@ -139,9 +140,53 @@ class SpectrumQuality:
             return 0.0
 
         mad = np.median(np.abs(noise - np.median(noise)))
-        # 1.4826 = 1/Phi^{-1}(3/4), exact for Gaussian noise
-        # (Rousseeuw & Croux 1993).
-        return 1.4826 * mad
+        # 1/Phi^{-1}(3/4), exact for Gaussian noise
+        return mad / norm.ppf(0.75)
+
+    def estimate_mad_noise(
+        self,
+        spectrum: MaldiSpectrum,
+        mz_region: tuple[float, float] | None = None,
+        constant: float = 1.4826,
+    ) -> float:
+        """
+        Estimate noise level via median absolute deviation (MAD).
+
+        Uses :func:`scipy.stats.median_abs_deviation` on the intensities
+        in the selected m/z region and multiplies the raw MAD by
+        ``constant``. The default ``constant = 1.4826 = 1 / Phi^{-1}(3/4)``
+        rescales MAD to match the standard deviation of a Gaussian
+        (Rousseeuw & Croux 1993), matching the convention used by
+        :meth:`estimate_noise_level`.
+
+        Parameters
+        ----------
+        spectrum : MaldiSpectrum
+            Spectrum to assess. Uses preprocessed data if available,
+            otherwise raw.
+        mz_region : tuple of (float, float), optional
+            m/z range to use for noise estimation. When ``None`` (the
+            default) falls back to ``self.noise_region``.
+        constant : float, default=1.4826
+            Scale factor applied to the raw MAD. Use ``1.4826`` for a
+            standard-normal-scaled estimator (equivalent to
+            ``scale='normal'`` in scipy).
+
+        Returns
+        -------
+        float
+            Estimated noise level. Returns ``0.0`` when the selected
+            region contains no data points.
+        """
+        region = self.noise_region if mz_region is None else mz_region
+        df = _get_spectrum_df(spectrum)
+        noise = df.loc[df["mass"].between(*region), "intensity"].to_numpy(dtype=float)
+
+        if len(noise) == 0:
+            return 0.0
+
+        mad = median_abs_deviation(noise, scale=1.0, nan_policy="omit")
+        return float(constant * mad)
 
     def estimate_baseline_fraction(self, spectrum: MaldiSpectrum) -> float:
         """
@@ -305,7 +350,9 @@ def estimate_snr(
     Returns
     -------
     float
-        Estimated signal-to-noise ratio. Returns inf if noise is zero.
+        Estimated signal-to-noise ratio, capped at ``1e6``. Returns
+        ``1e6`` when the noise standard deviation is zero or the
+        configured noise region contains no data points.
 
     Raises
     ------

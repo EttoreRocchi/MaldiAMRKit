@@ -76,7 +76,10 @@ class TestWarpingFit:
 class TestWarpingTransform:
     """Tests for Warping transform."""
 
-    @pytest.mark.parametrize("method", ["shift", "linear", "piecewise"])
+    @pytest.mark.parametrize(
+        "method", ["shift", "linear", "piecewise", "quadratic", "cubic", "lowess"]
+    )
+    @pytest.mark.filterwarnings("ignore:Warping produced non-monotonic")
     def test_all_methods_run(self, binned_dataset: pd.DataFrame, method: str):
         """Test that all methods run without error."""
         warper = Warping(method=method)
@@ -117,7 +120,10 @@ class TestWarpingTransform:
 class TestWarpingParallelization:
     """Tests for parallelization."""
 
-    @pytest.mark.parametrize("method", ["shift", "linear", "piecewise"])
+    @pytest.mark.parametrize(
+        "method", ["shift", "linear", "piecewise", "quadratic", "cubic", "lowess"]
+    )
+    @pytest.mark.filterwarnings("ignore:Warping produced non-monotonic")
     def test_parallel_produces_same_results(
         self, binned_dataset: pd.DataFrame, method: str
     ):
@@ -204,7 +210,9 @@ class TestWarpingPlot:
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
         X_aligned = warper.transform(binned_dataset)
-        fig, axes = plot_alignment(warper, binned_dataset, X_aligned, indices=[0, 1])
+        fig, axes = plot_alignment(
+            warper, binned_dataset, X_aligned, indices=[0, 1], show=False
+        )
         assert fig is not None
         assert axes.shape == (2, 2)
         plt.close(fig)
@@ -216,7 +224,9 @@ class TestWarpingPlot:
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
         X_aligned = warper.transform(binned_dataset)
-        fig, axes = plot_alignment(warper, binned_dataset, X_aligned, indices=[0])
+        fig, axes = plot_alignment(
+            warper, binned_dataset, X_aligned, indices=[0], show=False
+        )
         assert fig is not None
         plt.close(fig)
 
@@ -226,7 +236,7 @@ class TestWarpingPlot:
 
         warper = Warping(method="shift")
         warper.fit(binned_dataset)
-        fig, axes = plot_alignment(warper, binned_dataset, indices=[0])
+        fig, axes = plot_alignment(warper, binned_dataset, indices=[0], show=False)
         assert fig is not None
         plt.close(fig)
 
@@ -290,6 +300,16 @@ class TestWarpingValidation:
     def test_fit_invalid_max_shift(self, binned_dataset: pd.DataFrame):
         w = Warping(method="shift", max_shift=-1)
         with pytest.raises(ValueError, match="max_shift"):
+            w.fit(binned_dataset)
+
+    def test_fit_invalid_lowess_frac(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="lowess", lowess_frac=0.0)
+        with pytest.raises(ValueError, match="lowess_frac"):
+            w.fit(binned_dataset)
+
+    def test_fit_invalid_lowess_it(self, binned_dataset: pd.DataFrame):
+        w = Warping(method="lowess", lowess_it=-1)
+        with pytest.raises(ValueError, match="lowess_it"):
             w.fit(binned_dataset)
 
     def test_transform_unknown_method(self, binned_dataset: pd.DataFrame):

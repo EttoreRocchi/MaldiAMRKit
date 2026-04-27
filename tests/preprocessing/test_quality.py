@@ -111,6 +111,39 @@ class TestSpectrumQuality:
 
         assert noise == 0.0
 
+    def test_estimate_mad_noise_matches_manual(self, synthetic_maldi):
+        """MAD noise matches the manual 1.4826 * MAD used in estimate_noise_level."""
+        qc = SpectrumQuality()
+        expected = qc.estimate_noise_level(synthetic_maldi)
+        result = qc.estimate_mad_noise(synthetic_maldi)
+
+        assert isinstance(result, float)
+        assert np.isclose(result, expected, atol=1e-10)
+
+    def test_estimate_mad_noise_custom_constant(self, synthetic_maldi):
+        """MAD noise scales linearly with the constant parameter."""
+        qc = SpectrumQuality()
+        baseline = qc.estimate_mad_noise(synthetic_maldi, constant=1.0)
+        doubled = qc.estimate_mad_noise(synthetic_maldi, constant=2.0)
+
+        assert np.isclose(doubled, 2.0 * baseline, atol=1e-10)
+
+    def test_estimate_mad_noise_mz_region_override(self, synthetic_maldi):
+        """Explicit mz_region overrides the class attribute."""
+        qc = SpectrumQuality(noise_region=(19500, 20000))
+        default_noise = qc.estimate_mad_noise(synthetic_maldi)
+        override_noise = qc.estimate_mad_noise(synthetic_maldi, mz_region=(3000, 4000))
+
+        assert default_noise != override_noise
+
+    def test_estimate_mad_noise_empty_region(self):
+        """Empty region returns 0.0."""
+        spec = MaldiSpectrum(
+            pd.DataFrame({"mass": [10000, 11000, 12000], "intensity": [100, 200, 150]})
+        )
+        qc = SpectrumQuality(noise_region=(2000, 3000))
+        assert qc.estimate_mad_noise(spec) == 0.0
+
     def test_estimate_baseline_fraction(self, synthetic_maldi):
         """Test baseline fraction estimation."""
         qc = SpectrumQuality()

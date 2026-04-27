@@ -80,6 +80,7 @@ class TestMonitor:
             "n_spectra",
         ]
 
+    @pytest.mark.filterwarnings(r"ignore:DriftMonitor\.monitor_pca")
     def test_pca_detects_shift(self, drift_set_shifted):
         monitor = DriftMonitor(
             time_column="acquisition_date", window="30D", min_samples=5
@@ -90,6 +91,7 @@ class TestMonitor:
         last_pc1 = df.iloc[-1]["centroid_pc1"]
         assert abs(last_pc1 - first_pc1) > 1e-4
 
+    @pytest.mark.filterwarnings(r"ignore:DriftMonitor\.monitor_peak_stability")
     def test_peak_stability(self, drift_set_with_peaks):
         y = drift_set_with_peaks.meta["Drug"].astype(int)
         y.index = drift_set_with_peaks.X.index
@@ -106,6 +108,7 @@ class TestMonitor:
         assert list(df.columns) == ["window_start", "stability_score", "n_spectra"]
         assert df["stability_score"].between(0.0, 1.0).all()
 
+    @pytest.mark.filterwarnings(r"ignore:DriftMonitor\.monitor_effect_sizes")
     def test_effect_sizes(self, drift_set_with_peaks):
         monitor = DriftMonitor(
             time_column="acquisition_date", window="45D", min_samples=5

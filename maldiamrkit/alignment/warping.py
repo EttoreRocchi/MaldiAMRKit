@@ -35,14 +35,24 @@ class Warping(BaseEstimator, TransformerMixin):
         - "linear" : least-squares linear transform
         - "piecewise" : local median shifts across segments
         - "dtw" : dynamic time warping
+        - "quadratic" : quadratic polynomial fit on matched peak pairs
+        - "cubic" : cubic polynomial fit on matched peak pairs
+        - "lowess" : LOWESS (Cleveland 1979) non-linear warping
     n_segments : int, default=5
         Number of segments for piecewise warping.
     max_shift : int, default=50
-        Max allowed shift in bins (for shift/linear modes).
+        Max allowed shift in bins (used as fallback for shift / linear /
+        polynomial / LOWESS methods when too few peaks match).
     dtw_radius : int, default=10
         Radius constraint for DTW to limit warping path search space.
     smooth_sigma : float, default=2.0
         Gaussian smoothing parameter for piecewise segment shifts.
+    lowess_frac : float, default=0.3
+        LOWESS smoothing bandwidth (fraction of matched peaks used for
+        each local fit). Applies when ``method="lowess"``.
+    lowess_it : int, default=3
+        Number of LOWESS robustness iterations. Applies when
+        ``method="lowess"``.
     min_reference_peaks : int, default=5
         Minimum number of peaks expected in reference for quality check.
     n_jobs : int, default=1
@@ -72,6 +82,8 @@ class Warping(BaseEstimator, TransformerMixin):
         max_shift: int = 50,
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
+        lowess_frac: float = 0.3,
+        lowess_it: int = 3,
         min_reference_peaks: int = 5,
         n_jobs: int = 1,
     ) -> None:
@@ -84,6 +96,8 @@ class Warping(BaseEstimator, TransformerMixin):
         self.max_shift = max_shift
         self.dtw_radius = dtw_radius
         self.smooth_sigma = smooth_sigma
+        self.lowess_frac = lowess_frac
+        self.lowess_it = lowess_it
         self.min_reference_peaks = min_reference_peaks
         self.n_jobs = n_jobs
 
@@ -133,6 +147,10 @@ class Warping(BaseEstimator, TransformerMixin):
             raise ValueError(f"n_segments must be >= 1, got {self.n_segments}")
         if self.max_shift < 0:
             raise ValueError(f"max_shift must be >= 0, got {self.max_shift}")
+        if not (0.0 < self.lowess_frac <= 1.0):
+            raise ValueError(f"lowess_frac must be in (0, 1], got {self.lowess_frac}")
+        if self.lowess_it < 0:
+            raise ValueError(f"lowess_it must be >= 0, got {self.lowess_it}")
 
         # Validate reference quality
         self._validate_reference_quality(X)
@@ -172,6 +190,16 @@ class Warping(BaseEstimator, TransformerMixin):
             )
         elif self.method == "dtw":
             return cls(dtw_radius=self.dtw_radius)
+        elif self.method == "quadratic":
+            return cls(max_shift=self.max_shift, degree=2)
+        elif self.method == "cubic":
+            return cls(max_shift=self.max_shift, degree=3)
+        elif self.method == "lowess":
+            return cls(
+                max_shift=self.max_shift,
+                frac=self.lowess_frac,
+                it=self.lowess_it,
+            )
         return cls()
 
     def _align_single_row(
@@ -180,12 +208,26 @@ class Warping(BaseEstimator, TransformerMixin):
         peaks: np.ndarray | None,
         ref_peaks: np.ndarray,
         mz_axis: np.ndarray,
-    ) -> np.ndarray:
-        """Align a single row (helper for parallelization)."""
+    ) -> tuple[np.ndarray, bool]:
+        """Align a single row (helper for parallelization).
+
+        Returns ``(aligned_row, was_non_monotonic)``.  The boolean flag
+        captures whether ``monotonic_interp`` had to fall back to the
+        sort-and-deduplicate branch, so :meth:`transform` can emit a
+        single aggregated warning instead of one per sample (which would
+        otherwise spam the log on large batches).
+        """
         strategy = self._get_strategy()
-        if isinstance(strategy, DTWStrategy):
-            return strategy._dtw_align(row, self.ref_spec_)
-        return strategy.align_binned(row, peaks, ref_peaks, mz_axis)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
+            if isinstance(strategy, DTWStrategy):
+                aligned = strategy._dtw_align(row, self.ref_spec_)
+            else:
+                aligned = strategy.align_binned(row, peaks, ref_peaks, mz_axis)
+        non_monotonic = any(
+            "non-monotonic m/z mapping" in str(w.message) for w in caught
+        )
+        return aligned, non_monotonic
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -235,7 +277,7 @@ class Warping(BaseEstimator, TransformerMixin):
             ]
 
         # Use parallel processing with joblib
-        aligned_rows = Parallel(n_jobs=self.n_jobs, prefer="processes")(
+        results = Parallel(n_jobs=self.n_jobs, prefer="processes")(
             delayed(self._align_single_row)(
                 X.iloc[i].to_numpy(),
                 peaks_list[i] if peaks_list is not None else None,
@@ -244,6 +286,17 @@ class Warping(BaseEstimator, TransformerMixin):
             )
             for i in range(len(X))
         )
+        aligned_rows = [r[0] for r in results]
+        n_non_monotonic = sum(1 for r in results if r[1])
+        if n_non_monotonic:
+            warnings.warn(
+                f"Warping produced non-monotonic m/z mappings for "
+                f"{n_non_monotonic}/{len(X)} sample(s). This may indicate "
+                "poor alignment quality; consider adjusting alignment "
+                "parameters (e.g. reduce max_shift, increase n_segments).",
+                UserWarning,
+                stacklevel=2,
+            )
 
         return pd.DataFrame(aligned_rows, index=X.index, columns=X.columns)
 

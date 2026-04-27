@@ -7,8 +7,11 @@ from .preprocessing_pipeline import PreprocessingPipeline
 from .quality import SignalMethod, SpectrumQuality, SpectrumQualityReport, estimate_snr
 from .transformers import (
     ClipNegatives,
+    ConvexHullBaseline,
     LogTransform,
+    MedianBaseline,
     MedianNormalizer,
+    MovingAverageSmooth,
     MzMultiTrimmer,
     MzTrimmer,
     PQNNormalizer,
@@ -16,6 +19,7 @@ from .transformers import (
     SNIPBaseline,
     SqrtTransform,
     TICNormalizer,
+    TopHatBaseline,
 )
 
 __all__ = [
@@ -40,7 +44,11 @@ __all__ = [
     "SqrtTransform",
     "LogTransform",
     "SavitzkyGolaySmooth",
+    "MovingAverageSmooth",
     "SNIPBaseline",
+    "TopHatBaseline",
+    "ConvexHullBaseline",
+    "MedianBaseline",
     "MzTrimmer",
     "TICNormalizer",
     "MedianNormalizer",

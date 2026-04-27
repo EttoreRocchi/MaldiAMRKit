@@ -121,6 +121,9 @@ class RawWarping(BaseEstimator, TransformerMixin):
         - "linear" : linear m/z transformation (mz' = a*mz + b)
         - "piecewise" : segment-wise m/z shifts with smoothing
         - "dtw" : dynamic time warping
+        - "quadratic" : quadratic polynomial fit on matched peak pairs
+        - "cubic" : cubic polynomial fit on matched peak pairs
+        - "lowess" : LOWESS (Cleveland 1979) non-linear warping
     bin_width : float, default=3
         Width of output bins in Daltons.
     bin_method : str, default="uniform"
@@ -135,6 +138,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Radius constraint for DTW.
     smooth_sigma : float, default=2.0
         Gaussian smoothing for piecewise transitions.
+    lowess_frac : float, default=0.3
+        LOWESS smoothing bandwidth (fraction of matched peaks used for
+        each local fit). Applies when ``method="lowess"``.
+    lowess_it : int, default=3
+        Number of LOWESS robustness iterations. Applies when
+        ``method="lowess"``.
     reference : str or int, default="median"
         Reference selection: "median" or int index.
     pipeline : PreprocessingPipeline, optional
@@ -200,6 +209,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
         n_segments: int = 5,
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
+        lowess_frac: float = 0.3,
+        lowess_it: int = 3,
         reference: str | int = "median",
         pipeline: PreprocessingPipeline | None = None,
         peak_detector: MaldiPeakDetector | None = None,
@@ -215,6 +226,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
         self.n_segments = n_segments
         self.dtw_radius = dtw_radius
         self.smooth_sigma = smooth_sigma
+        self.lowess_frac = lowess_frac
+        self.lowess_it = lowess_it
         self.reference = reference
         self.interp_step = interp_step
         self.pipeline = pipeline
@@ -393,6 +406,16 @@ class RawWarping(BaseEstimator, TransformerMixin):
             )
         elif self.method == "dtw":
             return cls(dtw_radius=self.dtw_radius)
+        elif self.method == "quadratic":
+            return cls(max_shift=self.max_shift_da, degree=2)
+        elif self.method == "cubic":
+            return cls(max_shift=self.max_shift_da, degree=3)
+        elif self.method == "lowess":
+            return cls(
+                max_shift=self.max_shift_da,
+                frac=self.lowess_frac,
+                it=self.lowess_it,
+            )
         return cls()
 
     def _bin_warped(self, mz: np.ndarray, intensity: np.ndarray) -> pd.DataFrame:

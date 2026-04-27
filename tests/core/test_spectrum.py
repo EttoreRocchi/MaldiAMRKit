@@ -330,16 +330,16 @@ class TestMaldiSpectrumPlot:
 
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.bin(3)
-        ax = plot_spectrum(spec)
-        assert ax is not None
+        fig, ax = plot_spectrum(spec, stage="binned", show=False)
+        assert fig is not None and ax is not None
         plt.close("all")
 
     def test_plot_raw(self, synthetic_spectrum: pd.DataFrame):
         from maldiamrkit.visualization import plot_spectrum
 
         spec = MaldiSpectrum(synthetic_spectrum)
-        ax = plot_spectrum(spec, binned=False)
-        assert ax is not None
+        fig, ax = plot_spectrum(spec, stage="raw", show=False)
+        assert fig is not None and ax is not None
         plt.close("all")
 
     def test_plot_preprocessed(self, synthetic_spectrum: pd.DataFrame):
@@ -347,8 +347,8 @@ class TestMaldiSpectrumPlot:
 
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.preprocess()
-        ax = plot_spectrum(spec, binned=False)
-        assert ax is not None
+        fig, ax = plot_spectrum(spec, stage="preprocessed", show=False)
+        assert fig is not None and ax is not None
         plt.close("all")
 
     def test_plot_with_ax(self, synthetic_spectrum: pd.DataFrame):
@@ -356,9 +356,10 @@ class TestMaldiSpectrumPlot:
 
         spec = MaldiSpectrum(synthetic_spectrum)
         spec.bin(3)
-        fig, ax = plt.subplots()
-        returned = plot_spectrum(spec, ax=ax)
-        assert returned is ax
+        fig_ext, ax_ext = plt.subplots()
+        fig, ax = plot_spectrum(spec, ax=ax_ext, show=False)
+        assert ax is ax_ext
+        assert fig is fig_ext
         plt.close(fig)
 
 

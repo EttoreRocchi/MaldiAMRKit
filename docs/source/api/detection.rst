@@ -14,6 +14,14 @@ MaldiPeakDetector
    :undoc-members:
    :show-inheritance:
 
+Peak Detection Methods
+----------------------
+
+.. autoclass:: maldiamrkit.detection.PeakMethod
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Parallel Processing Example
 ---------------------------
 

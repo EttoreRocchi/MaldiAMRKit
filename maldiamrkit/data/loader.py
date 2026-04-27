@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from ..dataset import MaldiSet
-from ..spectrum import MaldiSpectrum
+from ..spectrum import MaldiSpectrum, _infer_id
 from .dataset_layouts import DatasetLayout
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class DatasetLoader:
 
         matched_files: list[Path] = []
         for f in spectrum_files:
-            fid = f.name if f.is_dir() else f.stem
+            fid = _infer_id(f)
             if fid in meta_ids:
                 matched_files.append(f)
 
@@ -140,6 +140,12 @@ class DatasetLoader:
             spectra = Parallel(n_jobs=self.n_jobs, prefer="threads")(
                 delayed(_load_single)(p) for p in matched_files
             )
+
+        # 6a. Dataset-specific post-processing (e.g. DRIAMS binned_N/ files
+        # store bin_index, not m/z, and need rewriting into real m/z).
+        spectra = [
+            self.layout.postprocess_spectrum(s, stage=stage_name) for s in spectra
+        ]
 
         # 6b. Average replicates when the layout used strategy="average"
         if "_original_id" in meta.columns:

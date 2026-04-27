@@ -7,8 +7,15 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from ._common import order_labels, resolve_display_label, show_with_warning
+
 if TYPE_CHECKING:
     import matplotlib.pyplot as plt
+
+
+def _auto_marker_size(n: int) -> float:
+    """Scale marker size inversely with sample count."""
+    return max(8.0, 2000.0 / max(n, 1))
 
 
 def _reduce_dimensions(
@@ -120,13 +127,16 @@ def _scatter_embedding(
     *,
     ax: plt.Axes | None = None,
     palette: str | dict | None = None,
+    label_map: dict | None = None,
     title: str | None = None,
     xlabel: str | None = None,
     ylabel: str | None = None,
     figsize: tuple[float, float] = (8, 6),
     alpha: float = 0.7,
-    s: float = 20,
+    s: float | None = None,
     legend: bool = True,
+    legend_loc: str = "best",
+    grid: bool = True,
     show: bool = True,
 ) -> tuple[plt.Figure, plt.Axes]:
     """Render a 2-D scatter plot of an embedding.
@@ -136,11 +146,18 @@ def _scatter_embedding(
     embedding : np.ndarray
         Array of shape ``(n_samples, 2)``.
     color_by : pd.Series, np.ndarray, or None
-        Categorical labels used to color points.
+        Categorical labels used to color points.  Always rendered as
+        discrete categories (no continuous colorbar branch); numeric
+        ``color_by`` with many unique values is accepted but will
+        produce one legend entry per value.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. If ``None``, a new figure is created.
     palette : str or dict, optional
         Matplotlib colormap name or ``{label: color}`` mapping.
+    label_map : dict, optional
+        Map raw label values to display strings shown in the legend.
+        Defaults to the S/I/R and 0/1 → susceptible/resistant mapping;
+        user values override entries in the default map.
     title : str, optional
         Plot title.
     xlabel, ylabel : str, optional
@@ -149,10 +166,16 @@ def _scatter_embedding(
         Figure size (only used when *ax* is ``None``).
     alpha : float, default=0.7
         Point transparency.
-    s : float, default=20
-        Marker size.
+    s : float, optional
+        Marker size.  When ``None``, auto-scales with sample count
+        (``max(8, 2000/n)``).
     legend : bool, default=True
         Whether to show a legend when *color_by* is provided.
+    legend_loc : str, default="best"
+        ``matplotlib`` legend location string (e.g. ``"upper right"``)
+        or ``"outside"`` to place the legend outside the axes.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
         Call ``plt.show()`` at the end.
 
@@ -168,25 +191,38 @@ def _scatter_embedding(
     else:
         fig = ax.get_figure()
 
+    n = embedding.shape[0]
+    marker_size = _auto_marker_size(n) if s is None else s
+
     if color_by is None:
-        ax.scatter(embedding[:, 0], embedding[:, 1], alpha=alpha, s=s)
+        ax.scatter(embedding[:, 0], embedding[:, 1], alpha=alpha, s=marker_size)
     else:
         labels = np.asarray(color_by)
-        unique_labels = list(dict.fromkeys(labels))
+        unique_labels = order_labels(list(dict.fromkeys(labels.tolist())))
         colors = _resolve_colors(unique_labels, palette)
 
         for lab in unique_labels:
             mask = labels == lab
+            display = resolve_display_label(lab, label_map)
             ax.scatter(
                 embedding[mask, 0],
                 embedding[mask, 1],
-                label=lab,
+                label=display,
                 color=colors[lab],
                 alpha=alpha,
-                s=s,
+                s=marker_size,
             )
         if legend:
-            ax.legend(title=color_by.name if isinstance(color_by, pd.Series) else None)
+            legend_title = color_by.name if isinstance(color_by, pd.Series) else None
+            if legend_loc == "outside":
+                ax.legend(
+                    title=legend_title,
+                    bbox_to_anchor=(1.02, 1.0),
+                    loc="upper left",
+                    borderaxespad=0.0,
+                )
+            else:
+                ax.legend(title=legend_title, loc=legend_loc)
 
     if title:
         ax.set_title(title)
@@ -194,9 +230,10 @@ def _scatter_embedding(
         ax.set_xlabel(xlabel)
     if ylabel:
         ax.set_ylabel(ylabel)
+    if grid:
+        ax.grid(True, alpha=0.3)
 
-    if show:
-        plt.show()
+    show_with_warning(show)
 
     return fig, ax
 
@@ -206,13 +243,17 @@ def plot_pca(
     color_by: pd.Series | np.ndarray | None = None,
     n_components: int = 2,
     *,
+    random_state: int | None = 42,
     ax: plt.Axes | None = None,
     palette: str | dict | None = None,
+    label_map: dict | None = None,
     title: str | None = None,
     figsize: tuple[float, float] = (8, 6),
     alpha: float = 0.7,
-    s: float = 20,
+    s: float | None = None,
     legend: bool = True,
+    legend_loc: str = "best",
+    grid: bool = True,
     show: bool = True,
     **pca_kwargs,
 ) -> tuple[plt.Figure, plt.Axes]:
@@ -260,7 +301,9 @@ def plot_pca(
     >>> from maldiamrkit.visualization import plot_pca
     >>> fig, ax = plot_pca(dataset.X, color_by=dataset.meta["Species"])
     """
-    embedding, reducer = _reduce_dimensions(X, "pca", n_components, **pca_kwargs)
+    embedding, reducer = _reduce_dimensions(
+        X, "pca", n_components, random_state=random_state, **pca_kwargs
+    )
     pca_estimator = (
         reducer.named_steps["pca"] if hasattr(reducer, "named_steps") else reducer
     )
@@ -274,6 +317,7 @@ def plot_pca(
         color_by=color_by,
         ax=ax,
         palette=palette,
+        label_map=label_map,
         title=title or "PCA",
         xlabel=xlabel,
         ylabel=ylabel,
@@ -281,6 +325,8 @@ def plot_pca(
         alpha=alpha,
         s=s,
         legend=legend,
+        legend_loc=legend_loc,
+        grid=grid,
         show=show,
     )
 
@@ -294,11 +340,14 @@ def plot_tsne(
     random_state: int | None = 42,
     ax: plt.Axes | None = None,
     palette: str | dict | None = None,
+    label_map: dict | None = None,
     title: str | None = None,
     figsize: tuple[float, float] = (8, 6),
     alpha: float = 0.7,
-    s: float = 20,
+    s: float | None = None,
     legend: bool = True,
+    legend_loc: str = "best",
+    grid: bool = True,
     show: bool = True,
     **tsne_kwargs,
 ) -> tuple[plt.Figure, plt.Axes]:
@@ -361,6 +410,7 @@ def plot_tsne(
         color_by=color_by,
         ax=ax,
         palette=palette,
+        label_map=label_map,
         title=title or "t-SNE",
         xlabel="t-SNE 1",
         ylabel="t-SNE 2" if n_components >= 2 else None,
@@ -368,6 +418,8 @@ def plot_tsne(
         alpha=alpha,
         s=s,
         legend=legend,
+        legend_loc=legend_loc,
+        grid=grid,
         show=show,
     )
 
@@ -379,13 +431,17 @@ def plot_umap(
     *,
     n_neighbors: int = 15,
     min_dist: float = 0.1,
+    random_state: int | None = 42,
     ax: plt.Axes | None = None,
     palette: str | dict | None = None,
+    label_map: dict | None = None,
     title: str | None = None,
     figsize: tuple[float, float] = (8, 6),
     alpha: float = 0.7,
-    s: float = 20,
+    s: float | None = None,
     legend: bool = True,
+    legend_loc: str = "best",
+    grid: bool = True,
     show: bool = True,
     **umap_kwargs,
 ) -> tuple[plt.Figure, plt.Axes]:
@@ -447,6 +503,7 @@ def plot_umap(
         n_components,
         n_neighbors=n_neighbors,
         min_dist=min_dist,
+        random_state=random_state,
         **umap_kwargs,
     )
 
@@ -455,6 +512,7 @@ def plot_umap(
         color_by=color_by,
         ax=ax,
         palette=palette,
+        label_map=label_map,
         title=title or "UMAP",
         xlabel="UMAP 1",
         ylabel="UMAP 2" if n_components >= 2 else None,
@@ -462,5 +520,7 @@ def plot_umap(
         alpha=alpha,
         s=s,
         legend=legend,
+        legend_loc=legend_loc,
+        grid=grid,
         show=show,
     )

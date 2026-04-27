@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from ..visualization._common import show_with_warning
+
 if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
@@ -32,24 +34,24 @@ class DrugComparisonKind(str, Enum):
     upset = "upset"
 
 
-def _show_with_warning(show: bool) -> None:
-    """Call ``plt.show()`` with a backend-compatibility warning.
+def _annotate_top_k(ax, xs, ys, labels_like, k: int) -> None:
+    """Place text labels at the top-k points (largest ys).
 
-    Mirrors the pattern used across the other ``maldiamrkit`` plot
-    modules so that headless test runs and notebooks behave consistently.
+    ``labels_like`` is aligned with ``xs``/``ys`` and used as the text
+    content (typically the ``mz_bin`` value).
     """
-    import matplotlib
-    import matplotlib.pyplot as plt
-
-    if show:
-        if not matplotlib.is_interactive():
-            warnings.warn(
-                "matplotlib is using a non-interactive backend; "
-                "plt.show() may not display the figure",
-                UserWarning,
-                stacklevel=3,
-            )
-        plt.show()
+    if k <= 0 or len(ys) == 0:
+        return
+    order = np.argsort(ys)[::-1][:k]
+    for i in order:
+        ax.annotate(
+            f"{labels_like[i]}",
+            xy=(xs[i], ys[i]),
+            xytext=(3, 3),
+            textcoords="offset points",
+            fontsize=8,
+            color="black",
+        )
 
 
 def plot_volcano(
@@ -59,7 +61,10 @@ def plot_volcano(
     *,
     ax: plt.Axes | None = None,
     title: str | None = None,
+    drug: str | None = None,
     figsize: tuple[float, float] = (8, 6),
+    annotate_top_k: int | None = None,
+    grid: bool = True,
     show: bool = True,
 ) -> tuple[plt.Figure, plt.Axes]:
     r"""Volcano plot of log2 fold change vs. -log10 adjusted p-value.
@@ -68,7 +73,8 @@ def plot_volcano(
     non-significant, red for up in resistant (``fold_change > fc_threshold``
     and ``adjusted_p_value <= p_threshold``), blue for up in susceptible
     (``fold_change < -fc_threshold`` and ``adjusted_p_value <= p_threshold``).
-    Horizontal and vertical dashed lines mark the thresholds.
+    Horizontal and vertical dashed lines mark the thresholds and are
+    referenced in the legend with their counts.
 
     Parameters
     ----------
@@ -82,18 +88,27 @@ def plot_volcano(
         Adjusted p-value threshold (drawn as a horizontal dashed line at
         ``-log10(p_threshold)``).
     ax : Axes or None, default=None
-        Pre-existing axes.  If ``None``, a new figure and axes are
-        created.
+        Pre-existing axes.  If ``None``, a new figure and axes are created.
     title : str or None, default=None
-        Optional plot title.
+        Plot title.  Defaults to ``"Volcano plot"``; if ``drug`` is given,
+        the default becomes ``f"Volcano plot - {drug}"``.
+    drug : str or None, default=None
+        Drug name appended to the default title.  Ignored when ``title``
+        is explicitly provided.
     figsize : tuple of float, default=(8, 6)
-        Figure size in inches (used only when ``ax`` is ``None``).
+        Figure size in inches (only used when ``ax`` is ``None``).
+    annotate_top_k : int, optional
+        If given, label the ``k`` most significant peaks with their
+        ``mz_bin`` value.  Requires an ``mz_bin`` column in ``results``.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Call ``plt.show()`` at the end.
 
     Returns
     -------
-    tuple[Figure, Axes]
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
     """
     import matplotlib.pyplot as plt
 
@@ -116,25 +131,49 @@ def plot_volcano(
     up_s = sig & (fc < -fc_threshold)
     ns = ~(up_r | up_s)
 
-    ax.scatter(fc[ns], neg_log10_p[ns], s=10, color="lightgrey", label="NS", alpha=0.6)
     ax.scatter(
-        fc[up_s], neg_log10_p[up_s], s=14, color="#3b82f6", label="Up in S", alpha=0.85
+        fc[ns],
+        neg_log10_p[ns],
+        s=10,
+        color="lightgrey",
+        label=f"NS (n={int(ns.sum())})",
+        alpha=0.6,
     )
     ax.scatter(
-        fc[up_r], neg_log10_p[up_r], s=14, color="#ef4444", label="Up in R", alpha=0.85
+        fc[up_s],
+        neg_log10_p[up_s],
+        s=14,
+        color="#3b82f6",
+        label=f"Up in S (n={int(up_s.sum())})",
+        alpha=0.85,
+    )
+    ax.scatter(
+        fc[up_r],
+        neg_log10_p[up_r],
+        s=14,
+        color="#ef4444",
+        label=f"Up in R (n={int(up_r.sum())})",
+        alpha=0.85,
     )
 
     ax.axhline(-np.log10(p_threshold), color="black", linestyle="--", linewidth=0.8)
     ax.axvline(fc_threshold, color="black", linestyle="--", linewidth=0.8)
     ax.axvline(-fc_threshold, color="black", linestyle="--", linewidth=0.8)
 
+    if annotate_top_k and "mz_bin" in results.columns:
+        labels_like = results["mz_bin"].to_numpy()
+        _annotate_top_k(ax, fc, neg_log10_p, labels_like, annotate_top_k)
+
     ax.set_xlabel("log2 fold change (R / S)")
     ax.set_ylabel(r"$-\log_{10}$(adjusted p-value)")
-    if title is not None:
-        ax.set_title(title)
+    if title is None:
+        title = "Volcano plot" + (f" - {drug}" if drug else "")
+    ax.set_title(title)
     ax.legend(loc="best", frameon=False)
+    if grid:
+        ax.grid(True, alpha=0.3)
 
-    _show_with_warning(show)
+    show_with_warning(show)
     return fig, ax
 
 
@@ -144,15 +183,18 @@ def plot_manhattan(
     *,
     ax: plt.Axes | None = None,
     title: str | None = None,
+    drug: str | None = None,
     figsize: tuple[float, float] = (12, 4),
+    annotate_top_k: int | None = None,
+    grid: bool = True,
     show: bool = True,
 ) -> tuple[plt.Figure, plt.Axes]:
     """Manhattan plot along the m/z axis.
 
     x-axis is the numeric m/z bin value; y-axis is
     ``-log10(adjusted_p_value)``.  Points with
-    ``adjusted_p_value <= p_threshold`` are highlighted in red.  A
-    horizontal dashed line marks the threshold.
+    ``adjusted_p_value <= p_threshold`` are highlighted in red, and the
+    legend reports per-class counts.
 
     Parameters
     ----------
@@ -163,18 +205,27 @@ def plot_manhattan(
     p_threshold : float, default=0.05
         Adjusted p-value threshold.
     ax : Axes or None, default=None
-        Pre-existing axes.  If ``None``, a new figure and axes are
-        created.
+        Pre-existing axes.
     title : str or None, default=None
-        Optional plot title.
+        Plot title.  Defaults to ``"Manhattan plot"``; if ``drug`` is
+        given, the default becomes ``f"Manhattan plot - {drug}"``.
+    drug : str or None, default=None
+        Drug name appended to the default title.  Ignored when ``title``
+        is explicitly provided.
     figsize : tuple of float, default=(12, 4)
-        Figure size in inches (used only when ``ax`` is ``None``).
+        Figure size in inches.
+    annotate_top_k : int, optional
+        If given, label the ``k`` most significant peaks with their
+        ``mz_bin`` value.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Call ``plt.show()`` at the end.
 
     Returns
     -------
-    tuple[Figure, Axes]
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
     """
     import matplotlib.pyplot as plt
 
@@ -193,6 +244,11 @@ def plot_manhattan(
     valid = ~np.isnan(mz_values)
     mz_values = mz_values[valid]
     adj_p = adj_p[valid]
+    raw_bins = (
+        results.loc[valid, "mz_bin"].to_numpy()
+        if "mz_bin" in results.columns
+        else mz_values
+    )
 
     neg_log10_p = -np.log10(np.clip(adj_p, _VOLCANO_EPS, 1.0))
     sig = adj_p <= p_threshold
@@ -203,7 +259,7 @@ def plot_manhattan(
         s=8,
         color="#6b7280",
         alpha=0.6,
-        label="NS",
+        label=f"NS (n={int((~sig).sum())})",
     )
     ax.scatter(
         mz_values[sig],
@@ -211,18 +267,24 @@ def plot_manhattan(
         s=14,
         color="#ef4444",
         alpha=0.9,
-        label="Significant",
+        label=f"Significant (n={int(sig.sum())})",
     )
 
     ax.axhline(-np.log10(p_threshold), color="black", linestyle="--", linewidth=0.8)
 
+    if annotate_top_k:
+        _annotate_top_k(ax, mz_values, neg_log10_p, raw_bins, annotate_top_k)
+
     ax.set_xlabel("m/z")
     ax.set_ylabel(r"$-\log_{10}$(adjusted p-value)")
-    if title is not None:
-        ax.set_title(title)
+    if title is None:
+        title = "Manhattan plot" + (f" - {drug}" if drug else "")
+    ax.set_title(title)
     ax.legend(loc="best", frameon=False)
+    if grid:
+        ax.grid(True, alpha=0.3)
 
-    _show_with_warning(show)
+    show_with_warning(show)
     return fig, ax
 
 
@@ -242,6 +304,13 @@ def _plot_drug_comparison_heatmap(
         fig = ax.get_figure()
 
     data = comparison_df.astype(int)
+
+    # Append per-drug significant-peak counts to the column labels so
+    # the reader sees both the presence pattern AND how many peaks each
+    # drug contributes.
+    counts = data.sum(axis=0)
+    xticklabels = [f"{col} (n={int(counts[col])})" for col in data.columns]
+
     sns.heatmap(
         data,
         ax=ax,
@@ -249,13 +318,12 @@ def _plot_drug_comparison_heatmap(
         cbar=False,
         linewidths=0.25,
         linecolor="white",
-        xticklabels=True,
+        xticklabels=xticklabels,
         yticklabels=data.shape[0] <= 60,
     )
     ax.set_xlabel("Drug")
     ax.set_ylabel("m/z bin")
-    if title is not None:
-        ax.set_title(title)
+    ax.set_title(title or "Drug comparison")
     return fig, ax
 
 
@@ -291,8 +359,7 @@ def _plot_drug_comparison_upset(
             transform=ax.transAxes,
         )
         ax.set_axis_off()
-        if title is not None:
-            ax.set_title(title)
+        ax.set_title(title or "Drug comparison")
         return fig, ax
 
     signatures = bool_df.apply(lambda row: tuple(row.values), axis=1)
@@ -348,15 +415,17 @@ def _plot_drug_comparison_upset(
     for spine in ("top", "right"):
         ax_bars.spines[spine].set_visible(False)
     ax_bars.tick_params(axis="x", bottom=False, labelbottom=False)
-    if title is not None:
-        ax_bars.set_title(title)
+    ax_bars.set_title(title or "Drug comparison")
 
     y_pos = np.arange(len(drugs))
     ax_totals.barh(y_pos, set_totals, color=bar_color, height=0.55, zorder=2)
     ax_totals.set_xlabel("Set size")
     ax_totals.invert_xaxis()
     ax_totals.set_yticks(y_pos)
-    ax_totals.set_yticklabels(drugs)
+    # Append n= counts to drug labels for parity with the heatmap view.
+    ax_totals.set_yticklabels(
+        [f"{d} (n={int(t)})" for d, t in zip(drugs, set_totals, strict=True)]
+    )
     ax_totals.grid(axis="x", linestyle=":", linewidth=0.6, color="#bdbdbd", zorder=0)
     ax_totals.set_axisbelow(True)
     for spine in ("top", "right", "left"):
@@ -433,25 +502,27 @@ def plot_drug_comparison(
     kind : {"heatmap", "upset"} or DrugComparisonKind, default="heatmap"
         Rendering style.
 
-        - ``"heatmap"``: compact binary heatmap of peaks x drugs.
+        - ``"heatmap"``: compact binary heatmap of peaks x drugs.  Drug
+          labels show per-drug significant-peak counts.
         - ``"upset"``: UpSet-style plot showing intersection counts
           across drug combinations.
     ax : Axes or None, default=None
         Pre-existing axes (used only by ``kind="heatmap"``; ignored for
         ``"upset"`` which needs its own composite figure).
     title : str or None, default=None
-        Optional plot title.
+        Plot title.  Defaults to ``"Drug comparison"``.
     figsize : tuple of float, default=(10, 8)
-        Figure size in inches (used only when ``ax`` is ``None``).
+        Figure size in inches (only used when ``ax`` is ``None``).
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Call ``plt.show()`` at the end.
 
     Returns
     -------
-    tuple[Figure, Axes]
+    fig : matplotlib.figure.Figure
+    ax : matplotlib.axes.Axes
         For ``kind="upset"``, the returned Axes is the intersection-size
-        bar chart; the drug-membership matrix is drawn on a second
-        Axes inside the same Figure.
+        bar chart; the drug-membership matrix is drawn on a second Axes
+        inside the same Figure.
     """
     kind = DrugComparisonKind(kind)
 
@@ -471,5 +542,5 @@ def plot_drug_comparison(
             comparison_df, title=title, figsize=figsize
         )
 
-    _show_with_warning(show)
+    show_with_warning(show)
     return fig, ax

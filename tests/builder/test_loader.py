@@ -389,3 +389,137 @@ class TestAverageReplicates:
         avg_specs, avg_meta = DatasetLoader._average_replicates([s0], meta)
         assert len(avg_specs) == 1
         assert avg_meta["ID"].iloc[0] == "s0"
+
+
+class TestDRIAMSBinIndexConversion:
+    """DRIAMS binned_N/*.txt files store `bin_index binned_intensity`.
+
+    DRIAMSLayout must convert those bin indices to real m/z on load so
+    downstream m/z-aware APIs work.
+    """
+
+    @pytest.fixture()
+    def driams_binned_dataset(self, tmp_path: Path) -> Path:
+        """A minimal DRIAMS-shaped dataset whose binned_10/ files are bin
+        indices 0..9 (standing in for the real 6000-bin DRIAMS format)."""
+        root = tmp_path / "driams_like"
+        binned = root / "binned_10"
+        binned.mkdir(parents=True)
+        id_dir = root / "id"
+        id_dir.mkdir()
+
+        ids = [f"sample_{i}" for i in range(3)]
+        for sid in ids:
+            content = "bin_index binned_intensity\n" + "\n".join(
+                f"{i} {0.01 * (i + 1):.6f}" for i in range(10)
+            )
+            (binned / f"{sid}.txt").write_text(content)
+
+        meta = pd.DataFrame(
+            {
+                "code": ids,
+                "species": ["Escherichia coli"] * 3,
+                "Ceftriaxone": ["S", "R", "S"],
+            }
+        )
+        meta.to_csv(id_dir / "all_clean.csv", index=False)
+        return root
+
+    def test_bin_index_rewritten_to_mz(self, driams_binned_dataset):
+        """Loader rewrites bin_index mass column to real m/z in the
+        [mz_min, mz_max] range defined by the layout."""
+        layout = DRIAMSLayout(driams_binned_dataset, mz_min=2000.0, mz_max=19997.0)
+        ds = DatasetLoader(layout, n_jobs=1).load()
+
+        assert len(ds.spectra) == 3
+        for spec in ds.spectra:
+            mass = spec.raw["mass"].to_numpy()
+            assert mass[0] == pytest.approx(2000.0)
+            assert mass[-1] == pytest.approx(19997.0)
+            assert spec.is_binned
+            assert spec.has_bin_metadata
+
+    def test_non_bin_index_files_untouched(
+        self, tmp_path, synthetic_spectra_dir, synthetic_metadata
+    ):
+        """Non-binned stages keep their original (real) m/z values."""
+        out = tmp_path / "driams_out"
+        DatasetBuilder(
+            FlatLayout(synthetic_spectra_dir, synthetic_metadata),
+            out,
+            n_jobs=1,
+        ).build()
+
+        ds = DatasetLoader(DRIAMSLayout(out), stage="preprocessed", n_jobs=1).load()
+        for spec in ds.spectra:
+            mass = spec.raw["mass"].to_numpy()
+            # Real m/z, not bin indices
+            assert mass.min() > 1000.0
+
+    def test_idempotent_on_already_converted(self):
+        """Calling postprocess twice on an already-converted spectrum
+        is a no-op."""
+        from maldiamrkit import MaldiSpectrum
+
+        mz = np.linspace(2000.0, 19997.0, 10)
+        spec = MaldiSpectrum(pd.DataFrame({"mass": mz, "intensity": np.ones(10)}))
+        layout = DRIAMSLayout("/tmp/unused")
+        out1 = layout.postprocess_spectrum(spec, stage="binned_10")
+        out2 = layout.postprocess_spectrum(out1, stage="binned_10")
+        np.testing.assert_allclose(out2.raw["mass"].to_numpy(), mz)
+
+    def test_not_applied_when_stage_is_not_binned(self, tmp_path):
+        """postprocess_spectrum is a no-op for `raw` / `preprocessed`."""
+        from maldiamrkit import MaldiSpectrum
+
+        bin_index_df = pd.DataFrame(
+            {"mass": np.arange(10, dtype=float), "intensity": np.ones(10)}
+        )
+        spec = MaldiSpectrum(bin_index_df)
+        layout = DRIAMSLayout("/tmp/unused")
+        out = layout.postprocess_spectrum(spec, stage="preprocessed")
+        np.testing.assert_allclose(
+            out.raw["mass"].to_numpy(), np.arange(10, dtype=float)
+        )
+
+    def test_normalize_tic_rescales_to_unit_sum(self, driams_binned_dataset):
+        """`normalize_tic=True` rescales each spectrum to sum=1."""
+        layout_plain = DRIAMSLayout(
+            driams_binned_dataset, mz_min=2000.0, mz_max=19997.0
+        )
+        layout_normed = DRIAMSLayout(
+            driams_binned_dataset,
+            mz_min=2000.0,
+            mz_max=19997.0,
+            normalize_tic=True,
+        )
+
+        ds_plain = DatasetLoader(layout_plain, n_jobs=1).load()
+        ds_normed = DatasetLoader(layout_normed, n_jobs=1).load()
+
+        # Without normalize_tic, the fixture's hand-written intensities
+        # sum to 0.01 + 0.02 + ... + 0.10 = 0.55 per spectrum.
+        plain_sums = [
+            float(s.raw["intensity"].to_numpy().sum()) for s in ds_plain.spectra
+        ]
+        normed_sums = [
+            float(s.raw["intensity"].to_numpy().sum()) for s in ds_normed.spectra
+        ]
+
+        assert all(abs(v - 0.55) < 1e-9 for v in plain_sums)
+        assert all(abs(v - 1.0) < 1e-9 for v in normed_sums)
+
+        # m/z axis must be unchanged by renormalization.
+        np.testing.assert_allclose(
+            ds_plain.spectra[0].raw["mass"].to_numpy(),
+            ds_normed.spectra[0].raw["mass"].to_numpy(),
+        )
+
+    def test_normalize_tic_default_off(self, driams_binned_dataset):
+        """Default is normalize_tic=False (faithful read)."""
+        layout = DRIAMSLayout(driams_binned_dataset, mz_min=2000.0, mz_max=19997.0)
+        assert layout.normalize_tic is False
+        ds = DatasetLoader(layout, n_jobs=1).load()
+        sums = [float(s.raw["intensity"].to_numpy().sum()) for s in ds.spectra]
+        # Not normalized -> not 1.0
+        assert all(abs(v - 1.0) > 1e-3 for v in sums)

@@ -782,11 +782,78 @@ class TestMaldiSetPlot:
         plt.close(fig)
 
     def test_plot_pseudogel_no_sort(self):
-        """Test pseudogel without intensity sorting."""
+        """Test pseudogel without intensity sorting (deprecated bool path)."""
         from maldiamrkit.visualization import plot_pseudogel
 
         ds = self._make_dataset()
-        fig, axes = plot_pseudogel(ds, sort_by_intensity=False, show=False)
+        with pytest.warns(DeprecationWarning, match="sort_by_intensity"):
+            fig, axes = plot_pseudogel(ds, sort_by_intensity=False, show=False)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_plot_pseudogel_sort_by_str(self):
+        """`sort_by='id'|'intensity'|None` all work without deprecation."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        for mode in ("intensity", "id", None):
+            fig, _ = plot_pseudogel(ds, sort_by=mode, show=False)
+            plt.close(fig)
+
+    def test_plot_pseudogel_sort_by_invalid(self):
+        """Unknown sort_by raises."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        with pytest.raises(ValueError, match="sort_by"):
+            plot_pseudogel(ds, sort_by="bogus", show=False)
+
+    def test_plot_pseudogel_default_title(self):
+        """Default suptitle contains the antibiotic name."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        fig, _ = plot_pseudogel(ds, show=False)
+        assert "Drug" in fig._suptitle.get_text()
+        plt.close(fig)
+
+    def test_plot_pseudogel_default_figsize_wider(self):
+        """Default figsize is 14\" wide (not the old 6\")."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        fig, _ = plot_pseudogel(ds, show=False)
+        assert fig.get_size_inches()[0] == pytest.approx(14.0)
+        plt.close(fig)
+
+    def test_plot_pseudogel_label_map_default_for_rs(self):
+        """R/S group labels get human-readable display names."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        fig, axes = plot_pseudogel(ds, show=False)
+        ylabels = [ax.get_ylabel() for ax in axes]
+        assert any("Susceptible" in lab for lab in ylabels)
+        assert any("Resistant" in lab for lab in ylabels)
+        plt.close(fig)
+
+    def test_plot_pseudogel_susceptibility_order(self):
+        """Groups are ordered S then R (not alphabetical R, S)."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        fig, axes = plot_pseudogel(ds, show=False)
+        ylabels = [ax.get_ylabel() for ax in axes]
+        assert "Susceptible" in ylabels[0]
+        assert "Resistant" in ylabels[1]
+        plt.close(fig)
+
+    def test_plot_pseudogel_species_filter(self):
+        """`species=` restricts to one species via SpeciesFilter."""
+        from maldiamrkit.visualization import plot_pseudogel
+
+        ds = self._make_dataset()
+        fig, _ = plot_pseudogel(ds, species="taxon", show=False)
         assert fig is not None
         plt.close(fig)
 

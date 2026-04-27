@@ -204,6 +204,124 @@ class TestDRIAMSLayout:
             layout.collect_spectrum_files("binned_3", None)
 
 
+class TestDRIAMSLayoutIdTransform:
+    """``id_transform`` collapses technical replicates at load time.
+
+    Regression guard for the replicate-leakage footgun: DRIAMS files
+    carry a ``UUID_MALDI<N>`` suffix that makes each replicate a
+    distinct ID under the default ``duplicate_strategy``. Callers
+    who CV-split the resulting feature matrix leak replicates across
+    folds. ``id_transform`` provides the opt-in fix.
+    """
+
+    def _make_metadata(self, tmp_path: Path, codes: list[str]) -> DRIAMSLayout:
+        """Write a minimal ``id/data_clean.csv`` with the given codes."""
+        id_dir = tmp_path / "id"
+        id_dir.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({"code": codes, "Species": ["E. coli"] * len(codes)}).to_csv(
+            id_dir / "data_clean.csv", index=False
+        )
+        return tmp_path
+
+    def test_collapses_maldi_replicates_via_first(self, tmp_path):
+        """``id_transform`` + ``duplicate_strategy='first'`` keeps one per UUID."""
+        import re as _re
+
+        self._make_metadata(
+            tmp_path,
+            codes=[
+                "uuid-a_MALDI1",
+                "uuid-a_MALDI2",
+                "uuid-b_MALDI1",
+                "uuid-c_MALDI1",
+                "uuid-c_MALDI2",
+            ],
+        )
+        layout = DRIAMSLayout(
+            tmp_path,
+            id_transform=lambda s: _re.sub(r"_MALDI\d+$", "", s),
+            duplicate_strategy="first",
+        )
+        meta = layout.discover_metadata()
+        assert len(meta) == 3
+        assert set(meta["ID"]) == {
+            "uuid-a_MALDI1",
+            "uuid-b_MALDI1",
+            "uuid-c_MALDI1",
+        }
+        # ``_canonical_id`` is an internal scratch column - must not leak.
+        assert "_canonical_id" not in meta.columns
+
+    def test_preserves_raw_ids_for_loader_matching(self, tmp_path):
+        """Raw ``ID`` column untouched so the loader can still match files."""
+        self._make_metadata(tmp_path, codes=["uuid-a_MALDI1", "uuid-a_MALDI2"])
+        layout = DRIAMSLayout(
+            tmp_path,
+            id_transform=lambda s: s.split("_")[0],
+            duplicate_strategy="first",
+        )
+        meta = layout.discover_metadata()
+        assert meta["ID"].iloc[0] == "uuid-a_MALDI1"
+
+    def test_none_preserves_legacy_behaviour(self, tmp_path):
+        """Without ``id_transform``, per-replicate IDs are kept (legacy)."""
+        self._make_metadata(tmp_path, codes=["uuid-a_MALDI1", "uuid-a_MALDI2"])
+        layout = DRIAMSLayout(tmp_path)
+        meta = layout.discover_metadata()
+        assert len(meta) == 2
+
+    def test_replicate_warning_fires_when_transform_omitted(self, tmp_path, caplog):
+        """A one-time log warning points at the fix when replicates are detected."""
+        import logging as _logging
+
+        self._make_metadata(
+            tmp_path,
+            codes=[
+                "uuid-a_MALDI1",
+                "uuid-a_MALDI2",
+                "uuid-b_MALDI1",
+            ],
+        )
+        caplog.clear()
+        with caplog.at_level(
+            _logging.WARNING, logger="maldiamrkit.data.dataset_layouts"
+        ):
+            DRIAMSLayout(tmp_path).discover_metadata()
+        msgs = [r.message for r in caplog.records if r.levelno >= _logging.WARNING]
+        assert any("_MALDI" in m for m in msgs)
+
+    def test_replicate_warning_silenced_by_identity_transform(self, tmp_path, caplog):
+        """Passing any ``id_transform`` (even ``str``) acknowledges the issue."""
+        import logging as _logging
+
+        self._make_metadata(
+            tmp_path,
+            codes=["uuid-a_MALDI1", "uuid-a_MALDI2"],
+        )
+        caplog.clear()
+        with caplog.at_level(
+            _logging.WARNING, logger="maldiamrkit.data.dataset_layouts"
+        ):
+            # ``str`` is an identity transform on strings - opts out
+            # of deduplication but silences the warning.
+            DRIAMSLayout(tmp_path, id_transform=str).discover_metadata()
+        msgs = [r.message for r in caplog.records]
+        assert not any("_MALDI" in m for m in msgs)
+
+    def test_no_warning_when_ids_are_replicate_free(self, tmp_path, caplog):
+        """A dataset without ``_MALDI<N>`` suffixes produces no warning."""
+        import logging as _logging
+
+        self._make_metadata(tmp_path, codes=["sample-a", "sample-b", "sample-c"])
+        caplog.clear()
+        with caplog.at_level(
+            _logging.WARNING, logger="maldiamrkit.data.dataset_layouts"
+        ):
+            DRIAMSLayout(tmp_path).discover_metadata()
+        msgs = [r.message for r in caplog.records]
+        assert not any("_MALDI" in m for m in msgs)
+
+
 class TestMARISMaLayout:
     """Tests for MARISMaLayout navigation."""
 
