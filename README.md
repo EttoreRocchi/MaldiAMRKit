@@ -22,6 +22,7 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="https://maldiamrkit.readthedocs.io/">Documentation</a> •
   <a href="#tutorials">Tutorials</a> •
+  <a href="#maldisuite-ecosystem">MaldiSuite</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#citing">Citing</a> •
   <a href="#license">License</a>
@@ -32,6 +33,16 @@
 ```bash
 pip install maldiamrkit
 ```
+
+### Install the full MaldiSuite
+
+To install MaldiAMRKit together with [MaldiBatchKit](https://github.com/EttoreRocchi/MaldiBatchKit) and [MaldiDeepKit](https://github.com/EttoreRocchi/MaldiDeepKit) at compatible versions, install the [`maldisuite`](https://pypi.org/project/maldisuite/) meta-package:
+
+```bash
+pip install maldisuite
+```
+
+Visit the **MaldiSuite** landing page at <https://ettorerocchi.github.io/MaldiSuite/>.
 
 ### Optional: Batch Correction & UMAP
 
@@ -172,6 +183,16 @@ For more detailed examples, see the notebooks:
 - [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
 - [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
 - [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
+
+## MaldiSuite Ecosystem
+
+MaldiAMRKit is the data-model and preprocessing package of the **MaldiSuite** ecosystem:
+
+- **MaldiAMRKit** (this package) - data model (`MaldiSpectrum`, `MaldiSet`), preprocessing, alignment, peak detection, differential analysis, and AMR-aware evaluation.
+- **[MaldiBatchKit](https://github.com/EttoreRocchi/MaldiBatchKit)** - batch-effect correction and harmonisation for multi-centre / multi-instrument MALDI-TOF spectra.
+- **[MaldiDeepKit](https://github.com/EttoreRocchi/MaldiDeepKit)** - sklearn-compatible deep learning classifiers (MLP, CNN, ResNet, Transformer).
+
+The three packages share the `MaldiSet` / `MaldiSpectrum` data model and are designed to compose in a single end-to-end pipeline. Install the full suite with `pip install maldisuite`. Landing page: [MaldiSuite](<https://ettorerocchi.github.io/MaldiSuite/>).
 
 ## Contributing
 
