@@ -169,8 +169,8 @@ print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 ```
 
 For more examples covering alignment, filtering, evaluation, CLI usage, and more, see the
-[Quickstart Guide](https://maldiamrkit.readthedocs.io/quickstart.html) and
-[API Reference](https://maldiamrkit.readthedocs.io/api/index.html).
+[Quickstart Guide](https://maldiamrkit.readthedocs.io/en/latest/quickstart.html) and
+[API Reference](https://maldiamrkit.readthedocs.io/en/latest/api/index.html).
 
 ## Tutorials
 
@@ -183,6 +183,8 @@ For more detailed examples, see the notebooks:
 - [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
 - [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
 - [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
+
+Notebooks `01`-`03` run on the small example dataset bundled under [`data/`](data/). Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
 
 ## MaldiSuite Ecosystem
 
@@ -204,7 +206,7 @@ If you use MaldiAMRKit in your research, please cite:
 
 > Rocchi, E., Nicitra, E., Calvo, M. et al. *Combining mass spectrometry and machine learning models for predicting Klebsiella pneumoniae antimicrobial resistance: a multicenter experience from clinical isolates in Italy*. **BMC Microbiol** (2026). [doi:10.1186/s12866-025-04657-2](https://link.springer.com/article/10.1186/s12866-025-04657-2)
 
-See the [full publications list](https://maldiamrkit.readthedocs.io/papers.html) for more papers using MaldiAMRKit.
+See the [full publications list](https://maldiamrkit.readthedocs.io/en/latest/papers.html) for more papers using MaldiAMRKit.
 
 ## License
 
