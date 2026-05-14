@@ -271,20 +271,33 @@ def plot_pca(
         phenotype, batch).
     n_components : int, default=2
         Number of principal components.
+    random_state : int or None, default=42
+        Random seed forwarded to :class:`sklearn.decomposition.PCA` for
+        reproducibility.  Pass ``None`` for non-deterministic results.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. If ``None``, a new figure is created.
     palette : str or dict, optional
         Colormap name or ``{label: color}`` mapping.
+    label_map : dict, optional
+        Map raw label values to display strings shown in the legend.
+        Defaults to the S/I/R and 0/1 → susceptible/resistant mapping;
+        user values override entries in the default map.
     title : str, optional
         Plot title. Defaults to ``"PCA"``.
     figsize : tuple of float, default=(8, 6)
         Figure size (only used when *ax* is ``None``).
     alpha : float, default=0.7
         Point transparency.
-    s : float, default=20
-        Marker size.
+    s : float, optional
+        Marker size.  When ``None`` (the default), auto-scales with
+        sample count (``max(8, 2000/n)``).
     legend : bool, default=True
         Whether to show a legend.
+    legend_loc : str, default="best"
+        ``matplotlib`` legend location string (e.g. ``"upper right"``)
+        or ``"outside"`` to place the legend outside the axes.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
         Call ``plt.show()`` at the end.
     **pca_kwargs : dict
@@ -370,16 +383,26 @@ def plot_tsne(
         Axes to draw on.
     palette : str or dict, optional
         Colormap name or ``{label: color}`` mapping.
+    label_map : dict, optional
+        Map raw label values to display strings shown in the legend.
+        Defaults to the S/I/R and 0/1 → susceptible/resistant mapping;
+        user values override entries in the default map.
     title : str, optional
         Plot title. Defaults to ``"t-SNE"``.
     figsize : tuple of float, default=(8, 6)
         Figure size.
     alpha : float, default=0.7
         Point transparency.
-    s : float, default=20
-        Marker size.
+    s : float, optional
+        Marker size.  When ``None`` (the default), auto-scales with
+        sample count (``max(8, 2000/n)``).
     legend : bool, default=True
         Whether to show a legend.
+    legend_loc : str, default="best"
+        ``matplotlib`` legend location string (e.g. ``"upper right"``)
+        or ``"outside"`` to place the legend outside the axes.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
         Call ``plt.show()`` at the end.
     **tsne_kwargs : dict
@@ -463,20 +486,33 @@ def plot_umap(
         UMAP ``n_neighbors`` parameter.
     min_dist : float, default=0.1
         UMAP ``min_dist`` parameter.
+    random_state : int or None, default=42
+        Random seed for reproducibility.  Pass ``None`` for
+        non-deterministic results.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on.
     palette : str or dict, optional
         Colormap name or ``{label: color}`` mapping.
+    label_map : dict, optional
+        Map raw label values to display strings shown in the legend.
+        Defaults to the S/I/R and 0/1 → susceptible/resistant mapping;
+        user values override entries in the default map.
     title : str, optional
         Plot title. Defaults to ``"UMAP"``.
     figsize : tuple of float, default=(8, 6)
         Figure size.
     alpha : float, default=0.7
         Point transparency.
-    s : float, default=20
-        Marker size.
+    s : float, optional
+        Marker size.  When ``None`` (the default), auto-scales with
+        sample count (``max(8, 2000/n)``).
     legend : bool, default=True
         Whether to show a legend.
+    legend_loc : str, default="best"
+        ``matplotlib`` legend location string (e.g. ``"upper right"``)
+        or ``"outside"`` to place the legend outside the axes.
+    grid : bool, default=True
+        Draw a faint background grid.
     show : bool, default=True
         Call ``plt.show()`` at the end.
     **umap_kwargs : dict

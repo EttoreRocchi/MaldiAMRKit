@@ -44,7 +44,7 @@ def plot_reference_drift(
     figsize : tuple of float, default=(10, 4)
         Figure size in inches (only used when ``ax`` is ``None``).
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Whether to call ``plt.show()``.
 
     Returns
     -------
@@ -130,7 +130,7 @@ def plot_pca_drift(
     figsize : tuple of float, default=(8, 6)
         Figure size in inches (only used when ``ax`` is ``None``).
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Whether to call ``plt.show()``.
 
     Returns
     -------
@@ -268,7 +268,7 @@ def plot_peak_stability(
     figsize : tuple of float, default=(10, 4)
         Figure size in inches.
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Whether to call ``plt.show()``.
 
     Returns
     -------
@@ -354,7 +354,7 @@ def plot_effect_size_drift(
         Draw dashed guides at Cohen's d = ±0.5 (medium effect) and
         ±0.8 (large effect).
     show : bool, default=True
-        Whether to call :func:`matplotlib.pyplot.show`.
+        Whether to call ``plt.show()``.
 
     Returns
     -------

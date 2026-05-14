@@ -75,9 +75,14 @@ pip install -e .[dev]
 - **Peak Detection**: Local maxima and persistent homology methods
 
 ### Evaluation
-- **AMR Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report` following EUCAST/CLSI conventions
-- **Label Encoding**: `LabelEncoder` for mapping R/I/S to binary with configurable intermediate handling
+- **AMR Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report` following EUCAST conventions
+- **`mic_regression_report`**: RMSE in log2 dilutions, essential agreement (±1 dilution), and categorical agreement after re-binning to S/I/R - the regression counterpart to `amr_classification_report`
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
+
+### Susceptibility (MIC encoding & breakpoints)
+- **`MICEncoder`**: Convert raw MIC strings into `log2(MIC)` regression targets plus S/I/R categories and ATU flags in a single pass
+- **`BreakpointTable`**: Clinical breakpoint tables (EUCAST v1.0-v16.0 bundled) loaded by version, year, latest, or custom YAML
+- **`LabelEncoder`**: Map R/I/S to binary with configurable intermediate handling (moved from `maldiamrkit.evaluation` in v0.15)
 
 ### Differential Analysis
 - **`DifferentialAnalysis`**: Per-bin statistical testing (Mann-Whitney U, Welch's t-test) between resistant and susceptible groups, with multiple-testing correction, log2 fold change, and Cohen's d effect size
@@ -124,7 +129,7 @@ spec.bin(bin_width=3)  # 3 Da bins
 
 # Visualize
 from maldiamrkit.visualization import plot_spectrum
-plot_spectrum(spec, binned=True)
+plot_spectrum(spec, stage="binned")
 ```
 
 ### Build a Dataset from Multiple Spectra
@@ -183,8 +188,9 @@ For more detailed examples, see the notebooks:
 - [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
 - [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
 - [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
+- [Susceptibility](notebooks/08_susceptibility.ipynb) - `MICEncoder` + `BreakpointTable` for log2(MIC) regression targets, S/I/R categorisation with ATU, and `mic_regression_report` evaluation
 
-Notebooks `01`-`03` run on the small example dataset bundled under [`data/`](data/). Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
+Notebooks `01`-`03` and `08` run on the small example dataset bundled under [`data/`](data/) or are fully self-contained. Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
 
 ## MaldiSuite Ecosystem
 

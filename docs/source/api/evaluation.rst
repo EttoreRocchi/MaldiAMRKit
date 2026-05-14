@@ -1,8 +1,17 @@
 Evaluation Module
 =================
 
-AMR-specific evaluation metrics, stratified splitting utilities, and label
-encoding following EUCAST/CLSI conventions.
+.. py:module:: maldiamrkit.evaluation
+
+AMR-specific evaluation metrics and stratified splitting utilities, following
+EUCAST conventions.
+
+.. note::
+
+   ``LabelEncoder`` and ``IntermediateHandling`` moved to the
+   :doc:`Susceptibility module <susceptibility>` in v0.15. Importing them
+   from ``maldiamrkit.evaluation`` still works but emits a
+   :class:`DeprecationWarning` and will be removed in v0.17.
 
 Metrics
 -------
@@ -22,6 +31,8 @@ Metrics
 .. autofunction:: maldiamrkit.evaluation.amr_classification_report
 
 .. autofunction:: maldiamrkit.evaluation.amr_multilabel_report
+
+.. autofunction:: maldiamrkit.evaluation.mic_regression_report
 
 Sklearn Scorers
 ~~~~~~~~~~~~~~~
@@ -107,40 +118,6 @@ Splitting Example
     for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
         pass
 
-Label Encoding
---------------
-
-.. autoclass:: maldiamrkit.evaluation.LabelEncoder
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. autoclass:: maldiamrkit.evaluation.IntermediateHandling
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Label Encoding Example
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-    from maldiamrkit.evaluation import LabelEncoder
-
-    enc = LabelEncoder()  # I -> susceptible (default)
-    y_binary = enc.fit_transform(["R", "S", "I", "R", "S"])
-    # array([1, 0, 0, 1, 0])
-
-    # Treat intermediate as resistant
-    enc = LabelEncoder(intermediate="resistant")
-    y_binary = enc.fit_transform(["R", "S", "I"])
-    # array([1, 0, 1])
-
-    # Drop intermediate samples entirely
-    enc = LabelEncoder(intermediate="drop")
-    y_binary = enc.fit_transform(["R", "S", "I"])
-    # array([1, 0])
-
 Multi-Drug Evaluation
 ---------------------
 
@@ -148,7 +125,8 @@ For predicting resistance to multiple antibiotics simultaneously:
 
 .. code-block:: python
 
-    from maldiamrkit.evaluation import LabelEncoder, amr_multilabel_report
+    from maldiamrkit.susceptibility import LabelEncoder
+    from maldiamrkit.evaluation import amr_multilabel_report
     from sklearn.multioutput import MultiOutputClassifier
     from sklearn.ensemble import RandomForestClassifier
 

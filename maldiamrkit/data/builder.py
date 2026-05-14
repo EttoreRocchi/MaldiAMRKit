@@ -29,6 +29,12 @@ from ..preprocessing.binning import _uniform_edges, bin_spectrum
 from ..preprocessing.pipeline import preprocess
 from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .input_layouts import InputLayout
+from .site_info import (
+    BuildInfo,
+    SiteInfo,
+    _current_iso_utc,
+    write_site_info,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -332,6 +338,15 @@ class DatasetBuilder:
         if self.on_error == "raise" and failed_ids:
             raise RuntimeError(f"{len(failed_ids)} spectra failed: {failed_ids}")
 
+        self._write_manifest(
+            all_folders=all_folders,
+            mz_min=mz_min,
+            mz_max=mz_max,
+            n_total=len(sorted_ids),
+            n_succeeded=len(succeeded_ids),
+            n_failed=len(failed_ids),
+        )
+
         return BuildReport(
             total=len(sorted_ids),
             succeeded=len(succeeded_ids),
@@ -340,6 +355,57 @@ class DatasetBuilder:
             output_dir=self.output_dir,
             folders_created=all_folders,
         )
+
+    def _write_manifest(
+        self,
+        *,
+        all_folders: list[str],
+        mz_min: float,
+        mz_max: float,
+        n_total: int,
+        n_succeeded: int,
+        n_failed: int,
+    ) -> None:
+        """Write ``site_info.json`` describing this build.
+
+        Failures are logged but never raise: a missing manifest is
+        tolerated by readers, so a write error should not invalidate
+        an otherwise-successful build.
+        """
+        from .. import __version__ as _maldiamrkit_version
+
+        dup_attr = getattr(self.layout, "duplicate_strategy", None)
+        dup_str: str | None
+        if dup_attr is None:
+            dup_str = None
+        else:
+            dup_str = getattr(dup_attr, "value", None) or str(dup_attr)
+
+        spectrum_ext = getattr(self.layout, "spectrum_ext", ".txt") or ".txt"
+
+        manifest = SiteInfo(
+            id_column=self.id_column,
+            metadata_dir=self.metadata_dir,
+            metadata_suffix=self.metadata_suffix,
+            spectrum_ext=spectrum_ext,
+            spectra_folders=list(all_folders),
+            mz_range=(float(mz_min), float(mz_max)),
+            bin_width=float(self.bin_width),
+            build_info=BuildInfo(
+                maldiamrkit_version=str(_maldiamrkit_version),
+                created_at=_current_iso_utc(),
+                source_layout=type(self.layout).__name__,
+                duplicate_strategy=dup_str,
+                n_total_spectra=int(n_total),
+                n_succeeded=int(n_succeeded),
+                n_failed=int(n_failed),
+            ),
+        )
+
+        try:
+            write_site_info(self.output_dir, manifest)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Failed to write site_info.json: %s", exc)
 
     def _match_ids(
         self, spectrum_paths: list[Path], meta: pd.DataFrame

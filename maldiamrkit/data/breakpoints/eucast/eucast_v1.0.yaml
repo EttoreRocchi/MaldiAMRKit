@@ -1,0 +1,1334 @@
+guideline: EUCAST
+version: '1.0'
+source: EUCAST Clinical Breakpoints v1.0 (auto-converted)
+rows:
+- species: Enterobacteriaceae
+  drug: Piperacillin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Enterobacteriaceae
+  drug: Piperacillin-tazobactam
+  s_le: 8.0
+  r_gt: 16.0
+  atu_low: 30.0
+  atu_high: 6.0
+- species: Enterobacteriaceae
+  drug: Ticarcillin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Enterobacteriaceae
+  drug: Ticarcillin-clavulanate
+  s_le: 8.0
+  r_gt: 16.0
+  atu_low: 75.0
+  atu_high: 10.0
+- species: Enterobacteriaceae
+  drug: Mecillinam (uncomplicated UTI only)
+  s_le: 8.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Cefadroxil (uncomplicated UTI only)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Enterobacteriaceae
+  drug: Cefalexin   (uncomplicated UTI only)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Enterobacteriaceae
+  drug: Cefepime
+  s_le: 1.0
+  r_gt: 8.0
+- species: Enterobacteriaceae
+  drug: Cefixime (uncomplicated UTI only)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacteriaceae
+  drug: Cefotaxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacteriaceae
+  drug: Cefpodoxime (uncomplicated UTI only)
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Ceftazidime
+  s_le: 1.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Ceftibuten (uncomplicated UTI only)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacteriaceae
+  drug: Ceftriaxone
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacteriaceae
+  drug: Cefuroxime
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacteriaceae
+  drug: Cefuroxime axetil (uncomplicated UTI only)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacteriaceae
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Aztreonam
+  s_le: 1.0
+  r_gt: 8.0
+- species: Enterobacteriaceae
+  drug: Ciprofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Enterobacteriaceae
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacteriaceae
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Enterobacteriaceae
+  drug: Norfloxacin
+  s_le: 0.5
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Ofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Enterobacteriaceae
+  drug: Amikacin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Enterobacteriaceae
+  drug: Gentamicin
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Netilmicin
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Tobramycin
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Tigecycline
+  s_le: 1.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Chloramphenicol
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacteriaceae
+  drug: Colistin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacteriaceae
+  drug: Fosfomycin iv
+  s_le: 32.0
+  r_gt: 32.0
+- species: Enterobacteriaceae
+  drug: Fosfomycin-trometamol (uncomplicated UTI only)
+  s_le: 32.0
+  r_gt: 32.0
+- species: Enterobacteriaceae
+  drug: Nitrofurantoin (uncomplicated UTI only)
+  s_le: 64.0
+  r_gt: 64.0
+  atu_low: 1.0
+- species: Enterobacteriaceae
+  drug: Trimethoprim (uncomplicated UTI only)
+  s_le: 2.0
+  r_gt: 4.0
+- species: Enterobacteriaceae
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Pseudomonas spp.
+  drug: Piperacillin
+  s_le: 16.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Piperacillin-tazobactam
+  s_le: 16.0
+  r_gt: 16.0
+  atu_low: 30.0
+  atu_high: 6.0
+- species: Pseudomonas spp.
+  drug: Ticarcillin
+  s_le: 16.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Ticarcillin-clavulanate2,
+  s_le: 16.0
+  r_gt: 16.0
+  atu_low: 75.0
+  atu_high: 10.0
+- species: Pseudomonas spp.
+  drug: Cefepime
+  s_le: 8.0
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Ceftazidime
+  s_le: 8.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Imipenem
+  s_le: 4.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Aztreonam
+  s_le: 1.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Ciprofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Pseudomonas spp.
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Amikacin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Gentamicin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Netilmicin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Tobramycin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Pseudomonas spp.
+  drug: Colistin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Fosfomycin iv
+  s_le: 32.0
+  r_gt: 32.0
+- species: Pseudomonas spp.
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Acinetobacter spp.
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Ciprofloxacin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Acinetobacter spp.
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Amikacin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Acinetobacter spp.
+  drug: Gentamicin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Netilmicin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Tobramycin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Acinetobacter spp.
+  drug: Colistin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Streptococcus groups A, B, C and G
+  drug: Benzylpenicillin
+  s_le: 0.25
+  r_gt: 0.25
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Telithromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Tigecycline
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Chloramphenicol
+  s_le: 8.0
+  r_gt: 8.0
+- species: Streptococcus groups A, B, C and G
+  drug: Daptomycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Nitrofurantoin (uncomplicated UTI only)
+  s_le: 64.0
+  r_gt: 64.0
+  atu_low: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Rifampicin
+  s_le: 0.06
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 1.0
+  r_gt: 2.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Streptococcus pneumoniae
+  drug: Benzylpenicillin
+  s_le: 0.06
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Streptococcus pneumoniae
+  drug: Ampicillin
+  s_le: 0.5
+  r_gt: 2.0
+  atu_low: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefaclor
+  s_le: 0.03
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Cefepime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefotaxime
+  s_le: 0.5
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefpodoxime
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus pneumoniae
+  drug: Ceftriaxone
+  s_le: 0.5
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefuroxime
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Cefuroxime axetil
+  s_le: 0.25
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Meropenem (infections other than meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Ciprofloxacin
+  s_le: 0.12
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Levofloxacin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Ofloxacin
+  s_le: 0.12
+  r_gt: 4.0
+- species: Streptococcus pneumoniae
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus pneumoniae
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Telithromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Streptococcus pneumoniae
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 2.0
+- species: Streptococcus pneumoniae
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Chloramphenicol
+  s_le: 8.0
+  r_gt: 8.0
+- species: Streptococcus pneumoniae
+  drug: Linezolid
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 1.0
+- species: Streptococcus pneumoniae
+  drug: Rifampicin
+  s_le: 0.06
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 1.0
+  r_gt: 2.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Other streptococci
+  drug: Benzylpenicillin
+  s_le: 0.25
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Other streptococci
+  drug: Ampicillin
+  s_le: 0.5
+  r_gt: 2.0
+  atu_low: 2.0
+- species: Other streptococci
+  drug: Amoxicillin
+  s_le: 0.5
+  r_gt: 2.0
+- species: Other streptococci
+  drug: Cefazolin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Other streptococci
+  drug: Cefepime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Other streptococci
+  drug: Cefotaxime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Other streptococci
+  drug: Ceftriaxone
+  s_le: 0.5
+  r_gt: 0.5
+- species: Other streptococci
+  drug: Cefuroxime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Other streptococci
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Other streptococci
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Other streptococci
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Other streptococci
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Other streptococci
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Other streptococci
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Other streptococci
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 2.0
+- species: Haemophilus influenzae
+  drug: Ampicillin
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 2.0
+- species: Haemophilus influenzae
+  drug: Ampicillin-sulbactam
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 10.0
+  atu_high: 10.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin-clavulanate
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 20.0
+  atu_high: 10.0
+- species: Haemophilus influenzae
+  drug: Cefaclor
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Cefepime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Haemophilus influenzae
+  drug: Cefixime
+  s_le: 0.12
+  r_gt: 0.12
+- species: Haemophilus influenzae
+  drug: Cefotaxime
+  s_le: 0.12
+  r_gt: 0.12
+- species: Haemophilus influenzae
+  drug: Cefpodoxime
+  s_le: 0.25
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Ceftibuten
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Ceftriaxone
+  s_le: 0.12
+  r_gt: 0.12
+- species: Haemophilus influenzae
+  drug: Cefuroxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Cefuroxime axetil
+  s_le: 0.12
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Meropenem (infections other than meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Ciprofloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Ofloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Azithromycin
+  s_le: 0.12
+  r_gt: 4.0
+- species: Haemophilus influenzae
+  drug: Clarithromycin
+  s_le: 1.0
+  r_gt: 32.0
+- species: Haemophilus influenzae
+  drug: Erythromycin
+  s_le: 0.5
+  r_gt: 16.0
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Roxithromycin
+  s_le: 1.0
+  r_gt: 16.0
+- species: Haemophilus influenzae
+  drug: Telithromycin
+  s_le: 0.12
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Haemophilus influenzae
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Minocycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Chloramphenicol
+  s_le: 1.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Rifampicin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 0.5
+  r_gt: 1.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Moraxella catarrhalis
+  drug: Ampicillin
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Ampicillin-sulbactam
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 10.0
+  atu_high: 10.0
+- species: Moraxella catarrhalis
+  drug: Amoxicillin
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Amoxicillin-clavulanate
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 20.0
+  atu_high: 10.0
+- species: Moraxella catarrhalis
+  drug: Cefaclor
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Cefepime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Cefixime
+  s_le: 0.5
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Cefotaxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Cefpodoxime
+  s_le: 0.25
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Ceftibuten
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Ceftriaxone
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Cefuroxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Cefuroxime axetil
+  s_le: 0.12
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Ciprofloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Ofloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Azithromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Telithromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Moraxella catarrhalis
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Minocycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Chloramphenicol
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Rifampicin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Trimethoprim-sulfamethoxazole (co-trimoxazole)
+  s_le: 0.5
+  r_gt: 1.0
+  atu_low: 1.25
+  atu_high: 23.75
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Benzylpenicillin
+  s_le: 0.06
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Cefixime
+  s_le: 0.12
+  r_gt: 0.12
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Cefotaxime
+  s_le: 0.12
+  r_gt: 0.12
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Ceftriaxone
+  s_le: 0.12
+  r_gt: 0.12
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Ciprofloxacin
+  s_le: 0.03
+  r_gt: 0.06
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Ofloxacin
+  s_le: 0.12
+  r_gt: 0.25
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Tetracycline
+  s_le: 0.5
+  r_gt: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    gonorrhoeae have not yet been determined.
+  drug: Spectinomycin
+  s_le: 64.0
+  r_gt: 64.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Benzylpenicillin
+  s_le: 0.06
+  r_gt: 0.25
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Ampicillin
+  s_le: 0.12
+  r_gt: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Amoxicillin
+  s_le: 0.12
+  r_gt: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Cefotaxime
+  s_le: 0.12
+  r_gt: 0.12
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Ceftriaxone
+  s_le: 0.12
+  r_gt: 0.12
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Meropenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Ciprofloxacin
+  s_le: 0.03
+  r_gt: 0.06
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Minocycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Chloramphenicol
+  s_le: 2.0
+  r_gt: 4.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of Neisseria
+    meningitidis have not yet been determined.
+  drug: Rifampicin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Benzylpenicillin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ampicillin
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ampicillin-sulbactam
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Amoxicillin
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Amoxicillin-clavulanate
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Piperacillin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Piperacillin-tazobactam
+  s_le: 8.0
+  r_gt: 16.0
+  atu_low: 30.0
+  atu_high: 6.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ticarcillin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ticarcillin-clavulanate
+  s_le: 8.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ertapenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Clindamycin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Chloramphenicol
+  s_le: 8.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Metronidazole
+  s_le: 4.0
+  r_gt: 4.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Benzylpenicillin
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ampicillin
+  s_le: 0.5
+  r_gt: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ampicillin-sulbactam
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Amoxicillin
+  s_le: 0.5
+  r_gt: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Amoxicillin-clavulanate
+  s_le: 4.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Piperacillin
+  s_le: 16.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Piperacillin-tazobactam
+  s_le: 8.0
+  r_gt: 16.0
+  atu_low: 30.0
+  atu_high: 6.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ticarcillin
+  s_le: 16.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ticarcillin-clavulanate
+  s_le: 8.0
+  r_gt: 16.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Ertapenem
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+  atu_low: 1.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Clindamycin
+  s_le: 4.0
+  r_gt: 4.0
+  atu_low: 2.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Chloramphenicol
+  s_le: 8.0
+  r_gt: 8.0
+- species: Disk diffusion criteria for antimicrobial susceptibility testing of anaerobes
+    have not yet been determined.
+  drug: Metronidazole
+  s_le: 4.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Benzylpenicillin
+  s_le: 0.25
+  r_gt: 2.0
+- species: Non-species related breakpoints
+  drug: Ampicillin
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Ampicillin-sulbactam
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Amoxicillin
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Amoxicillin-clavulanate
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Piperacillin
+  s_le: 4.0
+  r_gt: 16.0
+- species: Non-species related breakpoints
+  drug: Piperacillin-tazobactam
+  s_le: 4.0
+  r_gt: 16.0
+- species: Non-species related breakpoints
+  drug: Ticarcillin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Non-species related breakpoints
+  drug: Ticarcillin-clavulanate
+  s_le: 8.0
+  r_gt: 16.0
+- species: Non-species related breakpoints
+  drug: Cefazolin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Non-species related breakpoints
+  drug: Cefepime
+  s_le: 4.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Cefotaxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Non-species related breakpoints
+  drug: Ceftazidime
+  s_le: 4.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Ceftriaxone
+  s_le: 1.0
+  r_gt: 2.0
+- species: Non-species related breakpoints
+  drug: Cefuroxime
+  s_le: 4.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 1.0
+- species: Non-species related breakpoints
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Aztreonam
+  s_le: 4.0
+  r_gt: 8.0
+- species: Non-species related breakpoints
+  drug: Ciprofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Non-species related breakpoints
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 2.0
+- species: Non-species related breakpoints
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Non-species related breakpoints
+  drug: Norfloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Non-species related breakpoints
+  drug: Ofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Non-species related breakpoints
+  drug: Amikacin
+  s_le: 8.0
+  r_gt: 16.0
+- species: Non-species related breakpoints
+  drug: Gentamicin
+  s_le: 2.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Netilmicin
+  s_le: 2.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Tobramycin
+  s_le: 2.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 4.0
+- species: Non-species related breakpoints
+  drug: Tigecycline
+  s_le: 0.25
+  r_gt: 0.5
+- species: Non-species related breakpoints
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 4.0
+year: 2010

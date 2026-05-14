@@ -49,7 +49,12 @@ where = ["."]
 include = ["maldiamrkit*"]
 
 [tool.setuptools.package-data]
-maldiamrkit = ["py.typed"]
+maldiamrkit = [
+    "py.typed",
+    "data/breakpoints/*.yaml",
+    "data/breakpoints/eucast/*.yaml",
+    "data/breakpoints/eucast/README.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

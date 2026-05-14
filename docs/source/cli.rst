@@ -85,7 +85,7 @@ Pipeline Configuration
 
 The ``--pipeline`` option accepts a JSON or YAML file describing the
 preprocessing steps. When omitted, the default pipeline is used
-(see :meth:`~maldiamrkit.preprocessing.preprocessing_pipeline.PreprocessingPipeline.default`).
+(see :meth:`~maldiamrkit.preprocessing.PreprocessingPipeline.default`).
 
 .. code-block:: yaml
 

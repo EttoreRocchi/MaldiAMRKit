@@ -13,6 +13,7 @@ organized by module.
    alignment
    detection
    evaluation
+   susceptibility
    similarity
    differential
    drift
@@ -51,11 +52,14 @@ Preprocessing
    maldiamrkit.preprocessing.preprocess
    maldiamrkit.preprocessing.bin_spectrum
    maldiamrkit.preprocessing.get_bin_metadata
+   maldiamrkit.preprocessing.BinningMethod
    maldiamrkit.preprocessing.estimate_snr
    maldiamrkit.preprocessing.SpectrumQuality
    maldiamrkit.preprocessing.SpectrumQualityReport
+   maldiamrkit.preprocessing.SignalMethod
    maldiamrkit.preprocessing.merge_replicates
    maldiamrkit.preprocessing.detect_outlier_replicates
+   maldiamrkit.preprocessing.MergingMethod
 
 Transformers
 ~~~~~~~~~~~~
@@ -88,6 +92,7 @@ Alignment
    maldiamrkit.alignment.RawWarping
    maldiamrkit.alignment.create_raw_input
    maldiamrkit.alignment.AlignmentStrategy
+   maldiamrkit.alignment.AlignmentMethod
 
 Peak Detection
 --------------
@@ -96,6 +101,7 @@ Peak Detection
    :nosignatures:
 
    maldiamrkit.detection.MaldiPeakDetector
+   maldiamrkit.detection.PeakMethod
 
 Evaluation
 ----------
@@ -119,18 +125,18 @@ Reports
    :nosignatures:
 
    maldiamrkit.evaluation.amr_classification_report
+   maldiamrkit.evaluation.mic_regression_report
    maldiamrkit.evaluation.amr_multilabel_report
    maldiamrkit.evaluation.vme_me_curve
 
-Scorers & Encoding
-~~~~~~~~~~~~~~~~~~
+Scorers
+~~~~~~~
 
 .. autosummary::
    :nosignatures:
 
    maldiamrkit.evaluation.vme_scorer
    maldiamrkit.evaluation.me_scorer
-   maldiamrkit.evaluation.LabelEncoder
 
 Splitting
 ~~~~~~~~~
@@ -143,6 +149,20 @@ Splitting
    maldiamrkit.evaluation.SpeciesDrugStratifiedKFold
    maldiamrkit.evaluation.CaseGroupedKFold
 
+Susceptibility
+--------------
+
+MIC encoding, clinical breakpoint tables, and R/I/S label encoding.
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.susceptibility.MICEncoder
+   maldiamrkit.susceptibility.BreakpointTable
+   maldiamrkit.susceptibility.BreakpointResult
+   maldiamrkit.susceptibility.LabelEncoder
+   maldiamrkit.susceptibility.IntermediateHandling
+
 Similarity
 ----------
 
@@ -150,9 +170,16 @@ Similarity
    :nosignatures:
 
    maldiamrkit.similarity.spectral_distance
+   maldiamrkit.similarity.SpectralMetric
    maldiamrkit.similarity.pairwise_distances
    maldiamrkit.similarity.cluster_spectra
    maldiamrkit.similarity.hierarchical_clustering
+   maldiamrkit.similarity.hdbscan_clustering
+   maldiamrkit.similarity.kmedoids_clustering
+   maldiamrkit.similarity.silhouette_scores
+   maldiamrkit.similarity.cluster_metadata_concordance
+   maldiamrkit.similarity.ClusteringMethod
+   maldiamrkit.similarity.KMedoidsInit
    maldiamrkit.similarity.plot_distance_heatmap
    maldiamrkit.similarity.plot_dendrogram
 
@@ -256,6 +283,14 @@ Dataset Layouts
    maldiamrkit.data.DatasetLayout
    maldiamrkit.data.DRIAMSLayout
    maldiamrkit.data.MARISMaLayout
+
+Duplicate Handling
+~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.data.DuplicateStrategy
 
 I/O
 ---

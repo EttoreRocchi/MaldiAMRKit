@@ -119,6 +119,18 @@ nitpick_ignore_regex = [
     (r"py:meth", r"PreprocessingPipeline\..*"),
     (r"py:func", r"DatasetBuilder\.build"),
     (r"py:data", r"typing\..*"),
+    (r"py:obj", r"maldiamrkit\.evaluation\.(vme|me)_scorer"),
+    # Numpy-style docstring type annotations that Napoleon parses as
+    # individual class references (e.g. "Series, shape (n, n)").
+    (r"py:class", r"Axes"),
+    (r"py:class", r"DataFrame"),
+    (r"py:class", r"Series"),
+    (r"py:class", r"shape"),
+    (r"py:class", r"n"),
+    (r"py:class", r"n - 1"),
+    (r"py:class", r"None\}"),
+    (r"py:class", r"mz_min"),
+    (r"py:class", r"mz_max"),
 ]
 
 # Static files

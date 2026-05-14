@@ -9,7 +9,7 @@ import pandas as pd
 
 
 class ClusteringMethod(str, Enum):
-    """Supported clustering algorithms for :func:`cluster_spectra`.
+    """Supported clustering algorithms for :func:`~maldiamrkit.similarity.cluster_spectra`.
 
     Attributes
     ----------
@@ -27,7 +27,7 @@ class ClusteringMethod(str, Enum):
 
 
 class KMedoidsInit(str, Enum):
-    """Initialization strategy for :func:`kmedoids_clustering`.
+    """Initialization strategy for :func:`~maldiamrkit.similarity.kmedoids_clustering`.
 
     Attributes
     ----------

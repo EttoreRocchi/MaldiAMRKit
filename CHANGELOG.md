@@ -3,6 +3,22 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.15.0] - 2026-05-14
+
+### Added
+
+- **New `maldiamrkit.susceptibility` submodule** consolidating MIC encoding, clinical breakpoints, and resistance label handling:
+    - `MICEncoder(breakpoints=None)` - sklearn-style transformer producing a tidy DataFrame with `log2_mic`, `censored`, and (when `breakpoints` is provided) `category` (`S`/`I`/`R`), `atu` (Area of Technical Uncertainty flag), and `source` (provenance) columns. One encoder, both regression and classification targets.
+    - `BreakpointTable` - clinical breakpoint table for MIC interpretation. Constructors: `from_version("16.0")`, `from_year(2026)`, `from_yaml(path)`, `from_latest()`, plus `BreakpointTable.list_available()` for discovery. `bp.apply(species, drug, mic)` returns a `BreakpointResult`; `bp.apply_batch(...)` is the vectorised path used by `MICEncoder`.
+    - `BreakpointResult` - dataclass with `category`, `atu`, `source` fields. ATU is treated as an *assay-quality flag* orthogonal to S/I/R (EUCAST `I` = "Susceptible, increased exposure", not "uncertain").
+- **`mic_regression_report(y_true, y_pred, breakpoints=...)`** in `maldiamrkit.evaluation` - regression counterpart to `amr_classification_report`: RMSE / MAE / bias in log2 dilutions, essential agreement (±1 dilution), and (with breakpoints) clinical categorical agreement, very-major-error rate, and major-error rate.
+- **19 vendored EUCAST clinical breakpoint tables** (v1.0 to v16.0) under `maldiamrkit/data/breakpoints/eucast/`, auto-converted from the official EUCAST Excel workbooks.
+- **Self-describing dataset manifest (`site_info.json`)**. `DatasetBuilder.build()` writes a versioned manifest at the dataset root recording loader settings (`id_column`, `metadata_dir`, `metadata_suffix`, `spectrum_ext`, `spectra_folders`, `mz_range`, `bin_width`) plus an optional `build_info` block with provenance. `DRIAMSLayout` reads it at construction and fills in any kwarg the caller omitted; explicit kwargs win, missing manifests fall back to defaults. Format is integer-versioned with a lenient reader (future versions warn but still load if all v1 fields are present).
+
+### Changed
+
+- **`LabelEncoder` and `IntermediateHandling` moved** from `maldiamrkit.evaluation` to `maldiamrkit.susceptibility`. Both old import paths (`from maldiamrkit.evaluation import LabelEncoder` and `from maldiamrkit.evaluation.label_encoder import LabelEncoder`) still work via lazy re-exports that emit `DeprecationWarning`. The shims will be removed in v0.17.
+
 ## [0.14.0] - 2026-04-27
 
 ### Added
@@ -164,7 +180,7 @@ First changelog-tracked release of MaldiAMRKit.
 ### Added
 
 - **Spectral preprocessing**: composable pipeline of transformers (smoothing, baseline correction, normalization, trimming) with multiple binning strategies (uniform, proportional, adaptive, custom) and raw-spectrum alignment (shift, linear, piecewise, DTW).
-- **AMR evaluation**: VME/ME rates, sensitivity, specificity, and classification reports following EUCAST/CLSI conventions; species-drug stratified and case-based splitting to prevent data leakage.
+- **AMR evaluation**: VME/ME rates, sensitivity, specificity, and classification reports following EUCAST conventions; species-drug stratified and case-based splitting to prevent data leakage.
 - **Composable filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, and `MetadataFilter` combinable with `&`, `|`, `~` operators for flexible dataset subsetting.
 - **CLI**: `maldiamrkit preprocess` and `maldiamrkit quality` for batch processing and quality assessment from the command line.
 

@@ -76,7 +76,7 @@ Key Features
       :link-type: url
 
       VME, ME, sensitivity, specificity, and classification reports
-      following EUCAST/CLSI conventions. Species-drug stratified and
+      following EUCAST conventions. Species-drug stratified and
       case-based splitting to prevent data leakage.
 
    .. grid-item-card:: DRIAMS Dataset Builder

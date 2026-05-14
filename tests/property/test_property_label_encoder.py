@@ -6,7 +6,7 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from maldiamrkit.evaluation.label_encoder import LabelEncoder
+from maldiamrkit.susceptibility import LabelEncoder
 
 
 @given(n=st.integers(min_value=1, max_value=100))

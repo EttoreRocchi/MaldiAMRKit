@@ -173,7 +173,7 @@ def plot_dendrogram(
     ----------
     linkage_matrix : ndarray of shape (n - 1, 4)
         Linkage matrix from
-        :func:`~maldiamrkit.similarity.clustering.hierarchical_clustering`.
+        :func:`~maldiamrkit.similarity.hierarchical_clustering`.
     labels : list of str or None, default=None
         Leaf labels.
     ax : Axes or None, default=None

@@ -206,14 +206,12 @@ Select subsets of a dataset using composable filter predicates:
 Evaluation Metrics
 ------------------
 
-Compute AMR-specific metrics following EUCAST/CLSI conventions:
+Compute AMR-specific metrics following EUCAST conventions:
 
 .. code-block:: python
 
-   from maldiamrkit.evaluation import (
-       amr_classification_report, vme_scorer,
-       LabelEncoder,
-   )
+   from maldiamrkit.evaluation import amr_classification_report, vme_scorer
+   from maldiamrkit.susceptibility import LabelEncoder
    from sklearn.model_selection import cross_val_score
 
    # Encode labels
@@ -226,6 +224,38 @@ Compute AMR-specific metrics following EUCAST/CLSI conventions:
 
    # Use VME scorer in cross-validation
    scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
+
+MIC Regression and Breakpoints
+------------------------------
+
+Encode raw MIC strings into ``log2(MIC)`` regression targets and S/I/R
+category labels using a bundled EUCAST breakpoint table:
+
+.. code-block:: python
+
+   from maldiamrkit.susceptibility import BreakpointTable, MICEncoder
+   from maldiamrkit.evaluation import mic_regression_report
+
+   # Load the latest bundled EUCAST table (or BreakpointTable.from_version("16.0"))
+   bp = BreakpointTable.from_latest()
+
+   enc = MICEncoder(
+       breakpoints=bp,
+       species_col="Species",
+       drug="Ceftriaxone",
+   )
+   targets = enc.fit_transform(meta)
+   # Columns: log2_mic, censored, category, atu, source
+
+   # Evaluate regression predictions
+   report = mic_regression_report(
+       y_true=targets["log2_mic"],
+       y_pred=y_pred_log2,
+       breakpoints=bp,
+       species="Klebsiella pneumoniae",
+       drug="Ceftriaxone",
+   )
+   print(report["rmse_log2"], report["essential_agreement"])
 
 Stratified Splitting
 --------------------

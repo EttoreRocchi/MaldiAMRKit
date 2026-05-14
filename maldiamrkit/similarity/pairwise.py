@@ -31,7 +31,7 @@ def pairwise_distances(
         :class:`~maldiamrkit.spectrum.MaldiSpectrum`, raw/preprocessed data
         is used.
     metric : str or SpectralMetric, default="wasserstein"
-        Key in :data:`~maldiamrkit.similarity.metrics.METRIC_REGISTRY`.
+        Key in :data:`~maldiamrkit.similarity.METRIC_REGISTRY`.
     n_jobs : int, default=1
         Number of parallel jobs for pairwise computation.
 

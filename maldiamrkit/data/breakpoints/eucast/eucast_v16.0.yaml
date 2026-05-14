@@ -1,0 +1,2108 @@
+guideline: EUCAST
+version: '16.0'
+source: EUCAST Clinical Breakpoints v16.0 (auto-converted)
+rows:
+- species: Enterobacterales
+  drug: Ampicillin iv
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Ampicillin oral (uncomplicated UTI only)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Ampicillin-sulbactam iv
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Ampicillin-sulbactam oral (uncomplicated UTI only)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin iv
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin oral (infections originating from the urinary tract)
+  s_le: 0.001
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin oral (uncomplicated UTI only)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin oral (other indications)
+  s_le: 0.001
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin-clavulanic acid iv
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin-clavulanic acid oral (infections originating from the urinary
+    tract)
+  s_le: 0.001
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amoxicillin-clavulanic acid oral (uncomplicated UTI only)
+  s_le: 32.0
+  r_gt: 32.0
+- species: Enterobacterales
+  drug: Amoxicillin-clavulanic acid oral (other indications)
+  s_le: 0.001
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Piperacillin
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Piperacillin-tazobactam
+  s_le: 8.0
+  r_gt: 8.0
+  atu_low: 16.0
+- species: Enterobacterales
+  drug: Ticarcillin-clavulanic acid
+  s_le: 8.0
+  r_gt: 16.0
+- species: Enterobacterales
+  drug: Temocillin (infections originating from the urinary tract), E. coli, Klebsiella
+    spp. (except K. aerogenes) and P. mirabilis
+  s_le: 0.001
+  r_gt: 16.0
+- species: Enterobacterales
+  drug: Mecillinam oral (pivmecillinam) (uncomplicated UTI only), E. coli, Citrobacter
+    spp., Klebsiella spp., Raoultella spp., Enterobacter spp. and P. mirabilis
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Cefadroxil (uncomplicated UTI only)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Enterobacterales
+  drug: Cefalexin (uncomplicated UTI only)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Enterobacterales
+  drug: Cefazolin (infections originating from the urinary tract), E. coli and Klebsiella
+    spp. (except K. aerogenes)
+  s_le: 0.001
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Cefepime
+  s_le: 1.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Cefepime-enmetazobactam
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Cefiderocol
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Cefixime (uncomplicated UTI only)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: Cefotaxime (indications other than meningitis)
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Cefotaxime (meningitis)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: "Cefpodoxime \n(uncomplicated UTI only)"
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: Ceftaroline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Ceftazidime
+  s_le: 1.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Ceftazidime-avibactam
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Ceftibuten (infections originating from the urinary tract)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: Ceftobiprole
+  s_le: 0.25
+  r_gt: 0.25
+- species: Enterobacterales
+  drug: Ceftolozane-tazobactam
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Ceftriaxone (indications other than meningitis)
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Ceftriaxone (meningitis)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: Cefuroxime iv, E. coli, Klebsiella spp. (except K. aerogenes), Raoultella
+    spp. and P. mirabilis
+  s_le: 0.001
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Cefuroxime oral (uncomplicated UTI only), E. coli, Klebsiella spp. (except
+    K. aerogenes), Raoultella spp. and P. mirabilis
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Imipenem, Enterobacterales except Morganellaceae
+  s_le: 2.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Imipenem2, Morganellaceae
+  s_le: 0.001
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Imipenem-relebactam, Enterobacterales except Morganellaceae
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Meropenem (indications other than meningitis)
+  s_le: 2.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Meropenem (meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Meropenem-vaborbactam
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Aztreonam
+  s_le: 1.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Aztreonam-avibactam
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterobacterales
+  drug: Ciprofloxacin, Salmonella spp.
+  s_le: 0.06
+  r_gt: 0.06
+- species: Enterobacterales
+  drug: Ciprofloxacin (indications other than meningitis)
+  s_le: 0.25
+  r_gt: 0.5
+  atu_low: 0.5
+- species: Enterobacterales
+  drug: Ciprofloxacin (meningitis)
+  s_le: 0.125
+  r_gt: 0.125
+- species: Enterobacterales
+  drug: Delafloxacin, E. coli
+  s_le: 0.125
+  r_gt: 0.125
+- species: Enterobacterales
+  drug: Levofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Enterobacterales
+  drug: Moxifloxacin, Enterobacterales except Morganella morganii, Proteus spp. and
+    Serratia spp.
+  s_le: 0.25
+  r_gt: 0.25
+- species: Enterobacterales
+  drug: Norfloxacin (uncomplicated UTI only)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Ofloxacin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Amikacin (systemic infections)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Amikacin (infections originating from the urinary tract)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: Gentamicin (systemic infections)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Gentamicin (infections originating from the urinary tract)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Tobramycin (systemic infections)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Tobramycin (infections originating from the urinary tract)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Eravacycline, E. coli
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Tigecycline, E. coli and C. koseri
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: Colistin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: Fosfomycin iv (infections originating from the urinary tract), E. coli
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: "Fosfomycin oral \n(uncomplicated UTI only), E. coli"
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: "Gepotidacin (uncomplicated UTI only), \nE. coli"
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterobacterales
+  drug: "Nitrofurantoin (uncomplicated UTI only), \nE. coli"
+  s_le: 64.0
+  r_gt: 64.0
+- species: Enterobacterales
+  drug: "Nitroxoline (uncomplicated UTI only), \nE. coli"
+  s_le: 16.0
+  r_gt: 16.0
+- species: Enterobacterales
+  drug: Trimethoprim (uncomplicated UTI only), E. coli and Klebsiella spp. (except
+    K. aerogenes)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterobacterales
+  drug: "Trimethoprim-sulfamethoxazole8, \nEnterobacterales except Serratia spp."
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterobacterales
+  drug: "Trimethoprim-sulfamethoxazole8, \nSerratia spp."
+  s_le: 0.001
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Piperacillin
+  s_le: 0.001
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Piperacillin-tazobactam
+  s_le: 0.001
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Ticarcillin-clavulanic acid
+  s_le: 0.001
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Cefepime
+  s_le: 0.001
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Cefiderocol, P. aeruginosa
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Ceftazidime
+  s_le: 0.001
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Ceftazidime-avibactam, P. aeruginosa
+  s_le: 8.0
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Ceftolozane-tazobactam4, P. aeruginosa
+  s_le: 4.0
+  r_gt: 4.0
+- species: Pseudomonas spp.
+  drug: Doripenem
+  s_le: 0.001
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Imipenem
+  s_le: 0.001
+  r_gt: 4.0
+- species: Pseudomonas spp.
+  drug: Imipenem-relebactam, P. aeruginosa
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Meropenem (indications other than meningitis), P. aeruginosa
+  s_le: 2.0
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: "Meropenem (indications other than meningitis), Pseudomonas other than \n\
+    P. aeruginosa"
+  s_le: 2.0
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Meropenem (meningitis), P. aeruginosa
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: "Meropenem-vaborbactam, \nP. aeruginosa"
+  s_le: 8.0
+  r_gt: 8.0
+- species: Pseudomonas spp.
+  drug: Aztreonam
+  s_le: 0.001
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 0.5
+- species: Pseudomonas spp.
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Amikacin (systemic infections)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Amikacin (infections originating from the urinary tract)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Pseudomonas spp.
+  drug: Tobramycin (systemic infections)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Tobramycin (infections originating from the urinary tract)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Pseudomonas spp.
+  drug: Colistin
+  s_le: 4.0
+  r_gt: 4.0
+- species: Stenotrophomonas maltophilia
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.001
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Doripenem
+  s_le: 0.001
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 4.0
+- species: Acinetobacter spp.
+  drug: Meropenem (indications other than meningitis)
+  s_le: 2.0
+  r_gt: 8.0
+- species: Acinetobacter spp.
+  drug: Meropenem (meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 1.0
+- species: Acinetobacter spp.
+  drug: Levofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Acinetobacter spp.
+  drug: Amikacin (systemic infections)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Acinetobacter spp.
+  drug: Amikacin (infections originating from the urinary tract)
+  s_le: 8.0
+  r_gt: 8.0
+- species: Acinetobacter spp.
+  drug: Gentamicin (systemic infections)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Acinetobacter spp.
+  drug: Gentamicin (infections originating from the urinary tract)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Acinetobacter spp.
+  drug: Tobramycin (systemic infections)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Acinetobacter spp.
+  drug: Tobramycin (infections originating from the urinary tract)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Acinetobacter spp.
+  drug: Colistin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Acinetobacter spp.
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Staphylococcus spp.
+  drug: Benzylpenicillin, S. aureus
+  s_le: 0.125
+  r_gt: 0.125
+- species: Staphylococcus spp.
+  drug: Benzylpenicillin, S. lugdunensis
+  s_le: 0.125
+  r_gt: 0.125
+- species: Staphylococcus spp.
+  drug: Ceftaroline (indications other than pneumonia), S. aureus
+  s_le: 1.0
+  r_gt: 2.0
+  atu_low: 1.0
+- species: Staphylococcus spp.
+  drug: Ceftaroline (pneumonia), S. aureus
+  s_le: 1.0
+  r_gt: 1.0
+  atu_low: 1.0
+- species: Staphylococcus spp.
+  drug: Ceftobiprole, S. aureus
+  s_le: 2.0
+  r_gt: 2.0
+  atu_low: 2.0
+- species: Staphylococcus spp.
+  drug: Ciprofloxacin, S. aureus
+  s_le: 0.001
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: "Ciprofloxacin, \nCoagulase-negative staphylococci"
+  s_le: 0.001
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: Delafloxacin (community-acquired pneumonia), S. aureus
+  s_le: 0.016
+  r_gt: 0.016
+- species: Staphylococcus spp.
+  drug: Delafloxacin (skin and skin structure infections), S. aureus
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Levofloxacin, S. aureus
+  s_le: 0.001
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: "Levofloxacin, \nCoagulase-negative staphylococci"
+  s_le: 0.001
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Moxifloxacin3, S. aureus
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: "Moxifloxacin3, \nCoagulase-negative staphylococci"
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Amikacin, S. aureus
+  s_le: 16.0
+  r_gt: 16.0
+- species: Staphylococcus spp.
+  drug: "Amikacin, \nCoagulase-negative staphylococci"
+  s_le: 16.0
+  r_gt: 16.0
+- species: Staphylococcus spp.
+  drug: Gentamicin, S. aureus
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: 'Gentamicin,
+
+    Coagulase-negative staphylococci'
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: Tobramycin, S. aureus
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: "Tobramycin, \nCoagulase-negative staphylococci"
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: Dalbavancin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Oritavancin2, S. aureus
+  s_le: 0.125
+  r_gt: 0.125
+- species: Staphylococcus spp.
+  drug: Teicoplanin2, S. aureus
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: "Teicoplanin, \nCoagulase-negative staphylococci"
+  s_le: 4.0
+  r_gt: 4.0
+- species: Staphylococcus spp.
+  drug: Telavancin2,
+  s_le: 0.125
+  r_gt: 0.125
+- species: Staphylococcus spp.
+  drug: Vancomycin2, S. aureus
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: "Vancomycin2, \nCoagulase-negative staphylococci"
+  s_le: 4.0
+  r_gt: 4.0
+- species: Staphylococcus spp.
+  drug: Azithromycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: Clarithromycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Erythromycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Roxithromycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Clindamycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Quinupristin-dalfopristin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Eravacycline, S. aureus
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Staphylococcus spp.
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Tigecycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Staphylococcus spp.
+  drug: Linezolid
+  s_le: 4.0
+  r_gt: 4.0
+- species: Staphylococcus spp.
+  drug: Tedizolid
+  s_le: 0.5
+  r_gt: 0.5
+- species: Staphylococcus spp.
+  drug: Daptomycin1, S. aureus
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: Fusidic acid
+  s_le: 1.0
+  r_gt: 1.0
+- species: Staphylococcus spp.
+  drug: "Gepotidacin (uncomplicated UTI only), \nS. saprophyticus"
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: Lefamulin, S. aureus
+  s_le: 0.25
+  r_gt: 0.25
+- species: Staphylococcus spp.
+  drug: "Nitrofurantoin (uncomplicated UTI only), \nS. saprophyticus"
+  s_le: 64.0
+  r_gt: 64.0
+- species: Staphylococcus spp.
+  drug: Rifampicin, S. aureus
+  s_le: 0.06
+  r_gt: 0.06
+- species: Staphylococcus spp.
+  drug: Rifampicin, Coagulase-negative staphylococci
+  s_le: 0.06
+  r_gt: 0.06
+- species: Staphylococcus spp.
+  drug: Trimethoprim (uncomplicated UTI only)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Staphylococcus spp.
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterococcus spp.
+  drug: Ampicillin iv
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Amoxicillin iv
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Amoxicillin oral (uncomplicated UTI only)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: 'Amoxicillin oral (other indications),
+
+    E. faecalis'
+  s_le: 0.001
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Piperacillin, E. faecalis
+  s_le: 0.001
+  r_gt: 16.0
+- species: Enterococcus spp.
+  drug: Piperacillin-tazobactam2, E. faecalis
+  s_le: 0.001
+  r_gt: 16.0
+- species: Enterococcus spp.
+  drug: Imipenem, E. faecalis
+  s_le: 0.001
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Ciprofloxacin (uncomplicated UTI only)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Levofloxacin (uncomplicated UTI only)
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Enterococcus spp.
+  drug: Vancomycin, E. faecalis and E. faecium
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Vancomycin, other enterococci
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: Quinupristin-dalfopristin, E. faecium
+  s_le: 1.0
+  r_gt: 1.0
+- species: Enterococcus spp.
+  drug: Eravacycline
+  s_le: 0.25
+  r_gt: 0.25
+- species: Enterococcus spp.
+  drug: Tigecycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Enterococcus spp.
+  drug: Linezolid
+  s_le: 4.0
+  r_gt: 4.0
+- species: Enterococcus spp.
+  drug: "Gepotidacin (uncomplicated UTI only), \nE. faecalis"
+  s_le: 8.0
+  r_gt: 8.0
+- species: Enterococcus spp.
+  drug: "Nitrofurantoin (uncomplicated UTI only), \nE. faecalis"
+  s_le: 64.0
+  r_gt: 64.0
+- species: Streptococcus groups A, B, C and G
+  drug: Benzylpenicillin2, Streptococcus groups A, C and
+  s_le: 0.03
+  r_gt: 0.03
+- species: Streptococcus groups A, B, C and G
+  drug: "Benzylpenicillin2,  \nS. agalactiae (group B streptococci)"
+  s_le: 0.125
+  r_gt: 0.125
+- species: Streptococcus groups A, B, C and G
+  drug: Delafloxacin
+  s_le: 0.03
+  r_gt: 0.03
+- species: Streptococcus groups A, B, C and G
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Dalbavancin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Streptococcus groups A, B, C and G
+  drug: Oritavancin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus groups A, B, C and G
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus groups A, B, C and G
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus groups A, B, C and G
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus groups A, B, C and G
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: Tigecycline
+  s_le: 0.125
+  r_gt: 0.125
+- species: Streptococcus groups A, B, C and G
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus groups A, B, C and G
+  drug: Tedizolid
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus groups A, B, C and G
+  drug: Daptomycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus groups A, B, C and G
+  drug: "Nitrofurantoin (uncomplicated UTI only), \nS. agalactiae (group B streptococci)"
+  s_le: 64.0
+  r_gt: 64.0
+- species: Streptococcus groups A, B, C and G
+  drug: Rifampicin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus groups A, B, C and G
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Benzylpenicillin (indications other than endocarditis and meningitis)
+  s_le: 0.06
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Benzylpenicillin (endocarditis and meningitis)
+  s_le: 0.06
+  r_gt: 0.06
+- species: Streptococcus pneumoniae
+  drug: Ampicillin iv (indications other than endocarditis and meningitis)
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Ampicillin iv (endocarditis and meningitis)
+  s_le: 0.06
+  r_gt: 0.06
+- species: Streptococcus pneumoniae
+  drug: Amoxicillin iv (endocarditis and meningitis)
+  s_le: 0.06
+  r_gt: 0.06
+- species: Streptococcus pneumoniae
+  drug: Amoxicillin oral
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Amoxicillin-clavulanic acid oral
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Cefaclor
+  s_le: 0.001
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Cefepime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefotaxime (indications other than endocarditis and meningitis)
+  s_le: 0.5
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Cefotaxime (endocarditis and meningitis)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Cefpodoxime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Ceftaroline
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Ceftobiprole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Ceftriaxone (indications other than endocarditis and meningitis)
+  s_le: 0.5
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Ceftriaxone (endocarditis and meningitis)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Cefuroxime iv
+  s_le: 0.5
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Cefuroxime oral
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Meropenem (indications other than meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Meropenem (meningitis)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Streptococcus pneumoniae
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Minocycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Streptococcus pneumoniae
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Streptococcus pneumoniae
+  drug: Lefamulin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Streptococcus pneumoniae
+  drug: Rifampicin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Streptococcus pneumoniae
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 1.0
+  r_gt: 1.0
+- species: Viridans group streptococci
+  drug: Benzylpenicillin (screen only)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Viridans group streptococci
+  drug: Benzylpenicillin (indications other than endocarditis)
+  s_le: 0.25
+  r_gt: 1.0
+- species: Viridans group streptococci
+  drug: Benzylpenicillin (endocarditis)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Viridans group streptococci
+  drug: Benzylpenicillin (endocarditis, in combination with other antimicrobial treatment)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Viridans group streptococci
+  drug: Ampicillin (indications other than endocarditis)
+  s_le: 0.5
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Ampicillin iv (endocarditis)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Amoxicillin (indications other than endocarditis)
+  s_le: 0.5
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Amoxicillin iv (endocarditis)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Cefepime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Cefotaxime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Ceftriaxone
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Cefuroxime iv
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Viridans group streptococci
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Imipenem-relebactam
+  s_le: 2.0
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Delafloxacin, S. anginosus group
+  s_le: 0.03
+  r_gt: 0.03
+- species: Viridans group streptococci
+  drug: Dalbavancin1, S. anginosus group
+  s_le: 0.125
+  r_gt: 0.125
+- species: Viridans group streptococci
+  drug: Oritavancin1, S. anginosus group
+  s_le: 0.25
+  r_gt: 0.25
+- species: Viridans group streptococci
+  drug: Teicoplanin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Viridans group streptococci
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Viridans group streptococci
+  drug: Eravacycline
+  s_le: 0.125
+  r_gt: 0.125
+- species: Viridans group streptococci
+  drug: Tedizolid, S. anginosus group
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Ampicillin (indications other than meningitis)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Ampicillin-sulbactam
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin iv (indications other than meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin oral
+  s_le: 0.001
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin-clavulanic acid iv
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Amoxicillin-clavulanic acid oral
+  s_le: 0.001
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Piperacillin-tazobactam
+  s_le: 0.25
+  r_gt: 0.25
+- species: Haemophilus influenzae
+  drug: Cefepime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Haemophilus influenzae
+  drug: Cefixime
+  s_le: 0.125
+  r_gt: 0.125
+- species: Haemophilus influenzae
+  drug: Cefotaxime
+  s_le: 0.125
+  r_gt: 0.125
+- species: Haemophilus influenzae
+  drug: Cefpodoxime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Haemophilus influenzae
+  drug: Ceftaroline
+  s_le: 0.03
+  r_gt: 0.03
+- species: Haemophilus influenzae
+  drug: Ceftibuten
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Ceftolozane-tazobactam (pneumonia)
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Ceftriaxone
+  s_le: 0.125
+  r_gt: 0.125
+- species: Haemophilus influenzae
+  drug: Cefuroxime iv
+  s_le: 1.0
+  r_gt: 2.0
+  atu_low: 2.0
+- species: Haemophilus influenzae
+  drug: Cefuroxime oral
+  s_le: 0.001
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Haemophilus influenzae
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Meropenem (indications other than meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Meropenem (meningitis)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Haemophilus influenzae
+  drug: Ciprofloxacin
+  s_le: 0.03
+  r_gt: 0.03
+- species: Haemophilus influenzae
+  drug: Levofloxacin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Haemophilus influenzae
+  drug: Moxifloxacin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Haemophilus influenzae
+  drug: Ofloxacin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Haemophilus influenzae
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Minocycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Tetracycline
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Chloramphenicol
+  s_le: 2.0
+  r_gt: 2.0
+- species: Haemophilus influenzae
+  drug: Rifampicin (for prophylaxis only)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Haemophilus influenzae
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Ampicillin-sulbactam
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Amoxicillin-clavulanic acid
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Cefepime
+  s_le: 4.0
+  r_gt: 4.0
+- species: Moraxella catarrhalis
+  drug: Cefixime
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Cefotaxime
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Ceftriaxone
+  s_le: 1.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Cefuroxime iv
+  s_le: 4.0
+  r_gt: 8.0
+- species: Moraxella catarrhalis
+  drug: Cefuroxime oral
+  s_le: 0.001
+  r_gt: 4.0
+- species: Moraxella catarrhalis
+  drug: Doripenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Ciprofloxacin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Moraxella catarrhalis
+  drug: Levofloxacin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Moraxella catarrhalis
+  drug: Moxifloxacin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Ofloxacin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Erythromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Moraxella catarrhalis
+  drug: Roxithromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Moraxella catarrhalis
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Minocycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Moraxella catarrhalis
+  drug: Tetracycline
+  s_le: 2.0
+  r_gt: 2.0
+- species: Moraxella catarrhalis
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 1.0
+  r_gt: 1.0
+- species: Neisseria gonorrhoeae
+  drug: Benzylpenicillin (surrogate agent)
+  s_le: 0.06
+  r_gt: 1.0
+- species: Neisseria gonorrhoeae
+  drug: Cefixime
+  s_le: 0.125
+  r_gt: 0.125
+- species: Neisseria gonorrhoeae
+  drug: Cefotaxime
+  s_le: 0.125
+  r_gt: 0.125
+- species: Neisseria gonorrhoeae
+  drug: Ceftriaxone
+  s_le: 0.125
+  r_gt: 0.125
+- species: Neisseria gonorrhoeae
+  drug: Ciprofloxacin
+  s_le: 0.03
+  r_gt: 0.06
+- species: Neisseria gonorrhoeae
+  drug: Ofloxacin
+  s_le: 0.125
+  r_gt: 0.25
+- species: Neisseria gonorrhoeae
+  drug: Tetracycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Neisseria gonorrhoeae
+  drug: Spectinomycin
+  s_le: 64.0
+  r_gt: 64.0
+- species: Neisseria meningitidis
+  drug: Benzylpenicillin (all indications)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Neisseria meningitidis
+  drug: Ampicillin (indications other than meningitis)
+  s_le: 0.125
+  r_gt: 1.0
+- species: Neisseria meningitidis
+  drug: Amoxicillin (indications other than meningitis)
+  s_le: 0.125
+  r_gt: 1.0
+- species: Neisseria meningitidis
+  drug: Cefotaxime (all indications)
+  s_le: 0.125
+  r_gt: 0.125
+- species: Neisseria meningitidis
+  drug: Ceftriaxone (all indications including prophylaxis)
+  s_le: 0.125
+  r_gt: 0.125
+- species: Neisseria meningitidis
+  drug: Meropenem (all indications)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Neisseria meningitidis
+  drug: Ciprofloxacin (all indications, including meningitis and prophylaxis)
+  s_le: 0.016
+  r_gt: 0.016
+- species: Neisseria meningitidis
+  drug: Minocycline (prophylaxis only)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Neisseria meningitidis
+  drug: Tetracycline (screen only)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Neisseria meningitidis
+  drug: Chloramphenicol (meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Neisseria meningitidis
+  drug: Rifampicin (prophylaxis only)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Ampicillin-sulbactam
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Amoxicillin-clavulanic acid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Piperacillin-tazobactam
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Ertapenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Imipenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Anaerobic bacteria
+  drug: Meropenem
+  s_le: 1.0
+  r_gt: 1.0
+- species: Anaerobic bacteria
+  drug: Clindamycin
+  s_le: 4.0
+  r_gt: 4.0
+- species: Anaerobic bacteria
+  drug: Metronidazole
+  s_le: 4.0
+  r_gt: 4.0
+- species: Anaerobic bacteria
+  drug: Benzylpenicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Ampicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Amoxicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Imipenem
+  s_le: 0.125
+  r_gt: 0.125
+- species: Anaerobic bacteria
+  drug: Meropenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Clindamycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Metronidazole
+  s_le: 4.0
+  r_gt: 4.0
+- species: Anaerobic bacteria
+  drug: Benzylpenicillin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Anaerobic bacteria
+  drug: Ampicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Ampicillin-sulbactam
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Amoxicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Amoxicillin-clavulanic acid
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Piperacillin-tazobactam
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Ertapenem
+  s_le: 0.06
+  r_gt: 0.06
+- species: Anaerobic bacteria
+  drug: Imipenem
+  s_le: 0.125
+  r_gt: 0.125
+- species: Anaerobic bacteria
+  drug: Meropenem
+  s_le: 0.03
+  r_gt: 0.03
+- species: Anaerobic bacteria
+  drug: Clindamycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Metronidazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Benzylpenicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Ampicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Ampicillin-sulbactam
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Amoxicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Amoxicillin-clavulanic acid
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Piperacillin-tazobactam
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Ertapenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Imipenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Meropenem
+  s_le: 0.125
+  r_gt: 0.125
+- species: Anaerobic bacteria
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Clindamycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Metronidazole
+  s_le: 4.0
+  r_gt: 4.0
+- species: Anaerobic bacteria
+  drug: Benzylpenicillin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Anaerobic bacteria
+  drug: Ampicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Amoxicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Ceftriaxone
+  s_le: 0.06
+  r_gt: 0.06
+- species: Anaerobic bacteria
+  drug: Ertapenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Imipenem
+  s_le: 0.03
+  r_gt: 0.03
+- species: Anaerobic bacteria
+  drug: Meropenem
+  s_le: 0.125
+  r_gt: 0.125
+- species: Anaerobic bacteria
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Clindamycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Anaerobic bacteria
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Anaerobic bacteria
+  drug: Fidaxomicin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Anaerobic bacteria
+  drug: Metronidazole
+  s_le: 2.0
+  r_gt: 2.0
+- species: Helicobacter pylori
+  drug: Amoxicillin oral
+  s_le: 0.125
+  r_gt: 0.125
+- species: Helicobacter pylori
+  drug: Levofloxacin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Helicobacter pylori
+  drug: Clarithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Helicobacter pylori
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Helicobacter pylori
+  drug: Metronidazole
+  s_le: 8.0
+  r_gt: 8.0
+- species: Helicobacter pylori
+  drug: Rifampicin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Listeria monocytogenes
+  drug: Benzylpenicillin (indications other than meningitis)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Listeria monocytogenes
+  drug: Ampicillin iv (all indications)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Listeria monocytogenes
+  drug: Meropenem (all indications)
+  s_le: 0.25
+  r_gt: 0.25
+- species: Listeria monocytogenes
+  drug: Erythromycin (indications other than meningitis)
+  s_le: 1.0
+  r_gt: 1.0
+- species: Listeria monocytogenes
+  drug: Trimethoprim-sulfamethoxazole (all indications)
+  s_le: 0.06
+  r_gt: 0.06
+- species: Pasteurella spp.
+  drug: Benzylpenicillin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Pasteurella spp.
+  drug: Ampicillin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Pasteurella spp.
+  drug: Amoxicillin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Pasteurella spp.
+  drug: Amoxicillin-clavulanic acid
+  s_le: 1.0
+  r_gt: 1.0
+- species: Pasteurella spp.
+  drug: Cefotaxime
+  s_le: 0.03
+  r_gt: 0.03
+- species: Pasteurella spp.
+  drug: Ciprofloxacin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Pasteurella spp.
+  drug: Levofloxacin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Pasteurella spp.
+  drug: Doxycycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Pasteurella spp.
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.25
+  r_gt: 0.25
+- species: Campylobacter jejuni and C. coli
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 0.5
+- species: Campylobacter jejuni and C. coli
+  drug: Erythromycin, C. jejuni
+  s_le: 4.0
+  r_gt: 4.0
+- species: Campylobacter jejuni and C. coli
+  drug: Erythromycin, C. coli
+  s_le: 8.0
+  r_gt: 8.0
+- species: Campylobacter jejuni and C. coli
+  drug: Tetracycline
+  s_le: 2.0
+  r_gt: 2.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Benzylpenicillin
+  s_le: 0.001
+  r_gt: 1.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 1.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Moxifloxacin
+  s_le: 0.5
+  r_gt: 0.5
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Clindamycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Tetracycline
+  s_le: 2.0
+  r_gt: 2.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: 'Corynebacterium spp.
+
+    other than C. diphtheriae and C. ulcerans'
+  drug: Rifampicin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Benzylpenicillin
+  s_le: 0.001
+  r_gt: 1.0
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Amoxicillin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Cefotaxime
+  s_le: 0.001
+  r_gt: 2.0
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Meropenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 0.5
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Erythromycin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Clindamycin, C. diphtheriae
+  s_le: 0.5
+  r_gt: 0.5
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Doxycycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Tetracycline
+  s_le: 1.0
+  r_gt: 1.0
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Rifampicin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Corynebacterium diphtheriae and C. ulcerans
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.5
+  r_gt: 0.5
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Benzylpenicillin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Ampicillin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Meropenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Ciprofloxacin (uncomplicated UTI only)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Levofloxacin (uncomplicated UTI only)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Vancomycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Nitrofurantoin (uncomplicated UTI only)
+  s_le: 16.0
+  r_gt: 16.0
+- species: Aerococcus sanguinicola and A. urinae
+  drug: Rifampicin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Kingella kingae
+  drug: Benzylpenicillin
+  s_le: 0.03
+  r_gt: 0.03
+- species: Kingella kingae
+  drug: Ampicillin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Kingella kingae
+  drug: Amoxicillin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Kingella kingae
+  drug: Cefotaxime
+  s_le: 0.125
+  r_gt: 0.125
+- species: Kingella kingae
+  drug: Ceftriaxone
+  s_le: 0.06
+  r_gt: 0.06
+- species: Kingella kingae
+  drug: Cefuroxime iv
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Meropenem
+  s_le: 0.03
+  r_gt: 0.03
+- species: Kingella kingae
+  drug: Ciprofloxacin
+  s_le: 0.06
+  r_gt: 0.06
+- species: Kingella kingae
+  drug: Levofloxacin
+  s_le: 0.125
+  r_gt: 0.125
+- species: Kingella kingae
+  drug: Azithromycin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Kingella kingae
+  drug: Clarithromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Erythromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Doxycycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Tetracycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Rifampicin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Kingella kingae
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.25
+  r_gt: 0.25
+- species: Aeromonas spp.
+  drug: Cefepime
+  s_le: 1.0
+  r_gt: 4.0
+- species: Aeromonas spp.
+  drug: Ceftazidime
+  s_le: 1.0
+  r_gt: 4.0
+- species: Aeromonas spp.
+  drug: Aztreonam
+  s_le: 1.0
+  r_gt: 4.0
+- species: Aeromonas spp.
+  drug: Ciprofloxacin
+  s_le: 0.25
+  r_gt: 0.5
+- species: Aeromonas spp.
+  drug: Levofloxacin
+  s_le: 0.5
+  r_gt: 1.0
+- species: Aeromonas spp.
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 1.0
+  r_gt: 1.0
+- species: Achromobacter xylosoxidans
+  drug: Piperacillin-tazobactam
+  s_le: 4.0
+  r_gt: 4.0
+- species: Achromobacter xylosoxidans
+  drug: Meropenem
+  s_le: 1.0
+  r_gt: 4.0
+- species: Achromobacter xylosoxidans
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.125
+  r_gt: 0.125
+- species: Vibrio spp.
+  drug: Piperacillin-tazobactam
+  s_le: 1.0
+  r_gt: 1.0
+- species: Vibrio spp.
+  drug: Cefotaxime
+  s_le: 0.25
+  r_gt: 0.25
+- species: Vibrio spp.
+  drug: Ceftazidime
+  s_le: 1.0
+  r_gt: 1.0
+- species: Vibrio spp.
+  drug: Meropenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: Vibrio spp.
+  drug: Ciprofloxacin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Vibrio spp.
+  drug: Levofloxacin
+  s_le: 0.25
+  r_gt: 0.25
+- species: Vibrio spp.
+  drug: Azithromycin
+  s_le: 4.0
+  r_gt: 4.0
+- species: Vibrio spp.
+  drug: Doxycycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Vibrio spp.
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.25
+  r_gt: 0.25
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Imipenem
+  s_le: 0.5
+  r_gt: 0.5
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Meropenem
+  s_le: 0.25
+  r_gt: 0.25
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 0.5
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 1.0
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Vancomycin
+  s_le: 2.0
+  r_gt: 2.0
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Erythromycin
+  s_le: 0.5
+  r_gt: 0.5
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Clindamycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: 'Bacillus spp.
+
+    except B. anthracis'
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Bacillus anthracis
+  drug: Benzylpenicillin
+  s_le: 0.001
+  r_gt: 0.5
+- species: Bacillus anthracis
+  drug: Amoxicillin iv
+  s_le: 0.125
+  r_gt: 0.125
+- species: Bacillus anthracis
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 0.25
+- species: Bacillus anthracis
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 0.5
+- species: Bacillus anthracis
+  drug: Vancomycin
+  s_le: 4.0
+  r_gt: 4.0
+- species: Bacillus anthracis
+  drug: Clindamycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Bacillus anthracis
+  drug: Doxycycline
+  s_le: 0.06
+  r_gt: 0.06
+- species: Bacillus anthracis
+  drug: Tetracycline
+  s_le: 0.125
+  r_gt: 0.125
+- species: Bacillus anthracis
+  drug: Linezolid
+  s_le: 2.0
+  r_gt: 2.0
+- species: Bacillus anthracis
+  drug: Rifampicin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Brucella melitensis
+  drug: Ceftriaxone (meningitis)
+  s_le: 2.0
+  r_gt: 2.0
+- species: Brucella melitensis
+  drug: Ciprofloxacin
+  s_le: 0.001
+  r_gt: 1.0
+- species: Brucella melitensis
+  drug: Levofloxacin
+  s_le: 0.001
+  r_gt: 1.0
+- species: Brucella melitensis
+  drug: Gentamicin
+  s_le: 0.5
+  r_gt: 0.5
+- species: Brucella melitensis
+  drug: Streptomycin
+  s_le: 1.0
+  r_gt: 1.0
+- species: Brucella melitensis
+  drug: Doxycycline
+  s_le: 0.25
+  r_gt: 0.25
+- species: Brucella melitensis
+  drug: Tetracycline
+  s_le: 0.5
+  r_gt: 0.5
+- species: Brucella melitensis
+  drug: Rifampicin
+  s_le: 2.0
+  r_gt: 2.0
+- species: Brucella melitensis
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.125
+  r_gt: 0.125
+- species: Burkholderia pseudomallei
+  drug: Amoxicillin-clavulanic acid
+  s_le: 0.001
+  r_gt: 8.0
+- species: Burkholderia pseudomallei
+  drug: Ceftazidime
+  s_le: 0.001
+  r_gt: 8.0
+- species: Burkholderia pseudomallei
+  drug: Imipenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Burkholderia pseudomallei
+  drug: Meropenem
+  s_le: 2.0
+  r_gt: 2.0
+- species: Burkholderia pseudomallei
+  drug: Doxycycline
+  s_le: 0.001
+  r_gt: 2.0
+- species: Burkholderia pseudomallei
+  drug: Chloramphenicol
+  s_le: 0.001
+  r_gt: 8.0
+- species: Burkholderia pseudomallei
+  drug: Trimethoprim-sulfamethoxazole
+  s_le: 0.001
+  r_gt: 4.0
+- species: Mycobacterium tuberculosis
+  drug: Bedaquiline
+  s_le: 0.25
+  r_gt: 0.25
+- species: Mycobacterium tuberculosis
+  drug: Delamanid
+  s_le: 0.06
+  r_gt: 0.06
+year: 2026

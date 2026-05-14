@@ -13,12 +13,13 @@ Interactive tutorials demonstrating MaldiAMRKit usage.
    notebooks/05_exploration
    notebooks/06_differential_analysis
    notebooks/07_drift_monitoring
+   notebooks/08_susceptibility
 
 Datasets
 --------
 
-Notebooks ``01``--``03`` run on the small example dataset bundled with the
-repository under ``data/``. Notebooks ``04``--``07`` require more samples
+Notebooks ``01``--``03`` and ``08`` run on the small example dataset bundled with the
+repository under ``data/`` or are fully self-contained. Notebooks ``04``--``07`` require more samples
 and use the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026;
 `Zenodo DOI 10.5281/zenodo.17405072 <https://zenodo.org/records/17405072>`_)
 via the :file:`notebooks/_demo.py` helper. The helper caches the 370 MB

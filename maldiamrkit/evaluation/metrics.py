@@ -1,7 +1,7 @@
 """AMR-specific evaluation metrics for clinical microbiology.
 
 Provides Very Major Error (VME), Major Error (ME), sensitivity, specificity,
-and categorical agreement metrics following EUCAST/CLSI conventions.
+and categorical agreement metrics following EUCAST conventions.
 
 In AMR prediction:
 - VME (Very Major Error): resistant isolates classified as susceptible (dangerous)

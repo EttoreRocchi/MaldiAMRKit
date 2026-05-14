@@ -25,7 +25,7 @@ MzRange = tuple[float, float]
 
 
 class StatisticalTest(str, Enum):
-    """Supported statistical tests for :meth:`DifferentialAnalysis.run`.
+    """Supported statistical tests for :meth:`~maldiamrkit.differential.DifferentialAnalysis.run`.
 
     Attributes
     ----------
@@ -40,7 +40,7 @@ class StatisticalTest(str, Enum):
 
 
 class CorrectionMethod(str, Enum):
-    """Supported multiple-testing corrections for :meth:`DifferentialAnalysis.run`.
+    """Supported multiple-testing corrections for :meth:`~maldiamrkit.differential.DifferentialAnalysis.run`.
 
     Attributes
     ----------

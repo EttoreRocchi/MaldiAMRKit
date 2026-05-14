@@ -19,7 +19,7 @@ _VOLCANO_EPS = 1e-300
 
 
 class DrugComparisonKind(str, Enum):
-    """Rendering kind for :func:`plot_drug_comparison`.
+    """Rendering kind for :func:`~maldiamrkit.differential.plot_drug_comparison`.
 
     Attributes
     ----------

@@ -19,11 +19,29 @@ import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
 from .duplicates import DuplicateStrategy, apply_metadata_strategy
+from .site_info import read_site_info
 
 if TYPE_CHECKING:
     from ..spectrum import MaldiSpectrum
 
 logger = logging.getLogger(__name__)
+
+
+class _Sentinel:
+    """Sentinel for ``DRIAMSLayout`` kwargs.
+
+    A kwarg defaulted to :data:`_AUTO` means: "fill from ``site_info.json``
+    if present, otherwise use the library default".  Explicit kwargs
+    always win.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<auto>"
+
+
+_AUTO: _Sentinel = _Sentinel()
 
 # Pattern used by :class:`DRIAMSLayout` to detect files that look like
 # technical replicates of an underlying sample (``UUID_MALDI1``,
@@ -101,7 +119,7 @@ class DatasetLayout(ABC):
 
         Default is a no-op.  Layouts whose on-disk format deviates from
         the ``(mass, intensity)`` convention assumed by
-        :func:`~maldiamrkit.io.readers.read_spectrum` can override this
+        :func:`~maldiamrkit.io.read_spectrum` can override this
         to reshape the spectrum.  Called by :class:`DatasetLoader` after
         each file is loaded.
         """
@@ -189,29 +207,73 @@ class DRIAMSLayout(DatasetLayout):
         self,
         dataset_dir: str | Path,
         *,
-        id_column: str | None = None,
+        id_column: str | None | _Sentinel = _AUTO,
         species_column: str | None = None,
         year: str | int | None = None,
-        metadata_dir: str = "id",
-        metadata_suffix: str = "_clean.csv",
-        spectrum_ext: str = ".txt",
+        metadata_dir: str | _Sentinel = _AUTO,
+        metadata_suffix: str | _Sentinel = _AUTO,
+        spectrum_ext: str | _Sentinel = _AUTO,
         duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
         id_transform: Callable[[str], str] | None = None,
-        mz_min: float = 2000.0,
-        mz_max: float = 19997.0,
+        mz_min: float | _Sentinel = _AUTO,
+        mz_max: float | _Sentinel = _AUTO,
         normalize_tic: bool = False,
     ) -> None:
+        """Initialise the layout.
+
+        Several kwargs accept the sentinel :data:`_AUTO` as their default.
+        When ``_AUTO``, the value is filled from ``site_info.json`` at the
+        dataset root (if present) and otherwise falls back to the
+        library-level default.  Explicit kwargs always win.  Fields with
+        per-call semantics (``year``, ``species_column``, ``id_transform``,
+        ``duplicate_strategy``, ``normalize_tic``) stay user-controlled
+        and are never read from the manifest.
+        """
         self.dataset_dir = Path(dataset_dir)
-        self.id_column = id_column
+
+        # Try to read the manifest; absent manifest = pure library defaults.
+        # `read_site_info` is tolerant: an unreadable manifest raises a
+        # clear ValueError, while a missing manifest returns None.
+        site_info = read_site_info(self.dataset_dir, missing_ok=True)
+
+        def _resolve(
+            user_value,
+            manifest_attr: str | None,
+            library_default,
+        ):
+            """Resolve a kwarg per precedence: user > manifest > default."""
+            if not isinstance(user_value, _Sentinel):
+                return user_value
+            if site_info is not None and manifest_attr is not None:
+                return getattr(site_info, manifest_attr, library_default)
+            return library_default
+
+        self.id_column = _resolve(id_column, "id_column", None)
+        self.metadata_dir = _resolve(metadata_dir, "metadata_dir", "id")
+        self.metadata_suffix = _resolve(
+            metadata_suffix, "metadata_suffix", "_clean.csv"
+        )
+        self.spectrum_ext = _resolve(spectrum_ext, "spectrum_ext", ".txt")
+
+        # `mz_range` is stored as a tuple in the manifest; split into the
+        # two scalar kwargs here.
+        manifest_mz = site_info.mz_range if site_info is not None else None
+        self.mz_min = float(
+            _resolve(
+                mz_min, None, manifest_mz[0] if manifest_mz is not None else 2000.0
+            )
+        )
+        self.mz_max = float(
+            _resolve(
+                mz_max, None, manifest_mz[1] if manifest_mz is not None else 19997.0
+            )
+        )
+
+        # Per-call / load-only kwargs - never sourced from the manifest.
         self.species_column = species_column
         self.year = str(year) if year is not None else None
-        self.metadata_dir = metadata_dir
-        self.metadata_suffix = metadata_suffix
-        self.spectrum_ext = spectrum_ext
         self.duplicate_strategy = DuplicateStrategy(duplicate_strategy)
         self.id_transform = id_transform
-        self.mz_min = float(mz_min)
-        self.mz_max = float(mz_max)
         self.normalize_tic = bool(normalize_tic)
 
     def discover_metadata(self) -> pd.DataFrame:

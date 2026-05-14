@@ -200,7 +200,7 @@ class BrukerTreeLayout(InputLayout):
     def discover_spectra(self) -> list[Path]:
         """Resolve Bruker directories from metadata paths.
 
-        Applies :attr:`duplicate_strategy` to handle specimens that
+        Applies ``duplicate_strategy`` to handle specimens that
         appear at multiple target positions.  Optionally validates
         for empty and duplicate spectra.
         """

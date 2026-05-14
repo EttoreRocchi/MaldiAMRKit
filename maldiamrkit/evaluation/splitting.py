@@ -255,7 +255,7 @@ class CaseGroupedKFold:
     ----------
     n_splits : int, default=5
         Number of folds.
-    shuffle : bool, default=False
+    shuffle : bool, default=True
         Whether to shuffle group order before splitting.
     random_state : int or None, default=None
         Random seed (used only when ``shuffle=True``).

@@ -1,0 +1,37 @@
+# Synthetic example breakpoint table -- NOT FOR CLINICAL USE.
+#
+# Used by tests, docs, and notebooks for shape demonstration only. The
+# values below are illustrative and have been deliberately simplified;
+# do not consult this file for actual clinical decision-making. For real
+# clinical breakpoints, run the gitignored eucast_converter/ tooling on
+# the official EUCAST Excel workbook and load the resulting YAML via
+# BreakpointTable.from_yaml(...).
+
+guideline: EXAMPLE
+version: "0.0"
+year: 2026
+source: "MaldiAMRKit synthetic example (NOT FOR CLINICAL USE)"
+rows:
+  - species: "Klebsiella pneumoniae"
+    drug: "Ceftriaxone"
+    s_le: 1.0
+    r_gt: 2.0
+  - species: "Klebsiella pneumoniae"
+    drug: "Piperacillin-tazobactam"
+    s_le: 8.0
+    r_gt: 8.0
+    atu_low: 16.0
+  - species: "Klebsiella pneumoniae"
+    drug: "Meropenem"
+    s_le: 2.0
+    r_gt: 8.0
+    atu_low: 4.0
+    atu_high: 8.0
+  - species: "Escherichia coli"
+    drug: "Ciprofloxacin"
+    s_le: 0.25
+    r_gt: 0.5
+  - species: "Escherichia coli"
+    drug: "Ceftriaxone"
+    s_le: 1.0
+    r_gt: 2.0

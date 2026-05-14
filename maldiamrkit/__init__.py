@@ -5,9 +5,10 @@ Subpackage guide
 - ``maldiamrkit.data``           -- DatasetBuilder, DatasetLoader, InputLayout, DatasetLayout
 - ``maldiamrkit.filters``        -- SpeciesFilter, DrugFilter, QualityFilter, MetadataFilter
 - ``maldiamrkit.preprocessing``  -- PreprocessingPipeline, transformers, binning, quality, merging
-- ``maldiamrkit.alignment``      -- Warping, RawWarping, create_raw_input, AlignmentStrategy
+- ``maldiamrkit.alignment``      -- Warping, RawWarping, create_raw_input, AlignmentStrategy, AlignmentMethod
 - ``maldiamrkit.detection``      -- MaldiPeakDetector
-- ``maldiamrkit.evaluation``     -- AMR metrics, splitting, LabelEncoder
+- ``maldiamrkit.evaluation``     -- AMR metrics (binary + mic_regression_report), splitting (LabelEncoder moved to susceptibility)
+- ``maldiamrkit.susceptibility`` -- MICEncoder, BreakpointTable, BreakpointResult, LabelEncoder
 - ``maldiamrkit.similarity``     -- spectral_distance, pairwise_distances, clustering, plots
 - ``maldiamrkit.differential``   -- DifferentialAnalysis, plot_volcano, plot_manhattan, plot_drug_comparison
 - ``maldiamrkit.drift``          -- DriftMonitor, plot_reference_drift, plot_pca_drift, plot_peak_stability, plot_effect_size_drift
@@ -20,12 +21,13 @@ Examples
 >>> from maldiamrkit.preprocessing import PreprocessingPipeline
 >>> from maldiamrkit.alignment import Warping
 >>> from maldiamrkit.data import DatasetBuilder, DatasetLoader, FlatLayout, DRIAMSLayout
+>>> from maldiamrkit.susceptibility import MICEncoder, BreakpointTable
 """
 
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.14.0"
+__version__ = "0.15.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [
