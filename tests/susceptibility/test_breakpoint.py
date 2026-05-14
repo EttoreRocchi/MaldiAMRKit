@@ -6,6 +6,7 @@ from importlib import resources
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from maldiamrkit.susceptibility import BreakpointResult, BreakpointTable
@@ -170,7 +171,7 @@ class TestApplyBatch:
             [0.5, np.nan, 8.0],
         )
         assert out["category"].iloc[0] == "S"
-        assert out["category"].iloc[1] is None
+        assert pd.isna(out["category"].iloc[1])
         assert out["category"].iloc[2] == "R"
 
 
