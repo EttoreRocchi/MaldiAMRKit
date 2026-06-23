@@ -29,6 +29,9 @@ def _mann_whitney_test(group_r: np.ndarray, group_s: np.ndarray) -> tuple[float,
 
     if group_r.size == 0 or group_s.size == 0:
         return float("nan"), 1.0
+    first = group_r[0]
+    if np.all(group_r == first) and np.all(group_s == first):
+        return float("nan"), 1.0
     try:
         stat, p_value = mannwhitneyu(
             group_r, group_s, alternative="two-sided", method="auto"
@@ -37,7 +40,6 @@ def _mann_whitney_test(group_r: np.ndarray, group_s: np.ndarray) -> tuple[float,
         return float("nan"), 1.0
     stat = float(stat)
     p_value = float(p_value)
-
     if np.isnan(p_value):
         return float("nan"), 1.0
     return stat, p_value
