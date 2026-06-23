@@ -13,6 +13,7 @@ from maldiamrkit.data.dataset_layouts import (
     MARISMaLayout,
     _detect_id_column,
     _discover_driams_metadata,
+    strip_driams_replicate,
 )
 
 
@@ -321,9 +322,58 @@ class TestDRIAMSLayoutIdTransform:
         msgs = [r.message for r in caplog.records]
         assert not any("_MALDI" in m for m in msgs)
 
+    def test_strip_driams_replicate_helper(self):
+        """The standalone helper strips the ``_MALDI<N>`` suffix."""
+        assert strip_driams_replicate("abc_MALDI1") == "abc"
+        assert strip_driams_replicate("abc_MALDI12") == "abc"
+        assert strip_driams_replicate("abc") == "abc"
+        assert (
+            strip_driams_replicate("uuid_with_underscores_MALDI3")
+            == "uuid_with_underscores"
+        )
+
+    def test_collapse_replicates_flag_dedupes_to_one_per_isolate(self, tmp_path):
+        """``collapse_replicates=True`` is a friendly alias for the id_transform fix."""
+        self._make_metadata(
+            tmp_path, codes=["s1_MALDI1", "s1_MALDI2", "s2_MALDI1", "s3"]
+        )
+        layout = DRIAMSLayout(tmp_path, collapse_replicates=True)
+        assert layout.id_transform is not None
+        # s1's two replicates collapse; 3 distinct isolates remain.
+        assert len(layout.discover_metadata()) == 3
+
+    def test_collapse_replicates_default_keeps_replicates(self, tmp_path):
+        """The legacy default keeps every replicate as a distinct row."""
+        self._make_metadata(
+            tmp_path, codes=["s1_MALDI1", "s1_MALDI2", "s2_MALDI1", "s3"]
+        )
+        layout = DRIAMSLayout(tmp_path)
+        assert layout.collapse_replicates is False
+        assert len(layout.discover_metadata()) == 4
+
+    def test_explicit_id_transform_overrides_collapse_flag(self, tmp_path):
+        """A user-supplied id_transform wins over the convenience flag."""
+        self._make_metadata(
+            tmp_path, codes=["s1_MALDI1", "s1_MALDI2", "s2_MALDI1", "s3"]
+        )
+        layout = DRIAMSLayout(tmp_path, collapse_replicates=True, id_transform=str)
+        assert layout.id_transform is str
+        assert len(layout.discover_metadata()) == 4  # str() is a no-op key
+
+    def test_declares_replicate_pattern_for_group_cv(self):
+        """The layout exposes its isolate-key derivation for group-aware CV."""
+        assert DRIAMSLayout.replicate_pattern is not None
+        assert DRIAMSLayout.replicate_pattern.search("x_MALDI3")
+        assert DRIAMSLayout.isolate_column is None
+
 
 class TestMARISMaLayout:
     """Tests for MARISMaLayout navigation."""
+
+    def test_declares_no_replicate_pattern(self):
+        """MARISMa replicates share their Identifier; no suffix pattern to declare."""
+        assert MARISMaLayout.replicate_pattern is None
+        assert MARISMaLayout.isolate_column is None
 
     def test_discover_metadata_strategy_first(self, tmp_path):
         """Verify duplicate_strategy='first' drops duplicates by ID."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from pathlib import Path
 
@@ -17,6 +18,14 @@ from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .spectrum import MaldiSpectrum
 
 logger = logging.getLogger(__name__)
+
+# DRIAMS encodes technical replicates of one isolate with a ``_MALDI<N>``
+# suffix on the spectrum ID; stripping it recovers the per-isolate group key.
+_DRIAMS_REPLICATE_RE = re.compile(r"_MALDI\d+$")
+
+# Sentinel for isolate_ids() args: distinguishes "caller passed nothing"
+# (inherit from the layout) from an explicit pattern/column.
+_INHERIT = object()
 
 
 def _load_single_spectrum(
@@ -96,6 +105,8 @@ class MaldiSet:
         bin_method: str | BinningMethod = BinningMethod.uniform,
         bin_kwargs: dict | None = None,
         verbose: bool = False,
+        isolate_pattern: str | re.Pattern | None = None,
+        isolate_column: str | None = None,
     ) -> None:
         self.spectra = spectra
 
@@ -120,6 +131,9 @@ class MaldiSet:
         self.bin_kwargs = bin_kwargs
         self._bin_metadata: pd.DataFrame | None = None
         self._X_cache: pd.DataFrame | None = None
+
+        self._isolate_pattern = isolate_pattern
+        self._isolate_column = isolate_column
 
         self.verbose = verbose
         if verbose:
@@ -480,6 +494,88 @@ class MaldiSet:
             raise ValueError(f"Antibiotic '{antibiotic}' not found in metadata")
 
         return self.meta.loc[self.X.index, antibiotic]
+
+    def isolate_ids(
+        self,
+        *,
+        pattern: str | re.Pattern = _INHERIT,
+        column: str | None = _INHERIT,
+    ) -> pd.Series:
+        """Per-isolate group IDs aligned to the feature-matrix rows.
+
+        Technical replicates of one biological isolate share an underlying
+        sample. Recovering a per-isolate label lets you pass ``groups=`` to a
+        group-aware cross-validator so replicates of the same isolate never
+        span a train/test split (replicate leakage).
+
+        How the label is derived is resolved in this order:
+
+        1. an explicit ``column=`` argument (read from metadata), else
+        2. an explicit ``pattern=`` argument (regex suffix stripped off the ID),
+           else
+        3. the ``isolate_column`` / ``replicate_pattern`` stamped by the source
+           layout when the set was loaded (e.g. ``_MALDI<N>`` for DRIAMS), else
+        4. the DRIAMS ``_MALDI<N>`` suffix as a last-resort fallback.
+
+        If the resolved pattern strips nothing from any ID -- every spectrum
+        becomes its own group, giving no leakage protection -- a warning is
+        emitted pointing at ``pattern=`` / ``column=``.
+
+        Parameters
+        ----------
+        pattern : str or compiled regex, optional
+            Replicate suffix to strip from each spectrum ID. Overrides the
+            layout-stamped pattern; ignored if ``column`` is given.
+        column : str or None, optional
+            Read isolate IDs from this metadata column instead of deriving
+            them from the spectrum-ID index.
+
+        Returns
+        -------
+        pd.Series
+            Isolate IDs indexed by spectrum ID, aligned to ``self.X`` rows.
+        """
+        idx = self.X.index  # ensures features are built and meta is aligned
+        if column is not _INHERIT and column is not None:
+            return self._isolate_from_column(idx, column)
+        if pattern is not _INHERIT:
+            return self._isolate_from_pattern(idx, pattern)
+        if self._isolate_column is not None:
+            return self._isolate_from_column(idx, self._isolate_column)
+        if self._isolate_pattern is not None:
+            return self._isolate_from_pattern(idx, self._isolate_pattern)
+        return self._isolate_from_pattern(idx, _DRIAMS_REPLICATE_RE)
+
+    def _isolate_from_column(self, idx: pd.Index, column: str) -> pd.Series:
+        if column not in self.meta.columns:
+            raise ValueError(f"column {column!r} not found in metadata")
+        return self.meta.loc[idx, column].astype(str).rename("isolate")
+
+    def _isolate_from_pattern(
+        self, idx: pd.Index, pattern: str | re.Pattern
+    ) -> pd.Series:
+        rx = re.compile(pattern) if isinstance(pattern, str) else pattern
+        out = pd.Series([rx.sub("", str(i)) for i in idx], index=idx, name="isolate")
+        if len(idx) and (out.to_numpy() == idx.astype(str).to_numpy()).all():
+            warnings.warn(
+                f"isolate group pattern {rx.pattern!r} stripped no replicate "
+                "suffix from any spectrum ID: every spectrum becomes its own "
+                "group, so group-aware CV gives no leakage protection. Pass an "
+                "explicit pattern= or column= matching this dataset's replicate "
+                "encoding.",
+                stacklevel=3,
+            )
+        return out
+
+    @property
+    def groups(self) -> np.ndarray:
+        """Isolate group labels (ndarray) aligned to ``X`` rows.
+
+        Convenience over :meth:`isolate_ids` using the replicate pattern stamped
+        by the source layout (or the DRIAMS fallback); pass directly as
+        ``groups=`` to a group-aware splitter (e.g. ``StratifiedGroupKFold``).
+        """
+        return self.isolate_ids().to_numpy()
 
     def to_csv(self, path: str | Path) -> None:
         """Export the feature matrix to CSV.

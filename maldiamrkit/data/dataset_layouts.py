@@ -50,6 +50,21 @@ _AUTO: _Sentinel = _Sentinel()
 # itself is user-supplied and doesn't rely on this pattern.
 _DRIAMS_MALDI_SUFFIX_RE = re.compile(r"^(?P<stem>.+)_MALDI\d+$")
 
+# Suffix-only variant for stripping the replicate tag to recover the
+# underlying biological-sample ID. Used by the ``collapse_replicates``
+# shortcut and as the canonical isolate key for group-aware CV.
+_DRIAMS_REPLICATE_SUFFIX_RE = re.compile(r"_MALDI\d+$")
+
+
+def strip_driams_replicate(sample_id: str) -> str:
+    """Return the underlying DRIAMS sample ID by removing the ``_MALDI<N>`` tag.
+
+    ``"abc123_MALDI2" -> "abc123"``. IDs without the suffix are returned
+    unchanged. Use as a group key (one value per biological isolate) for
+    group-aware cross-validation.
+    """
+    return _DRIAMS_REPLICATE_SUFFIX_RE.sub("", str(sample_id))
+
 
 def _warn_on_likely_replicates(ids: pd.Series) -> None:
     """Emit a one-shot warning when DRIAMS IDs look like shared-sample replicates.
@@ -92,6 +107,15 @@ _STAGE_PRIORITY = re.compile(r"^binned_\d+$")
 
 class DatasetLayout(ABC):
     """Abstract adapter for navigating and loading from a dataset."""
+
+    # How to recover the per-isolate group key from a spectrum ID, consumed by
+    # :meth:`~maldiamrkit.dataset.MaldiSet.isolate_ids` / ``.groups`` for
+    # group-aware CV. A layout declares at most one: ``replicate_pattern`` (a
+    # regex suffix to strip off each ID) or ``isolate_column`` (a metadata
+    # column already holding the isolate ID). Both ``None`` means the layout
+    # has no replicate structure to collapse.
+    replicate_pattern: re.Pattern[str] | None = None
+    isolate_column: str | None = None
 
     @abstractmethod
     def discover_metadata(self) -> pd.DataFrame:
@@ -183,6 +207,11 @@ class DRIAMSLayout(DatasetLayout):
         ``id_transform`` is ``None``, pointing at this kwarg; the
         warning can be silenced by passing ``id_transform=str`` if
         the per-replicate semantics are intentional.
+    collapse_replicates : bool, default=False
+        Convenience shortcut for ``id_transform=strip_driams_replicate``:
+        collapse DRIAMS technical replicates (``_MALDI<N>``) to one row per
+        underlying isolate via the active ``duplicate_strategy``. Ignored when
+        an explicit ``id_transform`` is given (that always takes precedence).
     mz_min : float, default=2000.0
         Lower m/z edge to assign to bin index 0 when a ``binned_N/`` stage
         is loaded.  Only consulted by :meth:`postprocess_spectrum`.
@@ -203,6 +232,10 @@ class DRIAMSLayout(DatasetLayout):
         already produces TIC=1.
     """
 
+    # DRIAMS encodes technical replicates as a ``_MALDI<N>`` suffix; stripping
+    # it yields the per-isolate group key for group-aware CV.
+    replicate_pattern: re.Pattern[str] | None = _DRIAMS_REPLICATE_SUFFIX_RE
+
     def __init__(
         self,
         dataset_dir: str | Path,
@@ -215,6 +248,7 @@ class DRIAMSLayout(DatasetLayout):
         spectrum_ext: str | _Sentinel = _AUTO,
         duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
         id_transform: Callable[[str], str] | None = None,
+        collapse_replicates: bool = False,
         mz_min: float | _Sentinel = _AUTO,
         mz_max: float | _Sentinel = _AUTO,
         normalize_tic: bool = False,
@@ -273,6 +307,13 @@ class DRIAMSLayout(DatasetLayout):
         self.species_column = species_column
         self.year = str(year) if year is not None else None
         self.duplicate_strategy = DuplicateStrategy(duplicate_strategy)
+        # ``collapse_replicates=True`` is a friendly shortcut for
+        # ``id_transform=strip_driams_replicate``: DRIAMS technical replicates
+        # (``_MALDI<N>``) collapse to one row per underlying sample via the
+        # active duplicate_strategy. An explicit id_transform always wins.
+        if id_transform is None and collapse_replicates:
+            id_transform = strip_driams_replicate
+        self.collapse_replicates = bool(collapse_replicates)
         self.id_transform = id_transform
         self.normalize_tic = bool(normalize_tic)
 

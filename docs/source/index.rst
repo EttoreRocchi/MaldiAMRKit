@@ -76,15 +76,40 @@ Key Features
       :link-type: url
 
       VME, ME, sensitivity, specificity, and classification reports
-      following EUCAST conventions. Species-drug stratified and
-      case-based splitting to prevent data leakage.
+      following EUCAST conventions. Species-drug stratified, case-based,
+      and group-aware (replicate-safe) splitting to prevent data leakage.
+
+   .. grid-item-card:: MIC & Susceptibility
+      :link: api/susceptibility.html
+      :link-type: url
+
+      ``MICEncoder`` and ``BreakpointTable`` turn raw MIC strings into
+      log2(MIC) regression targets and S/I/R categories, with bundled
+      EUCAST clinical breakpoints (v1.0-v16.0).
+
+   .. grid-item-card:: Differential Analysis
+      :link: api/differential.html
+      :link-type: url
+
+      Per-bin resistant-vs-susceptible testing with multiple-testing
+      correction, fold change, and effect size. Volcano, Manhattan, and
+      multi-drug comparison plots.
+
+   .. grid-item-card:: Drift Monitoring
+      :link: api/drift.html
+      :link-type: url
+
+      ``DriftMonitor`` tracks temporal drift via reference similarity,
+      PCA centroid trajectory, and top-peak stability, with ready-made
+      trajectory plots.
 
    .. grid-item-card:: DRIAMS Dataset Builder
       :link: quickstart.html#building-driams-like-datasets
       :link-type: url
 
-      Build and load DRIAMS-like dataset directories from raw spectra
-      and metadata with year-based subfolders and custom processing handlers.
+      Build and load DRIAMS-like dataset directories from raw spectra and
+      metadata, with year-based subfolders, custom processing handlers, and
+      technical-replicate collapsing.
 
    .. grid-item-card:: Composable Filters
       :link: api/core.html#filters
@@ -92,27 +117,6 @@ Key Features
 
       ``SpeciesFilter``, ``DrugFilter``, ``QualityFilter``, ``MetadataFilter``
       combinable with ``&``, ``|``, ``~`` operators.
-
-   .. grid-item-card:: Exploratory Plots
-      :link: api/visualization.html#exploratory-plots
-      :link-type: url
-
-      PCA, t-SNE, and UMAP scatter plots colored by species, resistance
-      phenotype, or any metadata column.
-
-   .. grid-item-card:: CLI & Export
-      :link: cli.html
-      :link-type: url
-
-      ``maldiamrkit preprocess``, ``maldiamrkit quality``, and
-      ``maldiamrkit build`` for batch processing. Export to CSV/TXT.
-
-   .. grid-item-card:: Batch Correction
-      :link: quickstart.html#batch-effect-correction
-      :link-type: url
-
-      Multi-site and multi-instrument correction via
-      `combatlearn <https://github.com/EttoreRocchi/combatlearn>`_.
 
 ----
 

@@ -71,7 +71,15 @@ class FlatLayout(InputLayout):
     id_column : str, default="ID"
         Column name for the spectrum identifier in the metadata.
     year_column : str or None
-        Column to extract year from, or ``None`` for flat layout.
+        Column to extract year from. When ``None``, the year is instead
+        inferred from a four-digit input subfolder name (if any), so a
+        year-organised input directory still produces year subfolders in
+        the output. See :meth:`get_year`.
+    year_overrides : dict[str, str] or None
+        Optional explicit ``{spectrum_id: year}`` mapping. Useful when the
+        ``spectra_dir`` is itself flat but the years are known from another
+        source. Takes precedence over the inferred subfolder year,
+        but not over ``year_column``.
     """
 
     def __init__(
@@ -81,21 +89,54 @@ class FlatLayout(InputLayout):
         *,
         id_column: str = "ID",
         year_column: str | None = None,
+        year_overrides: dict[str, str] | None = None,
     ) -> None:
         self.spectra_dir = Path(spectra_dir)
         self.metadata_csv = Path(metadata_csv)
         self.id_column = id_column
         self.year_column = year_column
+        self.year_overrides = year_overrides
         self._year_map: dict[str, str] | None = None
+        self._folder_year_map: dict[str, str] = {}
 
     def discover_spectra(self) -> list[Path]:
-        """Glob for ``.txt`` files, flat or with year subfolders."""
+        """Find ``.txt`` files, whether flat or in (possibly nested) subfolders.
+
+        Files are searched flat first, then one level down, then
+        recursively. Whenever a spectrum sits under a four-digit-year
+        folder, that year is recorded so it can serve as a fallback when
+        no ``year_column`` is supplied (see :meth:`get_year`).
+        """
         files = sorted(self.spectra_dir.glob("*.txt"))
         if not files:
             files = sorted(self.spectra_dir.glob("*/*.txt"))
         if not files:
+            files = sorted(self.spectra_dir.rglob("*.txt"))
+        if not files:
             raise ValueError(f"No .txt spectrum files found in {self.spectra_dir}")
+
+        self._folder_year_map = {}
+        for f in files:
+            year = self._infer_year_from_path(f)
+            if year is not None:
+                self._folder_year_map[self.get_id(f)] = year
         return files
+
+    def _infer_year_from_path(self, path: Path) -> str | None:
+        """Return a four-digit year taken from an input subfolder, if any.
+
+        Inspects the directory components between ``spectra_dir`` and the
+        file and returns the first that is a four-digit number. Returns
+        ``None`` for flat inputs or non-year folder names.
+        """
+        try:
+            relative = path.relative_to(self.spectra_dir)
+        except ValueError:
+            relative = path
+        for part in relative.parts[:-1]:
+            if len(part) == 4 and part.isdigit():
+                return part
+        return None
 
     def discover_metadata(self) -> pd.DataFrame:
         """Read metadata CSV and normalise the ID column."""
@@ -128,10 +169,22 @@ class FlatLayout(InputLayout):
         return spectrum_path.stem
 
     def get_year(self, spectrum_id: str) -> str | None:
-        """Year from the metadata column, or ``None``."""
-        if self._year_map is None:
-            return None
-        return self._year_map.get(spectrum_id)
+        """Resolve a spectrum's year.
+
+        Resolution order: the metadata ``year_column`` (authoritative when
+        set), then an explicit ``year_overrides`` entry, then the year
+        inferred from a four-digit input subfolder (see
+        :meth:`discover_spectra`); failing all three, ``None`` (flat layout).
+        """
+        if self._year_map is not None:
+            year = self._year_map.get(spectrum_id)
+            if year is not None:
+                return year
+        if self.year_overrides is not None:
+            year = self.year_overrides.get(spectrum_id)
+            if year is not None:
+                return year
+        return self._folder_year_map.get(spectrum_id)
 
 
 class BrukerTreeLayout(InputLayout):

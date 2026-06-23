@@ -1030,3 +1030,72 @@ class TestMetaAlignment:
         )
         X = ds.X
         assert X.shape[0] == 2
+
+
+class TestMaldiSetIsolateGroups:
+    """Per-isolate group accessors for group-aware cross-validation."""
+
+    def _make_set(self, ids, **kwargs):
+        specs = [_make_binned_spectrum(s, seed=i) for i, s in enumerate(ids)]
+        meta = pd.DataFrame(
+            {
+                "ID": ids,
+                "Drug": ["R", "S"] * (len(ids) // 2) + ["R"] * (len(ids) % 2),
+                "Species": ["taxon"] * len(ids),
+            }
+        )
+        return MaldiSet(
+            specs,
+            meta,
+            aggregate_by={"antibiotics": "Drug", "species": "taxon"},
+            **kwargs,
+        )
+
+    def test_isolate_ids_strip_replicate_suffix_and_align_to_X(self):
+        ids = ["iso1_MALDI1", "iso1_MALDI2", "iso2_MALDI1", "iso3"]
+        ds = self._make_set(ids)
+        groups = ds.isolate_ids()
+        # Aligned to the feature-matrix rows.
+        assert list(groups.index) == list(ds.X.index)
+        assert groups.loc["iso1_MALDI1"] == "iso1"
+        assert groups.loc["iso1_MALDI2"] == "iso1"
+        assert groups.loc["iso2_MALDI1"] == "iso2"
+        assert groups.loc["iso3"] == "iso3"
+
+    def test_groups_property_collapses_replicates(self):
+        ds = self._make_set(["iso1_MALDI1", "iso1_MALDI2", "iso2_MALDI1", "iso3"])
+        groups = ds.groups
+        assert isinstance(groups, np.ndarray)
+        assert groups.shape[0] == len(ds.X)
+        assert set(groups.tolist()) == {"iso1", "iso2", "iso3"}
+        # The two replicates of iso1 share a single group label.
+        assert int((groups == "iso1").sum()) == 2
+
+    def test_isolate_ids_from_metadata_column(self):
+        ds = self._make_set(["a_MALDI1", "b_MALDI1"])
+        # ``column`` overrides the suffix-stripping heuristic.
+        out = ds.isolate_ids(column="Species")
+        assert list(out.unique()) == ["taxon"]
+
+    def test_explicit_pattern_overrides_default(self):
+        # A non-DRIAMS replicate encoding handled via an explicit pattern.
+        ds = self._make_set(["a_rep1", "a_rep2", "b_rep1"])
+        groups = ds.isolate_ids(pattern=r"_rep\d+$")
+        assert set(groups) == {"a", "b"}
+
+    def test_layout_stamped_pattern_is_used(self):
+        # The pattern a layout stamps onto the set drives groups without args.
+        ds = self._make_set(["a_rep1", "a_rep2", "b_rep1"], isolate_pattern=r"_rep\d+$")
+        assert set(ds.groups.tolist()) == {"a", "b"}
+
+    def test_layout_stamped_column_is_used(self):
+        ds = self._make_set(["x_MALDI1", "y_MALDI1"], isolate_column="Species")
+        # Stamped column wins over the DRIAMS suffix fallback.
+        assert list(ds.isolate_ids().unique()) == ["taxon"]
+
+    def test_no_op_pattern_warns(self):
+        # IDs without any replicate suffix -> grouping is a silent no-op; warn.
+        ds = self._make_set(["plainid1", "plainid2"])
+        with pytest.warns(UserWarning, match="no replicate"):
+            groups = ds.isolate_ids()
+        assert set(groups) == {"plainid1", "plainid2"}

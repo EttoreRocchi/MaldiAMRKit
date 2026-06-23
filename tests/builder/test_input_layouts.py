@@ -194,6 +194,79 @@ class TestFlatLayout:
         layout = FlatLayout(tmp_path, tmp_path / "meta.csv")
         assert layout.get_id(Path("/some/dir/spectrum_1.txt")) == "spectrum_1"
 
+    def test_year_inferred_from_subfolder_without_year_column(self, tmp_path):
+        """Year-organised input yields a year even when no year_column is set."""
+        spectra_dir = tmp_path / "spectra"
+        (spectra_dir / "2015").mkdir(parents=True)
+        (spectra_dir / "2016").mkdir(parents=True)
+        (spectra_dir / "2015" / "s1.txt").write_text("1000 100\n")
+        (spectra_dir / "2016" / "s2.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1", "s2"]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(spectra_dir, meta_csv)
+        layout.discover_spectra()
+        assert layout.get_year("s1") == "2015"
+        assert layout.get_year("s2") == "2016"
+
+    def test_flat_input_infers_no_year(self, tmp_path):
+        """A flat input directory yields no year (folder name is not a year)."""
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        (spectra_dir / "s1.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1"]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(spectra_dir, meta_csv)
+        layout.discover_spectra()
+        assert layout.get_year("s1") is None
+
+    def test_year_column_overrides_subfolder(self, tmp_path):
+        """The metadata year_column is authoritative over the input subfolder."""
+        spectra_dir = tmp_path / "spectra"
+        (spectra_dir / "2015").mkdir(parents=True)
+        (spectra_dir / "2015" / "s1.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1"], "Year": [2016]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(spectra_dir, meta_csv, year_column="Year")
+        layout.discover_spectra()
+        layout.discover_metadata()
+        assert layout.get_year("s1") == "2016"
+
+    def test_non_year_subfolder_infers_no_year(self, tmp_path):
+        """A non-year subfolder name does not produce a spurious year."""
+        spectra_dir = tmp_path / "spectra"
+        (spectra_dir / "batch_a").mkdir(parents=True)
+        (spectra_dir / "batch_a" / "s1.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1"]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(spectra_dir, meta_csv)
+        layout.discover_spectra()
+        assert layout.get_year("s1") is None
+
+    def test_year_overrides_used_for_flat_input(self, tmp_path):
+        """An explicit year_overrides map supplies years for flat input."""
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        (spectra_dir / "s1.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1"]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(spectra_dir, meta_csv, year_overrides={"s1": "2017"})
+        layout.discover_spectra()
+        assert layout.get_year("s1") == "2017"
+
+    def test_year_column_overrides_year_overrides(self, tmp_path):
+        """year_column wins over an explicit year_overrides entry."""
+        spectra_dir = tmp_path / "spectra"
+        spectra_dir.mkdir()
+        (spectra_dir / "s1.txt").write_text("1000 100\n")
+        meta_csv = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["s1"], "Year": [2016]}).to_csv(meta_csv, index=False)
+        layout = FlatLayout(
+            spectra_dir, meta_csv, year_column="Year", year_overrides={"s1": "2017"}
+        )
+        layout.discover_spectra()
+        layout.discover_metadata()
+        assert layout.get_year("s1") == "2016"
+
 
 class TestBrukerTreeLayout:
     """Tests for BrukerTreeLayout discovery and validation."""

@@ -12,7 +12,12 @@ Submodules
 """
 
 from .builder import BuildReport, DatasetBuilder, ProcessingHandler
-from .dataset_layouts import DatasetLayout, DRIAMSLayout, MARISMaLayout
+from .dataset_layouts import (
+    DatasetLayout,
+    DRIAMSLayout,
+    MARISMaLayout,
+    strip_driams_replicate,
+)
 from .duplicates import DuplicateStrategy
 from .input_layouts import BrukerTreeLayout, FlatLayout, InputLayout
 from .loader import DatasetLoader
@@ -36,6 +41,7 @@ __all__ = [
     "DatasetLayout",
     "DRIAMSLayout",
     "MARISMaLayout",
+    "strip_driams_replicate",
     # Builder
     "DatasetBuilder",
     "ProcessingHandler",

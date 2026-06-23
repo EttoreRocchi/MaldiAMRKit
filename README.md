@@ -78,6 +78,7 @@ pip install -e .[dev]
 - **AMR Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report` following EUCAST conventions
 - **`mic_regression_report`**: RMSE in log2 dilutions, essential agreement (±1 dilution), and categorical agreement after re-binning to S/I/R - the regression counterpart to `amr_classification_report`
 - **Stratified Splitting**: Species-drug stratified and case-based (patient-grouped) splitting to prevent data leakage
+- **Group-Aware CV**: `MaldiSet.groups` / `isolate_ids()` derive per-isolate labels (DRIAMS `_MALDI<N>` replicates stripped by default, or read from a metadata column) to pass as `groups=` to splitters like `StratifiedGroupKFold`, keeping replicates of one isolate on the same side of a split
 
 ### Susceptibility (MIC encoding & breakpoints)
 - **`MICEncoder`**: Convert raw MIC strings into `log2(MIC)` regression targets plus S/I/R categories and ATU flags in a single pass
@@ -95,6 +96,7 @@ pip install -e .[dev]
 
 ### Data Management
 - **Dataset Building & Loading**: `DatasetBuilder` and `DatasetLoader` with pluggable layout adapters (`FlatLayout`, `BrukerTreeLayout`, `DRIAMSLayout`, `MARISMaLayout`)
+- **Replicate Collapsing**: `DRIAMSLayout(collapse_replicates=True)` merges technical replicates (`_MALDI<N>`) to one row per isolate at load time via the active `duplicate_strategy`
 - **Bruker Format Support**: Read Bruker flexAnalysis binary data (fid/1r + acqus) natively via `read_spectrum()` on directories
 - **MIC Parsing**: `parse_mic_column()` for parsing MIC strings with qualifiers and European decimals
 - **Composable Filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` combinable with `&`/`|`/`~` operators

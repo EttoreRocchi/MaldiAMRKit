@@ -276,6 +276,34 @@ Prevent data leakage with species-aware splits:
    for train_idx, test_idx in cv.split(X, y, species=species_labels):
        pass
 
+Group-Aware Cross-Validation
+----------------------------
+
+Technical replicates of one biological isolate share an underlying sample, so
+letting them straddle a train/test split leaks information. ``MaldiSet.groups``
+derives a per-isolate label for every row (DRIAMS ``_MALDI<N>`` replicates are
+stripped by default), ready to pass as ``groups=`` to a group-aware splitter:
+
+.. code-block:: python
+
+   from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
+
+   X, y = ds.X, ds.get_y_single("Ceftriaxone")
+
+   cv = StratifiedGroupKFold(n_splits=5)
+   scores = cross_val_score(pipe, X, y, groups=ds.groups, cv=cv)
+
+When isolate IDs live in a metadata column rather than the spectrum-ID suffix,
+read them directly (this also overrides the suffix heuristic):
+
+.. code-block:: python
+
+   groups = ds.isolate_ids(column="patient_id")        # from metadata
+   groups = ds.isolate_ids(pattern=r"-rep\d+$")        # custom suffix
+
+Alternatively, collapse replicates at load time so each isolate contributes a
+single row (see *Loading Datasets* below).
+
 Building DRIAMS-like Datasets
 -----------------------------
 
@@ -291,11 +319,21 @@ metadata CSV:
    report = DatasetBuilder(layout, "output/my_dataset").build()
    print(f"Processed {report.succeeded}/{report.total} spectra")
 
-With year-based subfolders (requires a date or year column in the metadata):
+With year-based subfolders, either from a date/year metadata column:
 
 .. code-block:: python
 
    layout = FlatLayout("spectra/", "metadata.csv", year_column="acquisition_date")
+   report = DatasetBuilder(layout, "output/my_dataset").build()
+
+...or inferred from a year-organised input directory when no ``year_column``
+is given (e.g. ``spectra/2015/s1.txt`` lays the build out under ``.../2015/``).
+The metadata ``year_column`` stays authoritative when set:
+
+.. code-block:: python
+
+   # spectra/2015/*.txt, spectra/2016/*.txt -> binned_6000/2015/, binned_6000/2016/
+   layout = FlatLayout("spectra/", "metadata.csv")
    report = DatasetBuilder(layout, "output/my_dataset").build()
 
 Build from Bruker binary data (e.g. MARISMa-style directory tree):
@@ -357,6 +395,13 @@ from the public DRIAMS repository):
        DRIAMSLayout("output/my_dataset", year=2015),
        stage="preprocessed",
    ).load(aggregate_by=dict(antibiotics="Ceftriaxone"))
+
+   # Collapse DRIAMS technical replicates (``_MALDI<N>``) to one row per
+   # isolate at load time, merged via the active ``duplicate_strategy``
+   ds = DatasetLoader(
+       DRIAMSLayout("output/my_dataset", collapse_replicates=True,
+                    duplicate_strategy="average"),
+   ).load()
 
 Load directly from a MARISMa-style Bruker tree (no build step needed):
 

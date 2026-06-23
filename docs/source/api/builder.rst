@@ -45,6 +45,8 @@ Dataset Layouts
    :members:
    :undoc-members:
 
+.. autofunction:: maldiamrkit.data.strip_driams_replicate
+
 ProcessingHandler
 -----------------
 

@@ -157,6 +157,8 @@ class DatasetLoader:
             meta,
             aggregate_by=aggregate_by,
             verbose=self.verbose,
+            isolate_pattern=self.layout.replicate_pattern,
+            isolate_column=self.layout.isolate_column,
         )
 
     @staticmethod

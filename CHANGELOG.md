@@ -3,6 +3,19 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.16.0] - 2026-06-23
+
+### Added
+
+- **Group-aware CV accessors on `MaldiSet`**: `isolate_ids(pattern=..., column=...)` returns per-isolate group labels (a replicate suffix stripped from the spectrum ID, or read from a metadata column), and the `groups` property returns them as a NumPy array to pass as `groups=` to splitters like `StratifiedGroupKFold`.
+- **`DRIAMSLayout(collapse_replicates=True)`**: collapses `_MALDI<N>` technical replicates to one row per isolate at load time, via the `duplicate_strategy`. Shortcut for `id_transform=strip_driams_replicate` (now exported from `maldiamrkit.data`).
+- **`DatasetLayout.replicate_pattern` / `isolate_column`** class attributes let a layout declare its isolate key; `DatasetLoader` stamps them onto the loaded `MaldiSet` so `groups` / `isolate_ids` follow the source layout (DRIAMS strips `_MALDI<N>`; MARISMa sets neither).
+
+### Changed
+
+- **`FlatLayout` infers the build year from the input folder structure.** With no `year_column`, spectra under four-digit-year subfolders (e.g. `spectra/2015/`) are laid out under `binned_*/2015/`, `preprocessed/2015/`, `id/2015/`; the metadata `year_column` stays authoritative and a flat input still produces a flat build.
+- **`FlatLayout(year_overrides=...)`** accepts an explicit `{spectrum_id: year}` mapping for callers whose `spectra_dir` is flat. It ranks above the inferred subfolder year and below `year_column`.
+
 ## [0.15.0] - 2026-05-14
 
 ### Added
