@@ -32,10 +32,8 @@ class TestMannWhitney:
 
     def test_constant_groups(self):
         stat, p = _mann_whitney_test(np.ones(5), np.ones(5))
-        # scipy may raise or return a valid nan/1 p; our wrapper always
-        # returns (nan, 1) if the U-statistic is undefined.
-        assert p <= 1.0 or p == 1.0
-        assert np.isnan(stat) or np.isfinite(stat)
+        assert np.isnan(stat)
+        assert p == 1.0
 
 
 class TestTTest:

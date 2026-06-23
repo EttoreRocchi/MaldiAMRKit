@@ -35,7 +35,12 @@ def _mann_whitney_test(group_r: np.ndarray, group_s: np.ndarray) -> tuple[float,
         )
     except ValueError:
         return float("nan"), 1.0
-    return float(stat), float(p_value)
+    stat = float(stat)
+    p_value = float(p_value)
+
+    if np.isnan(p_value):
+        return float("nan"), 1.0
+    return stat, p_value
 
 
 def _t_test(group_r: np.ndarray, group_s: np.ndarray) -> tuple[float, float]:
