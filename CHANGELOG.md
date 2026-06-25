@@ -3,6 +3,17 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.17.0] - 2026-06-25
+
+### Added
+
+- **Peak-set**: leak-safe peak-set extraction so downstream peak-set models can consume spectra as variable-length `(m/z, intensity)` sets.
+    - `maldiamrkit.detection.PeakSet` / `PeakList` - peak-set containers. `PeakSet` holds one spectrum (`mz`, `intensity`, `score`, `n_peaks`, `top_k(k)`, `as_array()`); `PeakList` is a collection with integer/slice indexing, `to_padded(max_peaks=None) -> (values, mask)`, and `save` / `load` to `.npz` + `.json`.
+    - `MaldiPeakDetector.transform_peaklist(X, top_k=200, rank_by="intensity", mz=None, cache_dir=None)` - stateless per-spectrum extraction of a `PeakList` from binned spectra, with `rank_by` one of `{"intensity", "persistence", "prominence"}`. `MaldiPeakDetector.detect_peakset(mz, intensity, ...)` exposes the single-spectrum path.
+    - `maldiamrkit.detection.create_peakset_input(spectra_dir, ...)` - binning-free analogue of `create_raw_input` that detects peaks at full m/z resolution and keeps the `top_k` peaks.
+    - `maldiamrkit.alignment.align_peaks(peaks, ref_peaks_mz, method=...)` - fit-free peak-m/z alignment built on the existing alignment strategies; the caller supplies a reference fit on its training split.
+    - Optional `cache_dir=` on `transform_peaklist` / `create_peakset_input` caches the stateless `PeakList` keyed by a content + config hash and auto-invalidates on any change.
+
 ## [0.16.0] - 2026-06-23
 
 ### Added

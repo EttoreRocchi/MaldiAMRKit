@@ -41,6 +41,8 @@ Utility Functions
 
 .. autofunction:: maldiamrkit.alignment.create_raw_input
 
+.. autofunction:: maldiamrkit.alignment.align_peaks
+
 Example Usage
 -------------
 

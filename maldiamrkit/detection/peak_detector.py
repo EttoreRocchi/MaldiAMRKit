@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 import gudhi
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, peak_prominences
 from sklearn.base import BaseEstimator, TransformerMixin
+
+from .peaklist import (
+    RANK_BY,
+    PeakList,
+    PeakSet,
+    _array_hash,
+    _config_hash,
+    _PeakCache,
+)
 
 
 class PeakMethod(str, Enum):
@@ -350,3 +361,262 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             )
 
         return pd.DataFrame(stats, index=X.index)
+
+    def _detect_peaks_ph_scored(self, row: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Detect persistent-homology peaks and their persistence values.
+
+        Like :meth:`_detect_peaks_ph` but also returns the persistence
+        (death - birth) of each kept peak, index-ascending.
+
+        Parameters
+        ----------
+        row : np.ndarray
+            1D spectrum intensity array.
+
+        Returns
+        -------
+        indices : np.ndarray
+            Peak indices, ascending.
+        persistences : np.ndarray
+            Persistence of each peak, aligned with ``indices``.
+        """
+        row = np.asarray(row, dtype=float)
+        if np.allclose(row, row[0]):
+            return np.array([], dtype=int), np.array([], dtype=float)
+
+        signal = -row
+        signal = signal - signal.min()
+
+        cc = gudhi.CubicalComplex(top_dimensional_cells=signal[np.newaxis, :])
+        cc.persistence()
+        regular_pairs, essential_pairs = cc.cofaces_of_persistence_pairs()
+
+        regular = regular_pairs[0] if len(regular_pairs) else np.empty((0, 2), int)
+        essential = essential_pairs[0] if len(essential_pairs) else np.empty(0, int)
+        signal_max = float(np.max(signal))
+
+        idx_to_pers: dict[int, float] = {}
+        if regular.size:
+            births = signal[regular[:, 0]]
+            deaths = signal[regular[:, 1]]
+            persistences = deaths - births
+            keep = persistences >= self.persistence_threshold
+            for i, pers in zip(
+                regular[keep, 0].tolist(), persistences[keep].tolist(), strict=True
+            ):
+                idx_to_pers[int(i)] = max(idx_to_pers.get(int(i), 0.0), float(pers))
+        if essential.size:
+            essential_births = signal[essential]
+            persistences = signal_max - essential_births
+            keep = persistences >= self.persistence_threshold
+            for i, pers in zip(
+                essential[keep].tolist(), persistences[keep].tolist(), strict=True
+            ):
+                idx_to_pers[int(i)] = max(idx_to_pers.get(int(i), 0.0), float(pers))
+
+        if not idx_to_pers:
+            return np.array([], dtype=int), np.array([], dtype=float)
+        indices = np.array(sorted(idx_to_pers), dtype=int)
+        pers = np.array([idx_to_pers[int(i)] for i in indices], dtype=float)
+        return indices, pers
+
+    def _detect_scored(
+        self, row: np.ndarray, rank_by: str
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(peak_indices, ranking_scores)`` for one spectrum row.
+
+        Peak indices are ascending. ``rank_by="persistence"`` requires
+        ``method="ph"``; ``"intensity"`` and ``"prominence"`` work for either
+        detection method.
+        """
+        row = np.asarray(row, dtype=float)
+        if self.method == "local":
+            indices = self._detect_peaks_local(row)
+            persistences: np.ndarray | None = None
+        elif self.method == "ph":
+            indices, persistences = self._detect_peaks_ph_scored(row)
+        else:
+            raise ValueError(f"Unknown method: {self.method}")
+
+        indices = np.asarray(indices, dtype=int)
+        if indices.size == 0:
+            return indices, np.empty(0, dtype=float)
+
+        if rank_by == "intensity":
+            scores = row[indices]
+        elif rank_by == "prominence":
+            scores = peak_prominences(row, indices)[0]
+        elif rank_by == "persistence":
+            if persistences is None:
+                raise ValueError("rank_by='persistence' requires method='ph'.")
+            scores = persistences
+        else:
+            raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {RANK_BY}.")
+        return indices, np.asarray(scores, dtype=float)
+
+    def detect_peakset(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        top_k: int | None = 200,
+        rank_by: str = "intensity",
+    ) -> PeakSet:
+        """Detect peaks in one spectrum and return a :class:`PeakSet`.
+
+        Stateless and per-spectrum: the result depends only on this spectrum,
+        so it is identical whether computed over a whole dataset or inside a
+        single fold.
+
+        Parameters
+        ----------
+        mz : array-like
+            m/z axis of the spectrum, shape ``(n_points,)``.
+        intensity : array-like
+            Intensity values aligned with ``mz``.
+        top_k : int or None, default=200
+            Keep at most this many peaks, ranked by ``rank_by``. ``None`` keeps
+            all detected peaks.
+        rank_by : {"intensity", "persistence", "prominence"}, default="intensity"
+            Ranking used to select the ``top_k`` peaks.
+
+        Returns
+        -------
+        PeakSet
+            The detected peaks (always carrying their true intensities,
+            regardless of the detector's ``binary`` setting).
+        """
+        mz = np.asarray(mz, dtype=float).ravel()
+        intensity = np.asarray(intensity, dtype=float).ravel()
+        if mz.shape != intensity.shape:
+            raise ValueError(
+                "mz and intensity must have the same shape; "
+                f"got {mz.shape} and {intensity.shape}."
+            )
+        indices, scores = self._detect_scored(intensity, rank_by)
+        if indices.size == 0:
+            return PeakSet(np.empty(0), np.empty(0))
+        if top_k is not None and indices.size > top_k:
+            keep = np.argsort(scores, kind="stable")[::-1][: int(top_k)]
+            indices = indices[keep]
+            scores = scores[keep]
+        peak_score = None if rank_by == "intensity" else scores
+        return PeakSet(mz[indices], intensity[indices], peak_score)
+
+    def _resolve_mz_index(
+        self, X: Any, mz: np.ndarray | None
+    ) -> tuple[np.ndarray, pd.Index]:
+        """Recover the m/z axis (from ``mz`` or numeric columns) and the index."""
+        if isinstance(X, pd.DataFrame):
+            index = X.index
+            columns: pd.Index | None = X.columns
+        else:
+            index = pd.RangeIndex(np.asarray(X).shape[0])
+            columns = None
+
+        if mz is not None:
+            return np.asarray(mz, dtype=float).ravel(), index
+        if columns is not None:
+            try:
+                return columns.to_numpy(dtype=float), index
+            except (ValueError, TypeError):
+                raise ValueError(
+                    "Could not recover an m/z axis from the DataFrame columns "
+                    f"({list(columns[:3])}...). Pass mz= explicitly (e.g. the bin "
+                    "centres from maldiamrkit.preprocessing.get_bin_metadata)."
+                ) from None
+        raise ValueError(
+            "X has no column labels to recover m/z from; pass mz= explicitly."
+        )
+
+    def transform_peaklist(
+        self,
+        X: Any,
+        top_k: int | None = 200,
+        rank_by: str = "intensity",
+        mz: np.ndarray | None = None,
+        cache_dir: str | Path | None = None,
+    ) -> PeakList:
+        """Extract a compact :class:`PeakList` from binned spectra.
+
+        Per-spectrum and stateless. The m/z axis is taken from ``mz`` if given,
+        otherwise recovered from the (numeric) DataFrame column labels.
+
+        Parameters
+        ----------
+        X : pd.DataFrame, pd.Series, or ndarray
+            Binned spectra of shape ``(n_samples, n_bins)``.
+        top_k : int or None, default=200
+            Maximum number of peaks kept per spectrum.
+        rank_by : {"intensity", "persistence", "prominence"}, default="intensity"
+            Ranking used to select the ``top_k`` peaks.
+        mz : array-like, optional
+            Explicit m/z axis of length ``n_bins``. Overrides column labels.
+        cache_dir : str, optional
+            If given, cache the resulting :class:`PeakList` keyed by a content +
+            config hash and reuse it on subsequent calls.
+
+        Returns
+        -------
+        PeakList
+            One :class:`PeakSet` per spectrum.
+        """
+        if rank_by not in RANK_BY:
+            raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {RANK_BY}.")
+        if isinstance(X, pd.Series):
+            X = X.to_frame().T
+
+        mz_axis, index = self._resolve_mz_index(X, mz)
+        values = X.to_numpy() if hasattr(X, "to_numpy") else np.asarray(X)
+        values = np.asarray(values, dtype=float)
+        if values.ndim == 1:
+            values = values.reshape(1, -1)
+        if values.shape[1] != mz_axis.shape[0]:
+            raise ValueError(
+                f"m/z axis length {mz_axis.shape[0]} does not match the "
+                f"{values.shape[1]} feature columns of X."
+            )
+
+        config = {
+            "source": "transform_peaklist",
+            "top_k": None if top_k is None else int(top_k),
+            "rank_by": rank_by,
+            "detector": self.get_params(),
+            "detector_kwargs": dict(self.kwargs),
+            "mz_axis": _array_hash(mz_axis),
+        }
+        config_hash = _config_hash(config)
+        content_hash = _array_hash(values)
+
+        cache = _PeakCache(cache_dir)
+        cached = cache.get(content_hash, config_hash)
+        if cached is not None:
+            return cached
+
+        rows = [values[i] for i in range(values.shape[0])]
+        if self.n_jobs == 1:
+            peaks = [
+                self.detect_peakset(mz_axis, row, top_k=top_k, rank_by=rank_by)
+                for row in rows
+            ]
+        else:
+            peaks = Parallel(n_jobs=self.n_jobs, prefer="processes")(
+                delayed(self.detect_peakset)(mz_axis, row, top_k, rank_by)
+                for row in rows
+            )
+
+        peaklist = PeakList(
+            peaks,
+            index=index,
+            meta={
+                "method": self.method.value,
+                "top_k": None if top_k is None else int(top_k),
+                "rank_by": rank_by,
+                "mz_range": [float(mz_axis.min()), float(mz_axis.max())],
+                "warped": False,
+                "content_hash": content_hash,
+                "config_hash": config_hash,
+                "source": "transform_peaklist",
+            },
+        )
+        cache.put(content_hash, config_hash, peaklist)
+        return peaklist
