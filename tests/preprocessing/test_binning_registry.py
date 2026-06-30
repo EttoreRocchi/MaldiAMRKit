@@ -1,4 +1,4 @@
-"""Tests for BINNING_REGISTRY and edge-generator wrapper functions."""
+"""Tests for the binning registry and edge-generator wrapper functions."""
 
 from __future__ import annotations
 
@@ -6,8 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from maldiamrkit.preprocessing import (
+    register_binning_method,
+    unregister_binning_method,
+)
 from maldiamrkit.preprocessing.binning import (
-    BINNING_REGISTRY,
+    _BINNING_REGISTRY,
     _adaptive_edge_fn,
     _custom_edge_fn,
     _proportional_edge_fn,
@@ -98,23 +102,23 @@ class TestValidateCustomEdges:
 
 
 class TestBinningRegistryExtensibility:
-    """Tests for BINNING_REGISTRY as a public API."""
+    """Tests for registering custom binning methods (public extension API)."""
 
     def test_all_methods_registered(self):
-        assert set(BINNING_REGISTRY.keys()) == {
+        assert {
             "uniform",
             "proportional",
             "adaptive",
             "custom",
-        }
+        } <= set(_BINNING_REGISTRY.keys())
 
     def test_custom_method_registration(self):
-        """Custom registry keys not in the Enum are rejected by Enum coercion."""
+        """A registered custom method can be used through ``bin_spectrum``."""
 
         def my_edges(*, mz_min, mz_max, **kwargs):
             return np.array([mz_min, (mz_min + mz_max) / 2, mz_max])
 
-        BINNING_REGISTRY["test_method"] = my_edges
+        register_binning_method("test_method", my_edges)
         try:
             df = pd.DataFrame(
                 {
@@ -122,12 +126,35 @@ class TestBinningRegistryExtensibility:
                     "intensity": np.ones(100),
                 }
             )
-            with pytest.raises(ValueError, match="is not a valid"):
-                bin_spectrum(df, method="test_method")
+            binned, metadata = bin_spectrum(df, method="test_method")
+            assert len(binned) == 2  # two bins from three edges
         finally:
-            del BINNING_REGISTRY["test_method"]
+            unregister_binning_method("test_method")
+
+    def test_register_non_callable_raises(self):
+        with pytest.raises(TypeError, match="must be callable"):
+            register_binning_method("bad", 123)
 
     def test_invalid_method_raises(self):
         df = pd.DataFrame({"mass": [2000, 3000], "intensity": [1.0, 1.0]})
         with pytest.raises(ValueError, match="is not a valid"):
             bin_spectrum(df, method="nonexistent")
+
+    def test_unregister_removes_custom_method(self):
+        def my_edges(*, mz_min, mz_max, **kwargs):
+            return np.array([mz_min, mz_max])
+
+        register_binning_method("disposable", my_edges)
+        assert "disposable" in _BINNING_REGISTRY
+        unregister_binning_method("disposable")
+        assert "disposable" not in _BINNING_REGISTRY
+
+    @pytest.mark.parametrize("name", ["uniform", "proportional", "adaptive", "custom"])
+    def test_unregister_builtin_raises(self, name):
+        with pytest.raises(ValueError, match="Cannot unregister built-in"):
+            unregister_binning_method(name)
+        assert name in _BINNING_REGISTRY
+
+    def test_unregister_unknown_method_raises(self):
+        with pytest.raises(KeyError, match="No binning method named"):
+            unregister_binning_method("never_registered")

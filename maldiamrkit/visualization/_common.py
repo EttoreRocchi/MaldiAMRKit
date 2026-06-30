@@ -13,7 +13,7 @@ from typing import Any
 
 _SUSCEPTIBILITY_ORDER: dict[str, int] = {"S": 0, "I": 1, "R": 2}
 
-DEFAULT_LABEL_MAP: dict = {
+_DEFAULT_LABEL_MAP: dict = {
     0: "Susceptible (S)",
     1: "Resistant (R)",
     "S": "Susceptible (S)",
@@ -64,4 +64,4 @@ def resolve_display_label(label: Any, label_map: dict | None = None) -> str:
     """
     if label_map and label in label_map:
         return str(label_map[label])
-    return str(DEFAULT_LABEL_MAP.get(label, label))
+    return str(_DEFAULT_LABEL_MAP.get(label, label))

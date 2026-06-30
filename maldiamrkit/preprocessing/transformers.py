@@ -603,7 +603,7 @@ class MzMultiTrimmer:
 
 
 # Registry mapping transformer names to classes (for deserialization)
-TRANSFORMER_REGISTRY: dict[str, type] = {
+_TRANSFORMER_REGISTRY: dict[str, type] = {
     "ClipNegatives": ClipNegatives,
     "SqrtTransform": SqrtTransform,
     "LogTransform": LogTransform,

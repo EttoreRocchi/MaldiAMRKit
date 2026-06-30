@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from maldiamrkit.similarity.metrics import (
-    METRIC_REGISTRY,
+    _METRIC_REGISTRY,
     _extract_mz_intensity,
     spectral_distance,
 )
@@ -143,7 +143,7 @@ class TestSpecificMetrics:
 
 
 class TestMetricRegistry:
-    """METRIC_REGISTRY completeness and dispatcher validation."""
+    """_METRIC_REGISTRY completeness and dispatcher validation."""
 
     def test_expected_keys(self):
         expected = {
@@ -153,7 +153,7 @@ class TestMetricRegistry:
             "spectral_contrast_angle",
             "pearson",
         }
-        assert set(METRIC_REGISTRY) == expected
+        assert set(_METRIC_REGISTRY) == expected
 
     def test_invalid_metric_raises(self):
         a = np.array([1.0])

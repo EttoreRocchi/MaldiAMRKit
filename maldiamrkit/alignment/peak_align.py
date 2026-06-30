@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..detection.peaklist import PeakSet
-from .strategies import ALIGNMENT_REGISTRY, AlignmentMethod, AlignmentStrategy
+from .strategies import _ALIGNMENT_REGISTRY, AlignmentMethod, AlignmentStrategy
 
 
 def _build_strategy(
@@ -24,7 +24,7 @@ def _build_strategy(
     lowess_it: int,
 ) -> AlignmentStrategy:
     """Instantiate the requested alignment strategy with its parameters."""
-    cls = ALIGNMENT_REGISTRY[method]
+    cls = _ALIGNMENT_REGISTRY[method]
     if method in (AlignmentMethod.shift, AlignmentMethod.linear):
         return cls(max_shift=max_shift_da)
     if method == AlignmentMethod.piecewise:

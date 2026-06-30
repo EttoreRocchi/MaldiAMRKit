@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
-from .metrics import METRIC_REGISTRY, SpectralMetric, spectral_distance
+from .metrics import _METRIC_REGISTRY, SpectralMetric, spectral_distance
 
 if TYPE_CHECKING:
     from maldiamrkit.spectrum import MaldiSpectrum
@@ -31,7 +31,7 @@ def pairwise_distances(
         :class:`~maldiamrkit.spectrum.MaldiSpectrum`, raw/preprocessed data
         is used.
     metric : str or SpectralMetric, default="wasserstein"
-        Key in :data:`~maldiamrkit.similarity.METRIC_REGISTRY`.
+        One of the values of :class:`~maldiamrkit.similarity.SpectralMetric`.
     n_jobs : int, default=1
         Number of parallel jobs for pairwise computation.
 
@@ -61,7 +61,7 @@ def _pairwise_binned(X: pd.DataFrame, metric: str) -> np.ndarray:
     """Fast path using sklearn for binned feature matrices."""
     from sklearn.metrics import pairwise_distances as sklearn_pd
 
-    metric_fn = METRIC_REGISTRY[metric]
+    metric_fn = _METRIC_REGISTRY[metric]
     arr = X.values
 
     def _metric(a: np.ndarray, b: np.ndarray) -> float:

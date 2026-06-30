@@ -52,6 +52,7 @@ Preprocessing
    maldiamrkit.preprocessing.preprocess
    maldiamrkit.preprocessing.bin_spectrum
    maldiamrkit.preprocessing.get_bin_metadata
+   maldiamrkit.preprocessing.register_binning_method
    maldiamrkit.preprocessing.BinningMethod
    maldiamrkit.preprocessing.estimate_snr
    maldiamrkit.preprocessing.SpectrumQuality
@@ -91,6 +92,7 @@ Alignment
    maldiamrkit.alignment.Warping
    maldiamrkit.alignment.RawWarping
    maldiamrkit.alignment.create_raw_input
+   maldiamrkit.alignment.align_peaks
    maldiamrkit.alignment.AlignmentStrategy
    maldiamrkit.alignment.AlignmentMethod
 
@@ -102,6 +104,9 @@ Peak Detection
 
    maldiamrkit.detection.MaldiPeakDetector
    maldiamrkit.detection.PeakMethod
+   maldiamrkit.detection.PeakSet
+   maldiamrkit.detection.PeakList
+   maldiamrkit.detection.create_peakset_input
 
 Evaluation
 ----------
@@ -128,15 +133,6 @@ Reports
    maldiamrkit.evaluation.mic_regression_report
    maldiamrkit.evaluation.amr_multilabel_report
    maldiamrkit.evaluation.vme_me_curve
-
-Scorers
-~~~~~~~
-
-.. autosummary::
-   :nosignatures:
-
-   maldiamrkit.evaluation.vme_scorer
-   maldiamrkit.evaluation.me_scorer
 
 Splitting
 ~~~~~~~~~
@@ -283,6 +279,7 @@ Dataset Layouts
    maldiamrkit.data.DatasetLayout
    maldiamrkit.data.DRIAMSLayout
    maldiamrkit.data.MARISMaLayout
+   maldiamrkit.data.strip_driams_replicate
 
 Duplicate Handling
 ~~~~~~~~~~~~~~~~~~
@@ -291,6 +288,17 @@ Duplicate Handling
    :nosignatures:
 
    maldiamrkit.data.DuplicateStrategy
+
+Dataset Manifest
+~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :nosignatures:
+
+   maldiamrkit.data.SiteInfo
+   maldiamrkit.data.BuildInfo
+   maldiamrkit.data.read_site_info
+   maldiamrkit.data.write_site_info
 
 I/O
 ---

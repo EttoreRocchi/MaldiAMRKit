@@ -67,3 +67,22 @@ Duplicate Handling
    :members:
    :undoc-members:
    :show-inheritance:
+
+Dataset Manifest
+----------------
+
+Every dataset produced by :class:`~maldiamrkit.data.DatasetBuilder` carries a
+self-describing ``site_info.json`` manifest at its root, so it can be re-opened
+without external knowledge. Downstream layouts (notably
+:class:`~maldiamrkit.data.DRIAMSLayout`) consult it at load time to pre-fill
+unspecified constructor kwargs.
+
+.. autoclass:: maldiamrkit.data.SiteInfo
+   :members:
+
+.. autoclass:: maldiamrkit.data.BuildInfo
+   :members:
+
+.. autofunction:: maldiamrkit.data.read_site_info
+
+.. autofunction:: maldiamrkit.data.write_site_info

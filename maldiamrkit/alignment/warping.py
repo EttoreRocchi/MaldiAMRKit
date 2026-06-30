@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..detection.peak_detector import MaldiPeakDetector
-from .strategies import ALIGNMENT_REGISTRY, AlignmentMethod, DTWStrategy
+from .strategies import _ALIGNMENT_REGISTRY, AlignmentMethod, DTWStrategy
 
 
 class Warping(BaseEstimator, TransformerMixin):
@@ -177,7 +177,7 @@ class Warping(BaseEstimator, TransformerMixin):
 
     def _get_strategy(self):
         """Build strategy instance from current parameters."""
-        cls = ALIGNMENT_REGISTRY[self.method]
+        cls = _ALIGNMENT_REGISTRY[self.method]
         if self.method == "shift":
             return cls(max_shift=self.max_shift)
         elif self.method == "linear":

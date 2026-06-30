@@ -22,8 +22,6 @@ from .duplicates import DuplicateStrategy
 from .input_layouts import BrukerTreeLayout, FlatLayout, InputLayout
 from .loader import DatasetLoader
 from .site_info import (
-    CURRENT_FORMAT_VERSION,
-    MANIFEST_FILENAME,
     BuildInfo,
     SiteInfo,
     read_site_info,
@@ -53,6 +51,4 @@ __all__ = [
     "BuildInfo",
     "read_site_info",
     "write_site_info",
-    "MANIFEST_FILENAME",
-    "CURRENT_FORMAT_VERSION",
 ]

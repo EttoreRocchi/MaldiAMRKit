@@ -42,7 +42,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "nbsphinx",
     "sphinx_design",
-    "sphinx_click",
+    "sphinxcontrib.typer",
 ]
 
 # Napoleon settings for NumPy-style docstrings

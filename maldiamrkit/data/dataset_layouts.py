@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class _Sentinel:
     """Sentinel for ``DRIAMSLayout`` kwargs.
 
-    A kwarg defaulted to :data:`_AUTO` means: "fill from ``site_info.json``
+    A kwarg defaulted to ``_AUTO`` means: "fill from ``site_info.json``
     if present, otherwise use the library default".  Explicit kwargs
     always win.
     """
@@ -255,7 +255,7 @@ class DRIAMSLayout(DatasetLayout):
     ) -> None:
         """Initialise the layout.
 
-        Several kwargs accept the sentinel :data:`_AUTO` as their default.
+        Several kwargs accept the sentinel ``_AUTO`` as their default.
         When ``_AUTO``, the value is filled from ``site_info.json`` at the
         dataset root (if present) and otherwise falls back to the
         library-level default.  Explicit kwargs always win.  Fields with

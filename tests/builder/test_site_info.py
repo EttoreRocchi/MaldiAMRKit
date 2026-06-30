@@ -20,16 +20,16 @@ import pandas as pd
 import pytest
 
 from maldiamrkit.data import (
-    CURRENT_FORMAT_VERSION,
-    MANIFEST_FILENAME,
     BuildInfo,
     DRIAMSLayout,
     SiteInfo,
     read_site_info,
     write_site_info,
 )
-
-# ----------------------------------------------------------- SiteInfo round-trip
+from maldiamrkit.data.site_info import (
+    _CURRENT_FORMAT_VERSION,
+    _MANIFEST_FILENAME,
+)
 
 
 def _example_site_info() -> SiteInfo:
@@ -57,7 +57,7 @@ class TestSiteInfoRoundTrip:
     def test_round_trip(self, tmp_path: Path):
         info = _example_site_info()
         path = write_site_info(tmp_path, info)
-        assert path == tmp_path / MANIFEST_FILENAME
+        assert path == tmp_path / _MANIFEST_FILENAME
         assert path.exists()
 
         loaded = read_site_info(tmp_path)
@@ -67,7 +67,7 @@ class TestSiteInfoRoundTrip:
         assert loaded.spectra_folders == info.spectra_folders
         assert loaded.mz_range == info.mz_range
         assert loaded.bin_width == info.bin_width
-        assert loaded.format_version == CURRENT_FORMAT_VERSION
+        assert loaded.format_version == _CURRENT_FORMAT_VERSION
         # build_info nested round-trip
         assert loaded.build_info is not None
         assert loaded.build_info.maldiamrkit_version == "0.15.0"
@@ -87,7 +87,7 @@ class TestSiteInfoRoundTrip:
 
     def test_json_is_human_readable(self, tmp_path: Path):
         write_site_info(tmp_path, _example_site_info())
-        text = (tmp_path / MANIFEST_FILENAME).read_text()
+        text = (tmp_path / _MANIFEST_FILENAME).read_text()
         # format_version is first - aids `head -1` debugging.
         first_key_line = next(
             line for line in text.splitlines() if line.strip().startswith('"')
@@ -110,18 +110,15 @@ class TestSiteInfoRoundTrip:
         assert loaded.build_info is None
 
 
-# ---------------------------------------------------- Lenient version policy
-
-
 class TestVersionPolicy:
     def _write_raw(self, tmp_path: Path, raw: dict) -> Path:
-        path = tmp_path / MANIFEST_FILENAME
+        path = tmp_path / _MANIFEST_FILENAME
         path.write_text(json.dumps(raw))
         return path
 
     def test_future_version_emits_warning_and_still_loads(self, tmp_path: Path):
         raw = _example_site_info().to_dict()
-        raw["format_version"] = CURRENT_FORMAT_VERSION + 1  # pretend a v2 manifest
+        raw["format_version"] = _CURRENT_FORMAT_VERSION + 1  # pretend a v2 manifest
         raw["something_new"] = "v2-only-field"  # should be ignored
         self._write_raw(tmp_path, raw)
 
@@ -135,7 +132,7 @@ class TestVersionPolicy:
 
         # The v1-required fields are still present, so loading succeeds.
         assert loaded is not None
-        assert loaded.format_version == CURRENT_FORMAT_VERSION + 1
+        assert loaded.format_version == _CURRENT_FORMAT_VERSION + 1
         # Unknown top-level field is silently ignored.
         assert not hasattr(loaded, "something_new")
 
@@ -172,17 +169,14 @@ class TestVersionPolicy:
             read_site_info(tmp_path)
 
     def test_invalid_json_raises(self, tmp_path: Path):
-        (tmp_path / MANIFEST_FILENAME).write_text("not json")
+        (tmp_path / _MANIFEST_FILENAME).write_text("not json")
         with pytest.raises(ValueError, match="not valid JSON"):
             read_site_info(tmp_path)
 
     def test_top_level_not_object_raises(self, tmp_path: Path):
-        (tmp_path / MANIFEST_FILENAME).write_text("[1, 2, 3]")
+        (tmp_path / _MANIFEST_FILENAME).write_text("[1, 2, 3]")
         with pytest.raises(ValueError, match="JSON object"):
             read_site_info(tmp_path)
-
-
-# ----------------------------------------------------- DRIAMSLayout integration
 
 
 def _make_fake_dataset(
@@ -206,14 +200,13 @@ def _make_fake_dataset(
 
 class TestDRIAMSLayoutManifestIntegration:
     def test_kwargs_take_precedence_over_manifest(self, tmp_path: Path):
-        # Build a fake dataset with a non-default suffix on disk.
         _make_fake_dataset(tmp_path, metadata_suffix="_strat.csv")
         write_site_info(
             tmp_path,
             SiteInfo(
                 id_column="code",
                 metadata_dir="id",
-                metadata_suffix="_clean.csv",  # manifest says "clean"...
+                metadata_suffix="_clean.csv",
                 spectrum_ext=".txt",
                 spectra_folders=["raw"],
                 mz_range=(2000.0, 20000.0),
@@ -221,7 +214,6 @@ class TestDRIAMSLayoutManifestIntegration:
             ),
         )
 
-        # ...but explicit kwarg overrides the manifest.
         layout = DRIAMSLayout(tmp_path, metadata_suffix="_strat.csv", year="2024")
         assert layout.metadata_suffix == "_strat.csv"
         meta = layout.discover_metadata()
@@ -229,7 +221,6 @@ class TestDRIAMSLayoutManifestIntegration:
         assert len(meta) == 2
 
     def test_manifest_fills_unspecified_kwargs(self, tmp_path: Path):
-        # The on-disk suffix is "_strat.csv"; the manifest declares it.
         _make_fake_dataset(tmp_path, metadata_suffix="_strat.csv")
         write_site_info(
             tmp_path,
@@ -244,29 +235,21 @@ class TestDRIAMSLayoutManifestIntegration:
             ),
         )
 
-        # User passes nothing for the manifest-driven fields.
         layout = DRIAMSLayout(tmp_path, year="2024")
         assert layout.metadata_suffix == "_strat.csv"
         assert layout.mz_min == 2500.0
         assert layout.mz_max == 15000.0
-        # User did not set id_column either -> library default (None = auto-detect).
         assert layout.id_column == "code"
 
     def test_missing_manifest_falls_back_to_library_defaults(self, tmp_path: Path):
-        # Dataset on disk has the conventional "_clean.csv" suffix.
         _make_fake_dataset(tmp_path, metadata_suffix="_clean.csv")
-        # No site_info.json written.
 
         layout = DRIAMSLayout(tmp_path, year="2024")
-        # Library defaults applied (the previous behaviour, fully backward-compatible).
         assert layout.metadata_suffix == "_clean.csv"
         assert layout.metadata_dir == "id"
         assert layout.spectrum_ext == ".txt"
         assert layout.mz_min == 2000.0
         assert layout.mz_max == 19997.0
-
-
-# ------------------------------------------------ DatasetBuilder writes manifest
 
 
 class TestDatasetBuilderWritesManifest:
@@ -305,7 +288,7 @@ class TestDatasetBuilderWritesManifest:
         # Manifest written, well-formed, and round-trippable.
         info = read_site_info(out_dir)
         assert info is not None
-        assert info.format_version == CURRENT_FORMAT_VERSION
+        assert info.format_version == _CURRENT_FORMAT_VERSION
         assert info.metadata_suffix == "_clean.csv"
         assert "raw" in info.spectra_folders
         assert any(f.startswith("binned_") for f in info.spectra_folders)

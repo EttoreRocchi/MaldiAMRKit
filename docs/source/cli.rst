@@ -9,9 +9,10 @@ building standardised dataset directories.
 Command Reference
 -----------------
 
-.. click:: maldiamrkit.cli:typer_click_object
+.. typer:: maldiamrkit.cli:app
    :prog: maldiamrkit
-   :nested: full
+   :width: 80
+   :show-nested:
 
 Usage Examples
 --------------

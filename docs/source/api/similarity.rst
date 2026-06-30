@@ -15,11 +15,6 @@ Metrics
    :undoc-members:
    :show-inheritance:
 
-.. py:data:: maldiamrkit.similarity.METRIC_REGISTRY
-
-   Dictionary mapping metric names to callable distance functions.
-   See :class:`SpectralMetric` for the built-in keys.
-
 Pairwise Distances
 ------------------
 

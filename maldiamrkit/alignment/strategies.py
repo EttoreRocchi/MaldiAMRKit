@@ -689,7 +689,7 @@ class LOWESSStrategy(AlignmentStrategy):
         return new_mz, intensity
 
 
-ALIGNMENT_REGISTRY: dict[str, type[AlignmentStrategy]] = {
+_ALIGNMENT_REGISTRY: dict[str, type[AlignmentStrategy]] = {
     "shift": ShiftStrategy,
     "linear": LinearStrategy,
     "piecewise": PiecewiseStrategy,

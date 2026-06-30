@@ -3,6 +3,20 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.0] - 2026-06-30
+
+### Added
+
+- **Custom binning methods**: `maldiamrkit.preprocessing.register_binning_method(name, edge_fn)` registers a user-defined edge generator that `bin_spectrum(method=name)` can then use, alongside the built-in `BinningMethod` values. The companion `unregister_binning_method(name)` removes a previously registered method; the four built-ins ('uniform', 'proportional', 'adaptive', 'custom') are protected and cannot be removed.
+
+### Changed
+
+- **Reduced public API surface**.
+
+### Removed
+
+- **Deprecated `LabelEncoder` / `IntermediateHandling` import paths under `maldiamrkit.evaluation`.** These moved to `maldiamrkit.susceptibility` in v0.15; both `from maldiamrkit.evaluation import LabelEncoder` and `from maldiamrkit.evaluation.label_encoder import LabelEncoder` now fail. Import from `maldiamrkit.susceptibility` instead.
+
 ## [0.17.0] - 2026-06-25
 
 ### Added

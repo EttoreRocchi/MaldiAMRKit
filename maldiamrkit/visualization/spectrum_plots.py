@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 
-from ._common import DEFAULT_LABEL_MAP, order_labels, show_with_warning
+from ._common import _DEFAULT_LABEL_MAP, order_labels, show_with_warning
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -312,7 +312,7 @@ def plot_pseudogel(
     display_vmin = np.log1p(vmin) if (log_scale and vmin is not None) else vmin
     display_vmax = np.log1p(vmax) if (log_scale and vmax is not None) else vmax
 
-    merged_label_map: dict = dict(DEFAULT_LABEL_MAP)
+    merged_label_map: dict = dict(_DEFAULT_LABEL_MAP)
     if label_map:
         merged_label_map.update(label_map)
 

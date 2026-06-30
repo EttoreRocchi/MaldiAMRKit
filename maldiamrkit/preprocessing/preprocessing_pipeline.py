@@ -33,7 +33,7 @@ from typing import Protocol, runtime_checkable
 import pandas as pd
 
 from .transformers import (
-    TRANSFORMER_REGISTRY,
+    _TRANSFORMER_REGISTRY,
     ClipNegatives,
     MzTrimmer,
     SavitzkyGolaySmooth,
@@ -190,7 +190,7 @@ class PreprocessingPipeline:
         for step_dict in d["steps"]:
             step_name = step_dict["step_name"]
             transformer_name = step_dict["name"]
-            transformer_cls = TRANSFORMER_REGISTRY[transformer_name]
+            transformer_cls = _TRANSFORMER_REGISTRY[transformer_name]
 
             # Extract constructor kwargs (everything except step_name and name)
             kwargs = {

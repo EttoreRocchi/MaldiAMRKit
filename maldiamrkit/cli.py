@@ -420,7 +420,5 @@ def build(
         )
 
 
-typer_click_object = typer.main.get_command(app)
-
 if __name__ == "__main__":
     app()

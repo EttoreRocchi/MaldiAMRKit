@@ -23,7 +23,7 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
-RANK_BY = ("intensity", "persistence", "prominence")
+_RANK_BY = ("intensity", "persistence", "prominence")
 
 
 def _config_hash(config: dict[str, Any]) -> str:
@@ -147,7 +147,7 @@ class PeakSet:
 
 
 class PeakList:
-    """A collection of per-spectrum :class:`PeakSet` objects.
+    """A collection of per-spectrum :class:`~maldiamrkit.detection.PeakSet` objects.
 
     Parameters
     ----------
@@ -364,7 +364,7 @@ def create_peakset_input(
     pipeline: Any | None = None,
     cache_dir: str | Path | None = None,
 ) -> PeakList:
-    """Build a :class:`PeakList` from a directory of raw spectrum files.
+    """Build a :class:`~maldiamrkit.detection.PeakList` from a directory of raw spectrum files.
 
     Analogue of :func:`maldiamrkit.alignment.create_raw_input`: discovers raw
     spectrum files, preprocesses each one per-spectrum, detects peaks at full
@@ -410,8 +410,8 @@ def create_peakset_input(
     from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
     from .peak_detector import MaldiPeakDetector
 
-    if rank_by not in RANK_BY:
-        raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {RANK_BY}.")
+    if rank_by not in _RANK_BY:
+        raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {_RANK_BY}.")
     if detector is None:
         detector = MaldiPeakDetector()
     pipe = pipeline or PreprocessingPipeline.default()

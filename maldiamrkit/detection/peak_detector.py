@@ -14,7 +14,7 @@ from scipy.signal import find_peaks, peak_prominences
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from .peaklist import (
-    RANK_BY,
+    _RANK_BY,
     PeakList,
     PeakSet,
     _array_hash,
@@ -365,7 +365,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
     def _detect_peaks_ph_scored(self, row: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Detect persistent-homology peaks and their persistence values.
 
-        Like :meth:`_detect_peaks_ph` but also returns the persistence
+        Like ``_detect_peaks_ph`` but also returns the persistence
         (death - birth) of each kept peak, index-ascending.
 
         Parameters
@@ -451,7 +451,9 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
                 raise ValueError("rank_by='persistence' requires method='ph'.")
             scores = persistences
         else:
-            raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {RANK_BY}.")
+            raise ValueError(
+                f"Unknown rank_by={rank_by!r}; expected one of {_RANK_BY}."
+            )
         return indices, np.asarray(scores, dtype=float)
 
     def detect_peakset(
@@ -560,8 +562,10 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         PeakList
             One :class:`PeakSet` per spectrum.
         """
-        if rank_by not in RANK_BY:
-            raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {RANK_BY}.")
+        if rank_by not in _RANK_BY:
+            raise ValueError(
+                f"Unknown rank_by={rank_by!r}; expected one of {_RANK_BY}."
+            )
         if isinstance(X, pd.Series):
             X = X.to_frame().T
 

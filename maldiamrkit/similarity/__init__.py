@@ -10,14 +10,13 @@ from .clustering import (
     kmedoids_clustering,
     silhouette_scores,
 )
-from .metrics import METRIC_REGISTRY, SpectralMetric, spectral_distance
+from .metrics import SpectralMetric, spectral_distance
 from .pairwise import pairwise_distances
 from .plots import plot_dendrogram, plot_distance_heatmap
 
 __all__ = [
     "ClusteringMethod",
     "KMedoidsInit",
-    "METRIC_REGISTRY",
     "SpectralMetric",
     "cluster_metadata_concordance",
     "cluster_spectra",

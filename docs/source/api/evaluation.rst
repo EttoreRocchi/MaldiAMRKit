@@ -6,13 +6,6 @@ Evaluation Module
 AMR-specific evaluation metrics and stratified splitting utilities, following
 EUCAST conventions.
 
-.. note::
-
-   ``LabelEncoder`` and ``IntermediateHandling`` moved to the
-   :doc:`Susceptibility module <susceptibility>` in v0.15. Importing them
-   from ``maldiamrkit.evaluation`` still works but emits a
-   :class:`DeprecationWarning` and will be removed in v0.17.
-
 Metrics
 -------
 

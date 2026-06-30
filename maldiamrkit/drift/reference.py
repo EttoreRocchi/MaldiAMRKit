@@ -42,7 +42,7 @@ def _reference_similarity_timeseries(
     timestamps : pd.Series
         Parsed datetime Series aligned with ``X.index``.
     reference : ndarray
-        Reference spectrum from :func:`_compute_reference_spectrum`.
+        Reference spectrum from ``_compute_reference_spectrum``.
     window : str or pd.Timedelta
         Time window size forwarded to :class:`pandas.Grouper` (e.g.
         ``"30D"``).

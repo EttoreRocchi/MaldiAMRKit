@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from maldiamrkit.alignment.strategies import (
-    ALIGNMENT_REGISTRY,
+    _ALIGNMENT_REGISTRY,
     DTWStrategy,
     LinearStrategy,
     LOWESSStrategy,
@@ -261,10 +261,10 @@ class TestDTWStrategy:
 
 
 class TestAlignmentRegistry:
-    """Tests for ALIGNMENT_REGISTRY."""
+    """Tests for _ALIGNMENT_REGISTRY."""
 
     def test_all_methods_registered(self):
-        assert set(ALIGNMENT_REGISTRY.keys()) == {
+        assert set(_ALIGNMENT_REGISTRY.keys()) == {
             "shift",
             "linear",
             "piecewise",
@@ -275,12 +275,12 @@ class TestAlignmentRegistry:
         }
 
     def test_registry_values_are_strategy_classes(self):
-        for cls in ALIGNMENT_REGISTRY.values():
+        for cls in _ALIGNMENT_REGISTRY.values():
             assert issubclass(cls, ShiftStrategy.__mro__[1])
 
     def test_polynomial_registered_for_quadratic_and_cubic(self):
-        assert ALIGNMENT_REGISTRY["quadratic"] is PolynomialStrategy
-        assert ALIGNMENT_REGISTRY["cubic"] is PolynomialStrategy
+        assert _ALIGNMENT_REGISTRY["quadratic"] is PolynomialStrategy
+        assert _ALIGNMENT_REGISTRY["cubic"] is PolynomialStrategy
 
 
 class TestPolynomialStrategy:

@@ -175,13 +175,19 @@ class SpectralMetric(str, Enum):
     pearson = "pearson"
 
 
-METRIC_REGISTRY: dict[str, Callable] = {
+_METRIC_REGISTRY: dict[str, Callable] = {
     "wasserstein": _wasserstein_distance,
     "dtw": _dtw_distance,
     "cosine": _cosine_distance,
     "spectral_contrast_angle": _spectral_contrast_angle,
     "pearson": _pearson_correlation,
 }
+"""Mapping of metric name to its pairwise spectral-distance function.
+
+Keys are the values of :class:`~maldiamrkit.similarity.SpectralMetric`
+(``"wasserstein"``, ``"dtw"``, ``"cosine"``, ``"spectral_contrast_angle"``,
+``"pearson"``).
+"""
 
 
 def spectral_distance(
@@ -200,7 +206,7 @@ def spectral_distance(
         For binned metrics (``"cosine"``, ``"spectral_contrast_angle"``,
         ``"pearson"``): 1-D intensity arrays.
     metric : str or SpectralMetric, default="wasserstein"
-        Key in :data:`METRIC_REGISTRY`.
+        One of the values of :class:`~maldiamrkit.similarity.SpectralMetric`.
 
     Returns
     -------
@@ -210,7 +216,7 @@ def spectral_distance(
     Raises
     ------
     ValueError
-        If *metric* is not in :data:`METRIC_REGISTRY`.
+        If *metric* is not a recognised :class:`~maldiamrkit.similarity.SpectralMetric`.
     """
     metric = SpectralMetric(metric)
-    return METRIC_REGISTRY[metric](spec_a, spec_b)
+    return _METRIC_REGISTRY[metric](spec_a, spec_b)

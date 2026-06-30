@@ -1,6 +1,12 @@
 """Preprocessing functions for MALDI-TOF spectra."""
 
-from .binning import BinningMethod, bin_spectrum, get_bin_metadata
+from .binning import (
+    BinningMethod,
+    bin_spectrum,
+    get_bin_metadata,
+    register_binning_method,
+    unregister_binning_method,
+)
 from .merging import MergingMethod, detect_outlier_replicates, merge_replicates
 from .pipeline import preprocess
 from .preprocessing_pipeline import PreprocessingPipeline
@@ -30,6 +36,8 @@ __all__ = [
     "BinningMethod",
     "bin_spectrum",
     "get_bin_metadata",
+    "register_binning_method",
+    "unregister_binning_method",
     # Merging
     "MergingMethod",
     "merge_replicates",

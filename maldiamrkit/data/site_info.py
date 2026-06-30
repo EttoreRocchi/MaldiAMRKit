@@ -45,10 +45,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-MANIFEST_FILENAME = "site_info.json"
+_MANIFEST_FILENAME = "site_info.json"
 """On-disk filename for the manifest, written at the dataset root."""
 
-CURRENT_FORMAT_VERSION = 1
+_CURRENT_FORMAT_VERSION = 1
 """Manifest schema version produced by *this* MaldiAMRKit release."""
 
 _REQUIRED_V1_KEYS: tuple[str, ...] = (
@@ -65,7 +65,7 @@ _REQUIRED_V1_KEYS: tuple[str, ...] = (
 
 @dataclass
 class BuildInfo:
-    """Optional provenance block nested under :attr:`SiteInfo.build_info`.
+    """Optional provenance block nested under :attr:`~maldiamrkit.data.SiteInfo.build_info`.
 
     Informational only; readers may inspect it but are not required to
     interpret any field.  All fields are optional.
@@ -102,8 +102,9 @@ class SiteInfo:
         Bin width in Daltons used at build time.
     build_info : BuildInfo, optional
         Optional provenance block.
-    format_version : int, default=:data:`CURRENT_FORMAT_VERSION`
-        Manifest schema version.
+    format_version : int, optional
+        Manifest schema version; defaults to the current release's schema
+        version.
     """
 
     id_column: str
@@ -114,7 +115,7 @@ class SiteInfo:
     mz_range: tuple[float, float]
     bin_width: float
     build_info: BuildInfo | None = None
-    format_version: int = CURRENT_FORMAT_VERSION
+    format_version: int = _CURRENT_FORMAT_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise as a plain dict, with ``format_version`` first."""
@@ -134,7 +135,7 @@ class SiteInfo:
 
 
 def write_site_info(dataset_dir: str | Path, site_info: SiteInfo) -> Path:
-    """Write a :class:`SiteInfo` to ``<dataset_dir>/site_info.json``.
+    """Write a :class:`~maldiamrkit.data.SiteInfo` to ``<dataset_dir>/site_info.json``.
 
     Parameters
     ----------
@@ -153,7 +154,7 @@ def write_site_info(dataset_dir: str | Path, site_info: SiteInfo) -> Path:
         raise FileNotFoundError(
             f"Cannot write manifest: dataset directory does not exist: {dataset_dir}"
         )
-    path = dataset_dir / MANIFEST_FILENAME
+    path = dataset_dir / _MANIFEST_FILENAME
     data = site_info.to_dict()
     path.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
     return path
@@ -187,11 +188,11 @@ def read_site_info(
         If the manifest is malformed, missing a required field, or has
         a non-integer ``format_version``.
     """
-    path = Path(dataset_dir) / MANIFEST_FILENAME
+    path = Path(dataset_dir) / _MANIFEST_FILENAME
     if not path.exists():
         if missing_ok:
             return None
-        raise FileNotFoundError(f"{MANIFEST_FILENAME} not found in {dataset_dir}")
+        raise FileNotFoundError(f"{_MANIFEST_FILENAME} not found in {dataset_dir}")
 
     try:
         raw = json.loads(path.read_text())
@@ -218,10 +219,10 @@ def _site_info_from_dict(
     if not isinstance(fv, int):
         raise ValueError(f"site_info{where} has non-integer format_version={fv!r}.")
 
-    if fv > CURRENT_FORMAT_VERSION:
+    if fv > _CURRENT_FORMAT_VERSION:
         warnings.warn(
             f"site_info{where} was written by a newer MaldiAMRKit "
-            f"(format_version={fv}; this reader knows v{CURRENT_FORMAT_VERSION}). "
+            f"(format_version={fv}; this reader knows v{_CURRENT_FORMAT_VERSION}). "
             "Reading what I can; unknown fields will be ignored. "
             "Upgrade `maldiamrkit` if loading misbehaves.",
             UserWarning,
@@ -282,8 +283,6 @@ def _current_iso_utc() -> str:
 
 
 __all__ = [
-    "MANIFEST_FILENAME",
-    "CURRENT_FORMAT_VERSION",
     "SiteInfo",
     "BuildInfo",
     "read_site_info",

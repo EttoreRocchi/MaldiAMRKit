@@ -1,10 +1,6 @@
 """Label encoding utilities for AMR classification.
 
 Maps clinical resistance categories (R/I/S) to binary or numeric labels.
-Previously lived under ``maldiamrkit.evaluation``; moved here in v0.15 to
-group together with :class:`~maldiamrkit.susceptibility.MICEncoder` and
-:class:`~maldiamrkit.susceptibility.BreakpointTable`. The old import path
-still works for one release with a :class:`DeprecationWarning`.
 
 Examples
 --------

@@ -89,6 +89,10 @@ Binning
 
 .. autofunction:: maldiamrkit.preprocessing.get_bin_metadata
 
+.. autofunction:: maldiamrkit.preprocessing.register_binning_method
+
+.. autofunction:: maldiamrkit.preprocessing.unregister_binning_method
+
 .. autoclass:: maldiamrkit.preprocessing.BinningMethod
    :members:
    :undoc-members:
