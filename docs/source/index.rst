@@ -17,7 +17,7 @@ MaldiAMRKit Documentation
 
 A Python toolkit for MALDI-TOF mass spectrometry preprocessing for
 antimicrobial resistance (AMR) prediction. Scikit-learn compatible transformers
-for seamless integration into machine learning pipelines.
+for direct use in machine learning pipelines.
 
 .. container:: sd-d-flex-row sd-flex-justify-content-center sd-gap-2 sd-mb-4
 

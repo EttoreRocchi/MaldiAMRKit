@@ -82,6 +82,53 @@ Save and load pipeline configurations for reproducibility:
     pipe.to_yaml("pipeline.yaml")
     pipe = PreprocessingPipeline.from_yaml("pipeline.yaml")
 
+Custom Transformers
+~~~~~~~~~~~~~~~~~~~
+
+An in-memory pipeline accepts any object that is callable on a spectrum
+DataFrame and provides ``to_dict()``. Registering that class additionally lets
+a saved config be rebuilt by :meth:`PreprocessingPipeline.from_dict` /
+:meth:`PreprocessingPipeline.from_json`.
+
+.. autoclass:: maldiamrkit.preprocessing.PreprocessingStep
+   :members:
+
+.. autofunction:: maldiamrkit.preprocessing.register_transformer
+
+.. autofunction:: maldiamrkit.preprocessing.unregister_transformer
+
+.. autofunction:: maldiamrkit.preprocessing.list_transformers
+
+.. code-block:: python
+
+    from maldiamrkit.preprocessing import (
+        PreprocessingPipeline,
+        register_transformer,
+    )
+
+    class Scale:
+        def __init__(self, factor: float = 2.0):
+            self.factor = factor
+
+        def __call__(self, df):
+            df = df.copy()
+            df["intensity"] = df["intensity"] * self.factor
+            return df
+
+        def to_dict(self):
+            return {"name": "Scale", "factor": self.factor}
+
+    register_transformer("Scale", Scale)
+
+    pipe = PreprocessingPipeline([("scale", Scale(3.0))])
+    pipe.to_json("pipeline.json")
+    pipe = PreprocessingPipeline.from_json("pipeline.json")   # rebuilds Scale(3.0)
+
+The registered name must match the ``"name"`` returned by ``to_dict()``, and
+every other key it returns must be a valid constructor argument. Serialising a
+pipeline whose step is not registered still produces the config but warns that
+it cannot be reloaded.
+
 Binning
 -------
 
@@ -92,6 +139,8 @@ Binning
 .. autofunction:: maldiamrkit.preprocessing.register_binning_method
 
 .. autofunction:: maldiamrkit.preprocessing.unregister_binning_method
+
+.. autofunction:: maldiamrkit.preprocessing.list_binning_methods
 
 .. autoclass:: maldiamrkit.preprocessing.BinningMethod
    :members:

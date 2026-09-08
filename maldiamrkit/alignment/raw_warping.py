@@ -45,11 +45,11 @@ def create_raw_input(
         How to handle duplicate sample IDs (e.g. the same sample
         appearing in multiple year subdirectories):
 
-        * ``"first"``  -- keep the first occurrence (default).
-        * ``"last"``   -- keep the last occurrence.
-        * ``"drop"``   -- remove all duplicates.
-        * ``"keep_all"`` -- keep every replicate with ``_repN`` suffixes.
-        * ``"average"`` -- keep all replicates and add an
+        * ``"first"``: keep the first occurrence (default).
+        * ``"last"``: keep the last occurrence.
+        * ``"drop"``: remove all duplicates.
+        * ``"keep_all"``: keep every replicate with ``_repN`` suffixes.
+        * ``"average"``: keep all replicates and add an
           ``_original_id`` column so that
           :meth:`RawWarping.transform` can group and average them.
 

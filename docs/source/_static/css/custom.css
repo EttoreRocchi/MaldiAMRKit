@@ -8,7 +8,7 @@
  * pydata-sphinx-theme expects --pst-color-primary as "R, G, B" (no rgb()).
  */
 
-/* ---- Light mode ---- */
+/* Light mode */
 html[data-theme="light"],
 body[data-theme="light"] {
     --pst-color-primary: 74, 155, 217;
@@ -16,7 +16,7 @@ body[data-theme="light"] {
     --pst-color-primary-bg: 235, 245, 253;
 }
 
-/* ---- Dark mode ---- */
+/* Dark mode */
 html[data-theme="dark"],
 body[data-theme="dark"] {
     --pst-color-primary: 100, 181, 240;
@@ -24,7 +24,7 @@ body[data-theme="dark"] {
     --pst-color-primary-bg: 20, 35, 55;
 }
 
-/* ---- Navbar ---- */
+/* Navbar */
 .bd-header {
     border-bottom: 2px solid rgba(74, 155, 217, 0.2);
 }
@@ -34,13 +34,13 @@ body[data-theme="dark"] {
     width: auto;
 }
 
-/* ---- Sidebar active link ---- */
+/* Sidebar active link */
 .bd-sidebar .nav-link.active {
     border-left-color: rgb(74, 155, 217);
     font-weight: 600;
 }
 
-/* ---- sphinx-design cards ---- */
+/* sphinx-design cards */
 .sd-card {
     border-radius: 8px;
     border: 1px solid rgba(74, 155, 217, 0.15);
@@ -58,7 +58,7 @@ body[data-theme="dark"] {
     font-weight: 600;
 }
 
-/* ---- Feature grid cards: rounded with shadow ---- */
+/* Feature grid cards: rounded with shadow */
 .feature-grid .sd-card {
     border: none;
     border-radius: 12px;
@@ -74,18 +74,18 @@ html[data-theme="dark"] .feature-grid .sd-card {
     transform: translateY(-2px);
 }
 
-/* ---- Code blocks ---- */
+/* Code blocks */
 div.highlight {
     border-left: 3px solid rgb(74, 155, 217);
     border-radius: 4px;
 }
 
-/* ---- Admonitions ---- */
+/* Admonitions */
 .admonition.note {
     border-left-color: rgb(74, 155, 217);
 }
 
-/* ---- Hero section (landing page) ---- */
+/* Hero section (landing page) */
 .hero-section {
     text-align: center;
     padding: 2rem 1rem 3rem;
@@ -112,7 +112,7 @@ html[data-theme="dark"] .hero-section p {
     color: #bbb;
 }
 
-/* ---- Feature grid card titles ---- */
+/* Feature grid card titles */
 .feature-grid .sd-card-title {
     font-size: 1rem;
     color: rgb(74, 155, 217);
@@ -122,7 +122,7 @@ html[data-theme="dark"] .feature-grid .sd-card-title {
     color: rgb(100, 181, 240);
 }
 
-/* ---- Buttons ---- */
+/* Buttons */
 .sd-btn-primary {
     background-color: rgb(74, 155, 217) !important;
     border-color: rgb(74, 155, 217) !important;

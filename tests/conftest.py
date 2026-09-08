@@ -73,6 +73,25 @@ def _generate_synthetic_spectrum(
     return pd.DataFrame({"mass": mz, "intensity": intensity})
 
 
+def make_registry_guard(registry):
+    """Build a fixture that snapshots *registry* and restores it after a test.
+
+    Shared by the metric, transformer, and binning registry test modules so
+    all three registries use one restoration mechanism::
+
+        clean_registry = make_registry_guard(_METRIC_REGISTRY)
+    """
+
+    @pytest.fixture
+    def clean_registry():
+        snapshot = dict(registry)
+        yield
+        registry.clear()
+        registry.update(snapshot)
+
+    return clean_registry
+
+
 @pytest.fixture
 def synthetic_spectrum() -> pd.DataFrame:
     """

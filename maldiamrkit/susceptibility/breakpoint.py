@@ -6,7 +6,7 @@ and ``R > r_gt`` thresholds, optionally with an Area of Technical Uncertainty
 
 - ``mic ≤ s_le``  →  ``"S"`` (Susceptible, standard dosing)
 - ``mic > r_gt``  →  ``"R"`` (Resistant)
-- otherwise       →  ``"I"`` (Susceptible, increased exposure -- modern EUCAST)
+- otherwise       →  ``"I"`` (Susceptible, increased exposure)
 
 The ATU flag is *orthogonal* to S/I/R: it marks MICs that fall in a zone where
 assay variability can flip the call. Treat it as an "investigate further"
@@ -38,12 +38,12 @@ class BreakpointResult:
     ----------
     category : {"S", "I", "R"} or None
         Clinical category. ``"S"`` (Susceptible, standard dosing),
-        ``"I"`` (Susceptible, increased exposure -- modern EUCAST),
-        or ``"R"`` (Resistant). ``None`` when the lookup failed
-        (no row for this ``(species, drug)``, or MIC is NaN).
+        ``"I"`` (Susceptible, increased exposure), or ``"R"`` (Resistant).
+        ``None`` when the lookup failed (no row for this
+        ``(species, drug)``, or MIC is NaN).
     atu : bool
         True when the MIC value falls in the species/drug ATU range.
-        Orthogonal to ``category`` -- not a third clinical category.
+        Orthogonal to ``category``: not a third clinical category.
     source : str or None
         Provenance string, e.g. ``"EUCAST v16.0"``. ``None`` when the
         lookup failed.

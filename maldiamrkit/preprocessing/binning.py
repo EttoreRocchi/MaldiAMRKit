@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
 
+from maldiamrkit._registry import _ComponentRegistry
+
 
 class BinningMethod(str, Enum):
     """Supported binning methods.
@@ -377,23 +379,40 @@ def _custom_edge_fn(*, mz_min, mz_max, custom_edges=None, **_kwargs) -> np.ndarr
     return _validate_custom_edges(custom_edges, mz_min, mz_max)
 
 
-_BINNING_REGISTRY: dict[str, Callable[..., np.ndarray]] = {
-    "uniform": _uniform_edge_fn,
-    "proportional": _proportional_edge_fn,
-    "adaptive": _adaptive_edge_fn,
-    "custom": _custom_edge_fn,
-}
+def _require_edge_fn(edge_fn: object) -> None:
+    """Reject non-callable edge generators at registration time."""
+    if not callable(edge_fn):
+        raise TypeError(f"edge_fn must be callable, got {type(edge_fn).__name__}.")
+
+
+_BINNING_REGISTRY = _ComponentRegistry(
+    kind="binning method",
+    short="method",
+    register_fn="register_binning_method",
+    entries={
+        "uniform": _uniform_edge_fn,
+        "proportional": _proportional_edge_fn,
+        "adaptive": _adaptive_edge_fn,
+        "custom": _custom_edge_fn,
+    },
+    validate=_require_edge_fn,
+)
 """Internal registry mapping binning method names to edge-generator functions.
 
 Register custom methods with :func:`register_binning_method` rather than
 mutating this mapping directly.
 """
 
-_DEFAULT_BINNING_METHODS: frozenset[str] = frozenset(_BINNING_REGISTRY)
-"""Names of the built-in methods, which cannot be unregistered."""
+_DEFAULT_BINNING_METHODS: frozenset[str] = frozenset(_BINNING_REGISTRY.defaults)
+"""Names of the built-in methods, which cannot be removed (only overridden)."""
 
 
-def register_binning_method(name: str, edge_fn: Callable[..., np.ndarray]) -> None:
+def register_binning_method(
+    name: str,
+    edge_fn: Callable[..., np.ndarray],
+    *,
+    override: bool = False,
+) -> None:
     """Register a custom binning method for use with :func:`~maldiamrkit.preprocessing.bin_spectrum`.
 
     After registration, pass ``method=name`` to :func:`bin_spectrum` to bin
@@ -402,48 +421,59 @@ def register_binning_method(name: str, edge_fn: Callable[..., np.ndarray]) -> No
     Parameters
     ----------
     name : str
-        Method name to expose. Overwrites any existing method of the same
-        name, including the built-ins.
+        Method name to expose. Re-registering a custom name replaces it
+        silently; replacing a built-in requires ``override=True``.
     edge_fn : callable
         Edge-generator returning a 1-D array of monotonically increasing bin
         edges. It is called with keyword arguments ``df``, ``mz_min``,
         ``mz_max``, ``bin_width``, ``custom_edges`` and the ``adaptive_*``
         parameters forwarded from :func:`bin_spectrum`; accept ``**kwargs``
         to ignore the ones it does not need.
+    override : bool, default=False
+        Allow replacing one of the built-in binning methods. The replacement
+        is undone by :func:`unregister_binning_method`, which restores the
+        default edge generator.
 
     Raises
     ------
     TypeError
         If ``edge_fn`` is not callable.
+    ValueError
+        If ``name`` is a built-in method and ``override`` is False.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from maldiamrkit.preprocessing import register_binning_method, bin_spectrum
+    >>> from maldiamrkit.preprocessing import (
+    ...     register_binning_method,
+    ...     unregister_binning_method,
+    ... )
     >>> def my_edges(*, mz_min, mz_max, **kwargs):
     ...     return np.array([mz_min, (mz_min + mz_max) / 2, mz_max])
     >>> register_binning_method("my_method", my_edges)
     >>> # binned, meta = bin_spectrum(df, method="my_method")
+    >>> unregister_binning_method("my_method")
     """
-    if not callable(edge_fn):
-        raise TypeError(f"edge_fn must be callable, got {type(edge_fn).__name__}.")
-    _BINNING_REGISTRY[name] = edge_fn
+    _BINNING_REGISTRY.register(name, edge_fn, override=override)
 
 
 def unregister_binning_method(name: str) -> None:
     """Remove a custom binning method added with :func:`register_binning_method`.
 
+    For a built-in name that was replaced via ``override=True``, this
+    restores the default edge generator instead of removing the name.
+
     Parameters
     ----------
     name : str
-        Method name to remove. Must have been registered with
-        :func:`register_binning_method`.
+        Method name to remove (or, for an overridden built-in, to restore).
 
     Raises
     ------
     ValueError
         If ``name`` is one of the built-in methods ('uniform',
-        'proportional', 'adaptive', 'custom'), which cannot be removed.
+        'proportional', 'adaptive', 'custom') and has not been overridden;
+        the built-in names cannot be removed.
     KeyError
         If no method named ``name`` is registered.
 
@@ -457,15 +487,25 @@ def unregister_binning_method(name: str) -> None:
     >>> register_binning_method("my_method", lambda **kw: np.array([2000, 20000]))
     >>> unregister_binning_method("my_method")
     """
-    if name in _DEFAULT_BINNING_METHODS:
-        raise ValueError(
-            f"Cannot unregister built-in binning method {name!r}. "
-            f"Built-in methods are {sorted(_DEFAULT_BINNING_METHODS)}."
-        )
-    try:
-        del _BINNING_REGISTRY[name]
-    except KeyError:
-        raise KeyError(f"No binning method named {name!r} is registered.") from None
+    _BINNING_REGISTRY.unregister(name)
+
+
+def list_binning_methods() -> list[str]:
+    """List every registered binning method name, sorted.
+
+    Returns
+    -------
+    list of str
+        Built-in method names plus any added with
+        :func:`register_binning_method`.
+
+    Examples
+    --------
+    >>> from maldiamrkit.preprocessing import list_binning_methods
+    >>> list_binning_methods()
+    ['adaptive', 'custom', 'proportional', 'uniform']
+    """
+    return _BINNING_REGISTRY.names()
 
 
 def bin_spectrum(
@@ -546,16 +586,7 @@ def bin_spectrum(
     >>> edges = [2000, 5000, 10000, 15000, 20000]
     >>> binned, metadata = bin_spectrum(df, method='custom', custom_edges=edges)
     """
-    try:
-        method = BinningMethod(method)
-    except ValueError:
-        # Allow custom methods registered via register_binning_method().
-        if method not in _BINNING_REGISTRY:
-            raise ValueError(
-                f"{method!r} is not a valid binning method. Use one of "
-                f"{sorted(_BINNING_REGISTRY)} or register a custom method "
-                "with register_binning_method()."
-            ) from None
+    method = _BINNING_REGISTRY.resolve_key(method, BinningMethod)
 
     if mz_min >= mz_max:
         raise ValueError(f"mz_min ({mz_min}) must be less than mz_max ({mz_max}).")

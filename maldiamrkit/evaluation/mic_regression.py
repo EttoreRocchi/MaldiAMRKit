@@ -2,7 +2,7 @@
 
 Reports the metrics clinicians and ML practitioners actually look at when
 predicting MIC values on dilution series: RMSE in log2 dilutions, essential
-agreement (within ±1 dilution), and -- if breakpoints are provided --
+agreement (within ±1 dilution), and, if breakpoints are provided,
 categorical agreement after re-binning to S/I/R.
 """
 

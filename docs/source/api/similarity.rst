@@ -15,6 +15,45 @@ Metrics
    :undoc-members:
    :show-inheritance:
 
+Custom Metrics
+~~~~~~~~~~~~~~
+
+Register your own distance function to use it anywhere a metric name is
+accepted, including :func:`~maldiamrkit.similarity.pairwise_distances` and
+:class:`~maldiamrkit.drift.DriftMonitor`.
+
+.. autofunction:: maldiamrkit.similarity.register_spectral_metric
+
+.. autofunction:: maldiamrkit.similarity.unregister_spectral_metric
+
+.. autofunction:: maldiamrkit.similarity.list_spectral_metrics
+
+.. autofunction:: maldiamrkit.similarity.extract_mz_intensity
+
+.. code-block:: python
+
+    import numpy as np
+    from maldiamrkit.similarity import (
+        extract_mz_intensity,
+        pairwise_distances,
+        register_spectral_metric,
+        spectral_distance,
+    )
+
+    def manhattan(spec_a, spec_b):
+        _, a = extract_mz_intensity(spec_a)
+        _, b = extract_mz_intensity(spec_b)
+        return float(np.abs(np.asarray(a) - np.asarray(b)).sum())
+
+    register_spectral_metric("manhattan", manhattan)
+
+    spectral_distance(X.iloc[0], X.iloc[1], metric="manhattan")
+    D = pairwise_distances(X, metric="manhattan", n_jobs=-1)
+
+The built-in metrics are protected: registering over one of them requires
+``override=True``, and unregistering an overridden built-in restores the
+default implementation. The built-in names themselves can never be removed.
+
 Pairwise Distances
 ------------------
 

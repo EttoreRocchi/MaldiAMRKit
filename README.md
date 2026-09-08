@@ -73,6 +73,12 @@ pip install -e .[dev]
 ### Alignment & Detection
 - **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra
 - **Peak Detection**: Local maxima and persistent homology methods
+- **Peak Sets**: `PeakSet` / `PeakList` represent each spectrum as a variable-length `(m/z, intensity)` set for peak-set models, via `MaldiPeakDetector.transform_peaklist()` on binned spectra or `create_peakset_input()` at full m/z resolution; extraction is stateless per spectrum, so results are cacheable without leakage
+- **Fit-Free Peak Alignment**: `align_peaks()` warps a peak set onto caller-supplied reference peaks, so the reference stays fitted on the training split
+
+### Extensibility
+- **Component Registries**: Plug your own components into the name-dispatched machinery - `register_spectral_metric()` for distance metrics (usable in `spectral_distance`, `pairwise_distances`, and `DriftMonitor`), `register_transformer()` to make `PreprocessingPipeline` configs holding custom transformers round-trip through JSON/YAML, and `register_binning_method()` for custom bin edges
+- **Discovery & Safety**: `list_spectral_metrics()`, `list_transformers()`, `list_binning_methods()` report what is registered; built-ins are replaced only with an explicit `override=True`, and unregistering an overridden built-in restores the default
 
 ### Evaluation
 - **AMR Metrics**: VME, ME, sensitivity, specificity, categorical agreement, and `amr_classification_report` following EUCAST conventions
@@ -191,8 +197,10 @@ For more detailed examples, see the notebooks:
 - [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
 - [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
 - [Susceptibility](notebooks/08_susceptibility.ipynb) - `MICEncoder` + `BreakpointTable` for log2(MIC) regression targets, S/I/R categorisation with ATU, and `mic_regression_report` evaluation
+- [Peak Sets](notebooks/09_peak_sets.ipynb) - `PeakSet` / `PeakList` extraction, ranking and padding, caching, and fit-free peak alignment
+- [Custom Components](notebooks/10_custom_components.ipynb) - registering a custom distance metric and a custom transformer end-to-end
 
-Notebooks `01`-`03` and `08` run on the small example dataset bundled under [`data/`](data/) or are fully self-contained. Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
+Notebooks `01`-`03` and `08`-`10` run on the small example dataset bundled under [`data/`](data/) or are fully self-contained. Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
 
 ## MaldiSuite Ecosystem
 

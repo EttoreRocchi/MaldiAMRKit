@@ -164,9 +164,6 @@ def plot_pca_drift(
     else:
         sizes = 60.0
 
-    # Polyline connecting consecutive windows (behind the scatter so
-    # markers stay readable). No arrowheads -- direction comes from
-    # the colorbar + optional baseline-end marker.
     if len(df) >= 2:
         ax.plot(
             x,

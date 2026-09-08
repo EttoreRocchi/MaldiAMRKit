@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
@@ -25,7 +26,22 @@ from scipy.ndimage import grey_opening, median_filter, uniform_filter1d
 from scipy.signal import savgol_filter
 from scipy.spatial import ConvexHull
 
+from maldiamrkit._registry import _ComponentRegistry
+
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class PreprocessingStep(Protocol):
+    """Protocol for preprocessing step transformers."""
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply the preprocessing step to a spectrum DataFrame."""
+        ...
+
+    def to_dict(self) -> dict:
+        """Serialize the step to a dictionary."""
+        ...
 
 
 class ClipNegatives:
@@ -603,7 +619,28 @@ class MzMultiTrimmer:
 
 
 # Registry mapping transformer names to classes (for deserialization)
-_TRANSFORMER_REGISTRY: dict[str, type] = {
+def _validate_transformer(cls: object) -> None:
+    """Reject unregistrable transformer candidates at registration time."""
+    if not isinstance(cls, type):
+        raise TypeError(
+            f"cls must be a class, got {type(cls).__name__}. Register the "
+            "transformer class itself, not an instance of it."
+        )
+    missing = [
+        m
+        for m in ("__call__", "to_dict")
+        if not any(m in base.__dict__ for base in cls.__mro__)
+    ]
+    if missing:
+        raise TypeError(
+            f"{cls.__name__} does not implement the PreprocessingStep "
+            f"protocol: missing {', '.join(f'{m}()' for m in missing)}. A "
+            "registered transformer must be callable on a (mass, intensity) "
+            "DataFrame and serialisable via to_dict()."
+        )
+
+
+_TRANSFORMER_REGISTRY_ENTRIES: dict[str, type] = {
     "ClipNegatives": ClipNegatives,
     "SqrtTransform": SqrtTransform,
     "LogTransform": LogTransform,
@@ -619,3 +656,143 @@ _TRANSFORMER_REGISTRY: dict[str, type] = {
     "PQNNormalizer": PQNNormalizer,
     "MzMultiTrimmer": MzMultiTrimmer,
 }
+
+_TRANSFORMER_REGISTRY = _ComponentRegistry(
+    kind="transformer",
+    short="transformer",
+    register_fn="register_transformer",
+    entries=_TRANSFORMER_REGISTRY_ENTRIES,
+    validate=_validate_transformer,
+)
+"""Internal registry mapping transformer names to classes, for deserialization.
+
+Register custom transformers with :func:`register_transformer` rather than
+mutating this mapping directly.
+"""
+
+del _TRANSFORMER_REGISTRY_ENTRIES
+
+_DEFAULT_TRANSFORMERS: frozenset[str] = frozenset(_TRANSFORMER_REGISTRY.defaults)
+"""Names of the built-in transformers, which cannot be removed (only overridden)."""
+
+
+def register_transformer(
+    name: str,
+    cls: type,
+    *,
+    override: bool = False,
+) -> None:
+    """Register a custom transformer so pipelines holding it can round-trip.
+
+    In-memory :class:`~maldiamrkit.preprocessing.PreprocessingPipeline`
+    objects already accept any conforming instance; registering closes the
+    *serialisation* gap, letting
+    :meth:`~maldiamrkit.preprocessing.PreprocessingPipeline.from_dict` /
+    :meth:`~maldiamrkit.preprocessing.PreprocessingPipeline.from_json`
+    rebuild the transformer from a saved config.
+
+    Parameters
+    ----------
+    name : str
+        Name to register under. This must equal the ``"name"`` value that the
+        transformer's ``to_dict()`` returns, otherwise a saved pipeline cannot
+        be reloaded. Re-registering a custom name replaces it silently;
+        replacing a built-in requires ``override=True``.
+    cls : type
+        Transformer class implementing the ``PreprocessingStep`` protocol: it
+        must be callable on a ``(mass, intensity)`` DataFrame and provide a
+        ``to_dict()`` returning the constructor keyword arguments plus its
+        ``"name"``. It is reconstructed as ``cls(**kwargs)``, so every key in
+        ``to_dict()`` other than ``"name"`` must be a valid constructor
+        argument.
+    override : bool, default=False
+        Allow replacing one of the built-in transformers. The replacement is
+        undone by :func:`unregister_transformer`, which restores the default
+        class.
+
+    Raises
+    ------
+    TypeError
+        If ``cls`` is not a class, or does not implement both ``__call__``
+        and ``to_dict``.
+    ValueError
+        If ``name`` is a built-in transformer and ``override`` is False.
+
+    Examples
+    --------
+    >>> from maldiamrkit.preprocessing import (
+    ...     PreprocessingPipeline,
+    ...     register_transformer,
+    ...     unregister_transformer,
+    ... )
+    >>> class Scale:
+    ...     def __init__(self, factor: float = 2.0):
+    ...         self.factor = factor
+    ...     def __call__(self, df):
+    ...         df = df.copy()
+    ...         df["intensity"] = df["intensity"] * self.factor
+    ...         return df
+    ...     def to_dict(self):
+    ...         return {"name": "Scale", "factor": self.factor}
+    >>> register_transformer("Scale", Scale)
+    >>> pipe = PreprocessingPipeline([("scale", Scale(3.0))])
+    >>> PreprocessingPipeline.from_dict(pipe.to_dict()).get_step("scale").factor
+    3.0
+    >>> unregister_transformer("Scale")
+    """
+    _TRANSFORMER_REGISTRY.register(name, cls, override=override)
+
+
+def unregister_transformer(name: str) -> None:
+    """Remove a custom transformer added with :func:`register_transformer`.
+
+    For a built-in name that was replaced via ``override=True``, this
+    restores the default class instead of removing the name.
+
+    Parameters
+    ----------
+    name : str
+        Transformer name to remove (or, for an overridden built-in, to
+        restore).
+
+    Raises
+    ------
+    ValueError
+        If ``name`` is one of the built-in transformers and has not been
+        overridden; the built-in names cannot be removed.
+    KeyError
+        If no transformer named ``name`` is registered.
+
+    Examples
+    --------
+    >>> from maldiamrkit.preprocessing import (
+    ...     register_transformer,
+    ...     unregister_transformer,
+    ... )
+    >>> class Identity:
+    ...     def __call__(self, df):
+    ...         return df
+    ...     def to_dict(self):
+    ...         return {"name": "Identity"}
+    >>> register_transformer("Identity", Identity)
+    >>> unregister_transformer("Identity")
+    """
+    _TRANSFORMER_REGISTRY.unregister(name)
+
+
+def list_transformers() -> list[str]:
+    """List every registered transformer name, sorted.
+
+    Returns
+    -------
+    list of str
+        Built-in transformer names plus any added with
+        :func:`register_transformer`.
+
+    Examples
+    --------
+    >>> from maldiamrkit.preprocessing import list_transformers
+    >>> "SNIPBaseline" in list_transformers()
+    True
+    """
+    return _TRANSFORMER_REGISTRY.names()

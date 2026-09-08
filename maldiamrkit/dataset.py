@@ -71,6 +71,16 @@ class MaldiSet:
         Additional keyword arguments for binning (e.g., custom_edges, adaptive_min_width).
     verbose : bool, default=False
         If True, print progress messages.
+    isolate_pattern : str or compiled regex, optional
+        Replicate suffix stripped from each spectrum ID to recover the
+        per-isolate group key used by :meth:`isolate_ids` and :attr:`groups`.
+        Normally stamped by the source layout at load time; falls back to the
+        DRIAMS ``_MALDI<N>`` suffix when neither this nor ``isolate_column``
+        is set.
+    isolate_column : str, optional
+        Metadata column already holding the isolate ID, used by
+        :meth:`isolate_ids` and :attr:`groups` in preference to
+        ``isolate_pattern``. Normally stamped by the source layout.
 
     Attributes
     ----------
@@ -517,8 +527,8 @@ class MaldiSet:
            layout when the set was loaded (e.g. ``_MALDI<N>`` for DRIAMS), else
         4. the DRIAMS ``_MALDI<N>`` suffix as a last-resort fallback.
 
-        If the resolved pattern strips nothing from any ID -- every spectrum
-        becomes its own group, giving no leakage protection -- a warning is
+        If the resolved pattern strips nothing from any ID (every spectrum
+        becomes its own group, giving no leakage protection), a warning is
         emitted pointing at ``pattern=`` / ``column=``.
 
         Parameters

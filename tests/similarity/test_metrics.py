@@ -7,8 +7,9 @@ import pandas as pd
 import pytest
 
 from maldiamrkit.similarity.metrics import (
+    _DEFAULT_SPECTRAL_METRICS,
     _METRIC_REGISTRY,
-    _extract_mz_intensity,
+    extract_mz_intensity,
     spectral_distance,
 )
 
@@ -18,7 +19,7 @@ class TestExtractMzIntensity:
 
     def test_maldi_spectrum(self, spectrum_pair):
         spec_a, _ = spectrum_pair
-        mz, intensity = _extract_mz_intensity(spec_a)
+        mz, intensity = extract_mz_intensity(spec_a)
         assert mz is not None
         assert len(mz) == len(intensity)
         assert mz.dtype == np.float64 or np.issubdtype(mz.dtype, np.floating)
@@ -30,14 +31,14 @@ class TestExtractMzIntensity:
                 "intensity": [10.0, 20.0, 30.0],
             }
         )
-        mz, intensity = _extract_mz_intensity(df)
+        mz, intensity = extract_mz_intensity(df)
         assert mz is not None
         np.testing.assert_array_equal(mz, [1.0, 2.0, 3.0])
         np.testing.assert_array_equal(intensity, [10.0, 20.0, 30.0])
 
     def test_ndarray(self):
         arr = np.array([1.0, 2.0, 3.0])
-        mz, intensity = _extract_mz_intensity(arr)
+        mz, intensity = extract_mz_intensity(arr)
         assert mz is None
         np.testing.assert_array_equal(intensity, arr)
 
@@ -153,7 +154,9 @@ class TestMetricRegistry:
             "spectral_contrast_angle",
             "pearson",
         }
-        assert set(_METRIC_REGISTRY) == expected
+        # Assert on the frozen built-in set rather than the live registry
+        assert set(_DEFAULT_SPECTRAL_METRICS) == expected
+        assert expected <= set(_METRIC_REGISTRY)
 
     def test_invalid_metric_raises(self):
         a = np.array([1.0])

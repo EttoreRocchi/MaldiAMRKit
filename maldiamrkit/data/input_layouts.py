@@ -214,13 +214,13 @@ class BrukerTreeLayout(InputLayout):
         How to handle duplicate specimen identifiers (e.g. the same
         sample measured at multiple MALDI target positions):
 
-        * ``"first"``  -- keep the first occurrence (default).
-        * ``"last"``   -- keep the last occurrence.
-        * ``"drop"``   -- remove all duplicates.
-        * ``"keep_all"`` -- keep every replicate, appending the
+        * ``"first"``: keep the first occurrence (default).
+        * ``"last"``: keep the last occurrence.
+        * ``"drop"``: remove all duplicates.
+        * ``"keep_all"``: keep every replicate, appending the
           target-position value to the ID
           (``{identifier}_{target_position}``).
-        * ``"average"`` -- tag replicates for downstream averaging
+        * ``"average"``: tag replicates for downstream averaging
           (adds ``_original_id`` column).
     validate : bool, default=True
         If ``True``, skip empty spectra (all-zero ``fid``) and warn

@@ -39,7 +39,6 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
-    "sphinx_autodoc_typehints",
     "nbsphinx",
     "sphinx_design",
     "sphinxcontrib.typer",
@@ -74,10 +73,6 @@ autodoc_default_options = {
 
 # Autosummary settings
 autosummary_generate = True
-
-# Type hints settings
-typehints_fully_qualified = False
-always_document_param_types = True
 
 # Intersphinx mapping
 intersphinx_mapping = {

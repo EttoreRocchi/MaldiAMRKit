@@ -4,6 +4,7 @@ from .binning import (
     BinningMethod,
     bin_spectrum,
     get_bin_metadata,
+    list_binning_methods,
     register_binning_method,
     unregister_binning_method,
 )
@@ -21,21 +22,30 @@ from .transformers import (
     MzMultiTrimmer,
     MzTrimmer,
     PQNNormalizer,
+    PreprocessingStep,
     SavitzkyGolaySmooth,
     SNIPBaseline,
     SqrtTransform,
     TICNormalizer,
     TopHatBaseline,
+    list_transformers,
+    register_transformer,
+    unregister_transformer,
 )
 
 __all__ = [
     # Pipeline
     "PreprocessingPipeline",
+    "PreprocessingStep",
     "preprocess",
+    "list_transformers",
+    "register_transformer",
+    "unregister_transformer",
     # Binning
     "BinningMethod",
     "bin_spectrum",
     "get_bin_metadata",
+    "list_binning_methods",
     "register_binning_method",
     "unregister_binning_method",
     # Merging

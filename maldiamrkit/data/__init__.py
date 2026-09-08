@@ -2,11 +2,11 @@
 
 Submodules
 ----------
-- ``input_layouts`` -- :class:`InputLayout` adapters for :class:`DatasetBuilder`
-- ``dataset_layouts`` -- :class:`DatasetLayout` adapters for :class:`DatasetLoader`
-- ``builder`` -- :class:`DatasetBuilder`, :class:`ProcessingHandler`, :class:`BuildReport`
-- ``loader`` -- :class:`DatasetLoader`
-- ``site_info`` -- :class:`SiteInfo`, :class:`BuildInfo`, ``read_site_info``,
+- ``input_layouts``: :class:`InputLayout` adapters for :class:`DatasetBuilder`
+- ``dataset_layouts``: :class:`DatasetLayout` adapters for :class:`DatasetLoader`
+- ``builder``: :class:`DatasetBuilder`, :class:`ProcessingHandler`, :class:`BuildReport`
+- ``loader``: :class:`DatasetLoader`
+- ``site_info``: :class:`SiteInfo`, :class:`BuildInfo`, ``read_site_info``,
   ``write_site_info`` (self-describing dataset manifest written at build time
   and consulted by :class:`DRIAMSLayout` at load time)
 """

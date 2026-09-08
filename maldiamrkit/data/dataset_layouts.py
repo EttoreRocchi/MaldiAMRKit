@@ -169,25 +169,28 @@ class DRIAMSLayout(DatasetLayout):
         The column is renamed to ``'Species'`` for downstream use.
     year : str, int, or None
         Restrict to a single year.
-    metadata_dir : str, default="id"
-        Subdirectory name containing metadata CSV files.
-    metadata_suffix : str, default="_clean.csv"
-        Filename suffix for metadata CSV files.
-    spectrum_ext : str, default=".txt"
-        File extension for spectrum files (including the dot).
+    metadata_dir : str, optional
+        Subdirectory name containing metadata CSV files. Taken from
+        ``site_info.json`` when the dataset has one, else ``"id"``.
+    metadata_suffix : str, optional
+        Filename suffix for metadata CSV files. Taken from
+        ``site_info.json`` when the dataset has one, else ``"_clean.csv"``.
+    spectrum_ext : str, optional
+        File extension for spectrum files (including the dot). Taken from
+        ``site_info.json`` when the dataset has one, else ``".txt"``.
     duplicate_strategy : str or DuplicateStrategy, default ``"first"``
         How to handle duplicate spectrum IDs (e.g. the same sample
         appearing in multiple year subdirectories):
 
-        * ``"first"``  -- keep the first occurrence (default).
-        * ``"last"``   -- keep the last occurrence.
-        * ``"drop"``   -- remove all duplicates.
-        * ``"keep_all"`` -- keep every replicate with ``_repN`` suffixes.
-        * ``"average"`` -- tag replicates for downstream averaging.
+        * ``"first"``: keep the first occurrence (default).
+        * ``"last"``: keep the last occurrence.
+        * ``"drop"``: remove all duplicates.
+        * ``"keep_all"``: keep every replicate with ``_repN`` suffixes.
+        * ``"average"``: tag replicates for downstream averaging.
     id_transform : callable, optional
         Function mapping raw ``ID`` strings to a canonical *sample*
         identifier. When set, duplicates are detected on the
-        transformed identifier rather than the raw one -- so
+        transformed identifier rather than the raw one, so
         technical-replicate files that share an underlying sample
         (e.g. DRIAMS ``UUID_MALDI1`` / ``UUID_MALDI2``) are
         recognized as duplicates by ``duplicate_strategy``. The raw
@@ -212,11 +215,15 @@ class DRIAMSLayout(DatasetLayout):
         collapse DRIAMS technical replicates (``_MALDI<N>``) to one row per
         underlying isolate via the active ``duplicate_strategy``. Ignored when
         an explicit ``id_transform`` is given (that always takes precedence).
-    mz_min : float, default=2000.0
+    mz_min : float, optional
         Lower m/z edge to assign to bin index 0 when a ``binned_N/`` stage
-        is loaded.  Only consulted by :meth:`postprocess_spectrum`.
-    mz_max : float, default=19997.0
-        Upper m/z edge assigned to bin index ``N-1``.
+        is loaded.  Only consulted by :meth:`postprocess_spectrum`. Taken
+        from the ``mz_range`` in ``site_info.json`` when the dataset has one,
+        else ``2000.0``.
+    mz_max : float, optional
+        Upper m/z edge assigned to bin index ``N-1``. Taken from the
+        ``mz_range`` in ``site_info.json`` when the dataset has one, else
+        ``19997.0``.
     normalize_tic : bool, default=False
         When ``True``, re-apply a TIC normalization
         (``intensity <- intensity / sum(intensity)``) to every loaded
@@ -224,7 +231,7 @@ class DRIAMSLayout(DatasetLayout):
         published DRIAMS / MS-UMG ``binned_6000/`` files do not sum
         to 1.0 on disk (empirically ~1.29 and ~1.36 respectively),
         despite the DRIAMS preprocessing script calling
-        ``calibrateIntensity(method="TIC")`` before trimming -- the
+        ``calibrateIntensity(method="TIC")`` before trimming; the
         cause is somewhere in the upstream pipeline (MALDIquant version
         or an implicit scaling step) and has not been reproduced here.
         Enabling this kwarg gives sum=1.0 per spectrum, aligning DRIAMS
@@ -531,13 +538,13 @@ class MARISMaLayout(DatasetLayout):
         How to handle duplicate specimen identifiers (e.g. the same
         sample measured at multiple MALDI target positions):
 
-        * ``"first"``  -- keep the first occurrence (default).
-        * ``"last"``   -- keep the last occurrence.
-        * ``"drop"``   -- remove all duplicates.
-        * ``"keep_all"`` -- keep every replicate, appending the
+        * ``"first"``: keep the first occurrence (default).
+        * ``"last"``: keep the last occurrence.
+        * ``"drop"``: remove all duplicates.
+        * ``"keep_all"``: keep every replicate, appending the
           target-position value to the ID
           (``{identifier}_{target_position}``).
-        * ``"average"`` -- tag replicates for downstream averaging
+        * ``"average"``: tag replicates for downstream averaging
           (adds ``_original_id`` column).
     id_transform : callable, optional
         Function mapping raw ``ID`` strings to a canonical *sample*

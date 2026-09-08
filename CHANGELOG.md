@@ -3,6 +3,29 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.19.0] - 2026-09-08
+
+### Added
+
+- **Custom spectral metrics**: `register_spectral_metric` makes a user-defined distance function usable anywhere a metric name is accepted (`spectral_distance`, `pairwise_distances`, `DriftMonitor`, ...), with `unregister_spectral_metric` and `list_spectral_metrics` as companions.
+- **Custom transformers**: `register_transformer` lets `PreprocessingPipeline` configs holding user-defined transformers round-trip through JSON/YAML, with `unregister_transformer` and `list_transformers` as companions.
+- **Public extension points**: the `PreprocessingStep` protocol, the `extract_mz_intensity` helper, and `list_binning_methods` are now part of the public API.
+- **New tutorial**: `notebooks/10_custom_components.ipynb` walks through registering a custom metric and a custom transformer.
+
+### Changed
+
+- **Uniform registry protection**: the metric, transformer, and binning registries share the same rules: replacing a built-in requires `override=True`, and unregistering an overridden built-in restores the default.
+- **Faster parallel `pairwise_distances`**: work is dispatched to workers in blocks, substantially speeding up expensive metrics such as `wasserstein` and `dtw` at `n_jobs=-1`; the docstring explains how to choose `n_jobs`.
+- **Safer pipeline serialisation**: `PreprocessingPipeline.to_dict()` warns at save time when a config could not be reloaded faithfully, and `from_dict()` raises `ValueError` (previously `KeyError`) for malformed configs or unknown transformer names.
+
+### Fixed
+
+- Custom metrics no longer fail with `KeyError` when `pairwise_distances` is parallelised.
+
+### Removed
+
+- The `sphinx-autodoc-typehints` docs dependency. No effect on the installed package.
+
 ## [0.18.0] - 2026-06-30
 
 ### Added

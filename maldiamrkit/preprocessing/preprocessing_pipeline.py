@@ -27,8 +27,10 @@ Examples
 from __future__ import annotations
 
 import json
+import os
+import sys
+import warnings
 from pathlib import Path
-from typing import Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -36,24 +38,31 @@ from .transformers import (
     _TRANSFORMER_REGISTRY,
     ClipNegatives,
     MzTrimmer,
+    PreprocessingStep,
     SavitzkyGolaySmooth,
     SNIPBaseline,
     SqrtTransform,
     TICNormalizer,
 )
 
+__all__ = ["PreprocessingPipeline", "PreprocessingStep"]
 
-@runtime_checkable
-class PreprocessingStep(Protocol):
-    """Protocol for preprocessing step transformers."""
 
-    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply the preprocessing step to a spectrum DataFrame."""
-        ...
+def _external_stacklevel() -> int:
+    """Stacklevel for ``warnings.warn`` pointing outside ``maldiamrkit``.
 
-    def to_dict(self) -> dict:
-        """Serialize the step to a dictionary."""
-        ...
+    Walks the stack from the caller outwards until the first frame that does
+    not belong to this package, so warnings are attributed to the user's
+    call site whether ``to_dict`` is reached directly or via ``to_json`` /
+    ``to_yaml`` / a :class:`~maldiamrkit.data.builder.ProcessingHandler`.
+    """
+    pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+    level = 1
+    frame = sys._getframe(1)
+    while frame is not None and frame.f_code.co_filename.startswith(pkg_dir):
+        frame = frame.f_back
+        level += 1
+    return level
 
 
 class PreprocessingPipeline:
@@ -165,12 +174,62 @@ class PreprocessingPipeline:
         -------
         dict
             Dictionary representation suitable for JSON/YAML serialization.
+
+        Warns
+        -----
+        UserWarning
+            If a step serializes under a name that is not registered (or
+            registered to a different class), so the resulting config could
+            not be rebuilt faithfully by :meth:`from_dict`. Register the
+            transformer with
+            :func:`~maldiamrkit.preprocessing.register_transformer` to make
+            the pipeline round-trip.
         """
-        return {
-            "steps": [
-                {"step_name": name, **step.to_dict()} for name, step in self.steps
-            ]
-        }
+        steps = []
+        for name, step in self.steps:
+            payload = step.to_dict()
+            self._warn_if_unregistered(name, step, payload)
+            steps.append({"step_name": name, **payload})
+        return {"steps": steps}
+
+    @staticmethod
+    def _warn_if_unregistered(
+        step_name: str,
+        step: PreprocessingStep,
+        payload: dict,
+    ) -> None:
+        """Warn when a serialized step could not be rebuilt by ``from_dict``."""
+        transformer_name = payload.get("name")
+        if transformer_name is None:
+            warnings.warn(
+                f"Step {step_name!r} serialises without a 'name' key, so "
+                "PreprocessingPipeline.from_dict() cannot rebuild it. Its "
+                "to_dict() should return {'name': <registered name>, ...}.",
+                UserWarning,
+                stacklevel=_external_stacklevel(),
+            )
+            return
+        registered = _TRANSFORMER_REGISTRY.get(transformer_name)
+        if registered is None:
+            warnings.warn(
+                f"Step {step_name!r} serialises under name "
+                f"{transformer_name!r}, which is not registered, so "
+                "PreprocessingPipeline.from_dict() cannot rebuild it. Call "
+                f"register_transformer({transformer_name!r}, ...) before "
+                "loading this config.",
+                UserWarning,
+                stacklevel=_external_stacklevel(),
+            )
+        elif registered is not type(step):
+            warnings.warn(
+                f"Step {step_name!r} of class {type(step).__name__} "
+                f"serialises under name {transformer_name!r}, which is "
+                f"registered to {registered.__name__}, so "
+                "PreprocessingPipeline.from_dict() would rebuild a different "
+                "class. Register this class under a name of its own.",
+                UserWarning,
+                stacklevel=_external_stacklevel(),
+            )
 
     @classmethod
     def from_dict(cls, d: dict) -> PreprocessingPipeline:
@@ -185,12 +244,40 @@ class PreprocessingPipeline:
         -------
         PreprocessingPipeline
             Reconstructed pipeline.
+
+        Raises
+        ------
+        ValueError
+            If the config is missing the ``'steps'`` key, a step is missing
+            its ``'step_name'`` or ``'name'`` key, or a step names a
+            transformer that is not registered. Custom transformers must be
+            registered with
+            :func:`~maldiamrkit.preprocessing.register_transformer` before
+            the config is loaded.
         """
+        try:
+            step_dicts = d["steps"]
+        except KeyError:
+            raise ValueError("Pipeline config is missing the 'steps' key.") from None
         steps = []
-        for step_dict in d["steps"]:
-            step_name = step_dict["step_name"]
-            transformer_name = step_dict["name"]
-            transformer_cls = _TRANSFORMER_REGISTRY[transformer_name]
+        for step_dict in step_dicts:
+            try:
+                step_name = step_dict["step_name"]
+            except KeyError:
+                raise ValueError(
+                    f"Pipeline step {step_dict!r} is missing the 'step_name' key."
+                ) from None
+            try:
+                transformer_name = step_dict["name"]
+            except KeyError:
+                raise ValueError(
+                    f"Step {step_name!r} is missing the 'name' key that "
+                    "identifies its transformer. A step's to_dict() must "
+                    "return {'name': <registered name>, ...}."
+                ) from None
+            transformer_cls = _TRANSFORMER_REGISTRY[
+                _TRANSFORMER_REGISTRY.resolve_key(transformer_name, not_a="registered")
+            ]
 
             # Extract constructor kwargs (everything except step_name and name)
             kwargs = {
