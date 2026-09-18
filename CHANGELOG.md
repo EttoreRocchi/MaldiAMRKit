@@ -3,6 +3,15 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.20.0] - 2026-09-18
+
+### Added
+
+- **mzML / mzXML input**: `read_spectrum()` (and therefore `MaldiSpectrum`, `DatasetBuilder`, and `DatasetLoader`) reads `.mzML` and `.mzXML` files, optionally gzipped; `spectrum=` parameter selects one spectrum in multi-spectrum files. Reintroduced after the v0.11.0 removal, this time without a required dependency.
+- **mzML export**: `MaldiSpectrum.save(fmt="mzML")` and `MaldiSet.save_spectra(fmt="mzML")` write spectra as mzML files, readable back by `read_spectrum()` and by other mass spectrometry tools.
+- **`[formats]` install extra**: `pip install maldiamrkit[formats]` reads mzML/mzXML through `pyteomics`, adding support for numpress-compressed arrays (Python 3.11+). Reintroduced together with mzML/mzXML input, now optional rather than required.
+- **`FlatLayout(spectrum_ext=...)`**: flat spectrum directories can now hold any format understood by `read_spectrum()` (e.g. `spectrum_ext=".mzML"`), not only `.txt` files.
+
 ## [0.19.0] - 2026-09-08
 
 ### Added

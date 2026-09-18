@@ -279,6 +279,19 @@ class TestMaldiSpectrumSave:
         assert list(df.columns) == ["mass", "intensity"]
         assert len(df) > 0
 
+    def test_save_mzml(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
+        """Test saving as mzML and reading it back."""
+        spec = MaldiSpectrum(synthetic_spectrum).preprocess().bin(3)
+        out = tmp_path / "spec.mzML"
+        spec.save(out, stage="binned", fmt="mzML")
+
+        back = MaldiSpectrum(out)
+        assert back.id == "spec"
+        np.testing.assert_array_equal(
+            back.raw["mass"], spec.binned["mass"].astype(float)
+        )
+        np.testing.assert_array_equal(back.raw["intensity"], spec.binned["intensity"])
+
     def test_save_invalid_fmt(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
         """Test that invalid format raises ValueError."""
         spec = MaldiSpectrum(synthetic_spectrum)

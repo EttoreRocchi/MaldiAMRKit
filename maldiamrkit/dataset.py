@@ -625,8 +625,9 @@ class MaldiSet:
             Which processing stage to save. One of ``"raw"``,
             ``"preprocessed"``, ``"binned"``.
         fmt : str, default="txt"
-            Output format. ``"csv"`` for comma-separated, ``"txt"`` for
-            tab-separated.
+            Output format, also used as file extension. ``"csv"`` for
+            comma-separated, ``"txt"`` for tab-separated, ``"mzML"`` for
+            mzML files.
 
         Raises
         ------

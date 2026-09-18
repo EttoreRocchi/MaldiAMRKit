@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .io.readers import _find_bruker_acqus, read_spectrum
+from .io.writers import _write_mzml
 from .preprocessing.binning import BinningMethod, bin_spectrum
 from .preprocessing.pipeline import preprocess
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
@@ -290,13 +291,15 @@ class MaldiSpectrum:
             ``"preprocessed"``, ``"binned"``.
         fmt : str, default="csv"
             Output format. ``"csv"`` for comma-separated, ``"txt"`` for
-            tab-separated.
+            tab-separated, ``"mzML"`` for an mzML file that
+            :func:`~maldiamrkit.io.read_spectrum` and other mass
+            spectrometry tools can read back.
 
         Raises
         ------
         ValueError
             If ``stage`` is not one of 'raw', 'preprocessed', or 'binned',
-            or if ``fmt`` is not one of 'csv' or 'txt'.
+            or if ``fmt`` is not one of 'csv', 'txt', or 'mzML'.
         RuntimeError
             If the requested stage has not been computed yet.
         """
@@ -314,8 +317,10 @@ class MaldiSpectrum:
             df.to_csv(path, index=False)
         elif fmt == "txt":
             df.to_csv(path, sep="\t", index=False)
+        elif fmt == "mzML":
+            _write_mzml(df, path)
         else:
-            raise ValueError(f"Invalid fmt '{fmt}'. Use 'csv' or 'txt'.")
+            raise ValueError(f"Invalid fmt '{fmt}'. Use 'csv', 'txt', or 'mzML'.")
 
     def get_data(self, prefer: str = "preprocessed") -> pd.DataFrame:
         """Return spectrum data, preferring the requested processing stage.

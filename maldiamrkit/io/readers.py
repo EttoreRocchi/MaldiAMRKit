@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import csv
 import itertools
 import logging
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -269,14 +271,243 @@ def _read_bruker(path: Path, *, source: str = "1r") -> pd.DataFrame:
     return pd.DataFrame({"mass": mass, "intensity": intensity})
 
 
-def read_spectrum(path: str | Path, *, bruker_source: str = "1r") -> pd.DataFrame:
+_MZML_EXTENSIONS = {".mzml"}
+_MZXML_EXTENSIONS = {".mzxml"}
+
+_CV_MZ_ARRAY = "MS:1000514"
+_CV_INTENSITY_ARRAY = "MS:1000515"
+_CV_FLOAT32 = "MS:1000521"
+_CV_FLOAT64 = "MS:1000523"
+_CV_ZLIB = "MS:1000574"
+_CV_NUMPRESS = frozenset(
+    {"MS:1002312", "MS:1002313", "MS:1002314", "MS:1002746", "MS:1002747", "MS:1002748"}
+)
+
+
+def _format_suffixes(path: Path) -> tuple[str, bool]:
+    """Return ``(format_extension, gzipped)`` for ``path``, lower-cased."""
+    suffixes = [s.lower() for s in path.suffixes]
+    gzipped = bool(suffixes) and suffixes[-1] == ".gz"
+    if gzipped:
+        suffixes = suffixes[:-1]
+    return (suffixes[-1] if suffixes else ""), gzipped
+
+
+def _open_binary(path: Path, gzipped: bool):
+    if gzipped:
+        import gzip
+
+        return gzip.open(path, "rb")
+    return open(path, "rb")
+
+
+def _local_name(tag: str) -> str:
+    """Strip the XML namespace from an element tag."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def _decode_binary(text: str, *, dtype: np.dtype, compressed: bool) -> np.ndarray:
+    raw = base64.b64decode("".join(text.split()))
+    if compressed:
+        raw = zlib.decompress(raw)
+    return np.frombuffer(raw, dtype=dtype).astype(np.float64)
+
+
+def _is_selected(spectrum: int | str, position: int, native_id: str | None) -> bool:
+    """Whether the spectrum at ``position`` with ``native_id`` is the requested one."""
+    if isinstance(spectrum, str):
+        return native_id == spectrum
+    return position == spectrum
+
+
+def _spectrum_not_found(
+    path: Path, fmt: str, spectrum: int | str, n_spectra: int
+) -> ValueError:
+    if n_spectra == 0:
+        return ValueError(f"No spectra found in {fmt} file: {path}")
+    return ValueError(
+        f"Spectrum {spectrum!r} not found in {fmt} file: {path} ({n_spectra} spectra)"
+    )
+
+
+def _pyteomics(module_name: str):
+    """Return ``pyteomics.<module_name>``, or ``None`` when pyteomics is absent."""
+    try:
+        import importlib
+
+        return importlib.import_module(f"pyteomics.{module_name}")
+    except ImportError:
+        return None
+
+
+def _select_spectrum_pyteomics(
+    reader, path: Path, fmt: str, *, spectrum: int | str, id_key: str
+) -> pd.DataFrame:
+    """Return the selected spectrum yielded by a pyteomics reader as a DataFrame."""
+    n_spectra = 0
+    with reader as spectra:
+        for entry in spectra:
+            n_spectra += 1
+            if not _is_selected(spectrum, n_spectra - 1, entry.get(id_key)):
+                continue
+            mz = np.asarray(entry["m/z array"], dtype=np.float64)
+            intensity = np.asarray(entry["intensity array"], dtype=np.float64)
+            return pd.DataFrame({"mass": mz, "intensity": intensity})
+    raise _spectrum_not_found(path, fmt, spectrum, n_spectra)
+
+
+def _read_mzml_stdlib(
+    path: Path, gzipped: bool, *, spectrum: int | str = 0
+) -> pd.DataFrame:
+    """Dependency-free mzML reader (zlib or uncompressed arrays)."""
+    import xml.etree.ElementTree as ET
+
+    n_spectra = 0
+    with _open_binary(path, gzipped) as fh:
+        for _event, elem in ET.iterparse(fh, events=("end",)):
+            if _local_name(elem.tag) != "spectrum":
+                continue
+            n_spectra += 1
+            if not _is_selected(spectrum, n_spectra - 1, elem.get("id")):
+                elem.clear()
+                continue
+            arrays: dict[str, np.ndarray] = {}
+            for bda in elem.iter():
+                if _local_name(bda.tag) != "binaryDataArray":
+                    continue
+                accessions = {
+                    c.get("accession")
+                    for c in bda.iter()
+                    if _local_name(c.tag) == "cvParam"
+                }
+                binary = next(
+                    (c for c in bda.iter() if _local_name(c.tag) == "binary"), None
+                )
+                if binary is None:
+                    continue
+                if accessions & _CV_NUMPRESS:
+                    raise ValueError(
+                        f"{path}: numpress-compressed mzML arrays require pyteomics "
+                        "(pip install maldiamrkit[formats])"
+                    )
+                if _CV_MZ_ARRAY in accessions:
+                    key = "mass"
+                elif _CV_INTENSITY_ARRAY in accessions:
+                    key = "intensity"
+                else:
+                    continue
+                dtype = (
+                    np.dtype("<f4") if _CV_FLOAT32 in accessions else np.dtype("<f8")
+                )
+                arrays[key] = _decode_binary(
+                    binary.text or "", dtype=dtype, compressed=_CV_ZLIB in accessions
+                )
+            if "mass" not in arrays or "intensity" not in arrays:
+                raise ValueError(
+                    f"{path}: spectrum {spectrum!r} has no m/z and intensity arrays"
+                )
+            if len(arrays["mass"]) != len(arrays["intensity"]):
+                raise ValueError(f"{path}: m/z and intensity arrays differ in length")
+            return pd.DataFrame(
+                {"mass": arrays["mass"], "intensity": arrays["intensity"]}
+            )
+    raise _spectrum_not_found(path, "mzML", spectrum, n_spectra)
+
+
+def _read_mzxml_stdlib(
+    path: Path, gzipped: bool, *, spectrum: int | str = 0
+) -> pd.DataFrame:
+    """Dependency-free mzXML reader (zlib or uncompressed peaks)."""
+    import xml.etree.ElementTree as ET
+
+    n_spectra = 0
+    with _open_binary(path, gzipped) as fh:
+        for _event, elem in ET.iterparse(fh, events=("end",)):
+            if _local_name(elem.tag) != "scan":
+                continue
+            n_spectra += 1
+            if not _is_selected(spectrum, n_spectra - 1, elem.get("num")):
+                elem.clear()
+                continue
+            peaks = next(
+                (c for c in elem.iter() if _local_name(c.tag) == "peaks"), None
+            )
+            if peaks is None or not (peaks.text or "").strip():
+                raise ValueError(f"{path}: spectrum {spectrum!r} has no peaks")
+            content = peaks.get("contentType") or peaks.get("pairOrder") or "m/z-int"
+            if content not in ("m/z-int", "mz-int"):
+                raise ValueError(
+                    f"{path}: unsupported mzXML peaks contentType {content!r}"
+                )
+            precision = int(peaks.get("precision", "32"))
+            byte_order = ">" if peaks.get("byteOrder", "network") == "network" else "<"
+            compressed = (peaks.get("compressionType") or "none").lower() == "zlib"
+            dtype = np.dtype(byte_order + ("f8" if precision == 64 else "f4"))
+            data = _decode_binary(peaks.text, dtype=dtype, compressed=compressed)
+            if data.size % 2:
+                raise ValueError(f"{path}: odd number of values in mzXML peaks array")
+            return pd.DataFrame({"mass": data[0::2], "intensity": data[1::2]})
+    raise _spectrum_not_found(path, "mzXML", spectrum, n_spectra)
+
+
+def _read_mzml(
+    path: Path, *, gzipped: bool = False, spectrum: int | str = 0
+) -> pd.DataFrame:
+    """Read one spectrum of an mzML file (pyteomics if available)."""
+    mzml = _pyteomics("mzml")
+    if mzml is None:
+        return _read_mzml_stdlib(path, gzipped, spectrum=spectrum)
+    fh = _open_binary(path, gzipped)
+    try:
+        return _select_spectrum_pyteomics(
+            mzml.MzML(fh, use_index=False),
+            path,
+            "mzML",
+            spectrum=spectrum,
+            id_key="id",
+        )
+    finally:
+        fh.close()
+
+
+def _read_mzxml(
+    path: Path, *, gzipped: bool = False, spectrum: int | str = 0
+) -> pd.DataFrame:
+    """Read one scan of an mzXML file (pyteomics if available)."""
+    mzxml = _pyteomics("mzxml")
+    if mzxml is None:
+        return _read_mzxml_stdlib(path, gzipped, spectrum=spectrum)
+    fh = _open_binary(path, gzipped)
+    try:
+        return _select_spectrum_pyteomics(
+            mzxml.MzXML(fh, use_index=False),
+            path,
+            "mzXML",
+            spectrum=spectrum,
+            id_key="num",
+        )
+    finally:
+        fh.close()
+
+
+def read_spectrum(
+    path: str | Path, *, bruker_source: str = "1r", spectrum: int | str = 0
+) -> pd.DataFrame:
     """
     Read a raw spectrum file into a DataFrame.
 
     Supports text-based formats (``.txt``, ``.csv``, ``.tsv``) with
-    automatic delimiter detection and Bruker binary directories
-    (containing ``fid``/``acqus`` files).  Unrecognised extensions
-    are treated as text files with automatic delimiter detection.
+    automatic delimiter detection, the open ``.mzML`` and ``.mzXML``
+    formats (optionally gzipped, e.g. ``.mzML.gz``), and Bruker binary
+    directories (containing ``fid``/``acqus`` files).  Unrecognised
+    extensions are treated as text files with automatic delimiter
+    detection.
+
+    mzML/mzXML files are parsed with a built-in reader (zlib or
+    uncompressed 32/64-bit arrays).  If ``pyteomics`` is installed
+    (``pip install maldiamrkit[formats]``) it is used instead and
+    additionally handles numpress-compressed arrays.  The first
+    spectrum of the file is returned unless ``spectrum`` selects another.
 
     Parameters
     ----------
@@ -285,11 +516,21 @@ def read_spectrum(path: str | Path, *, bruker_source: str = "1r") -> pd.DataFram
     bruker_source : str, default="1r"
         For Bruker directories, which binary to read: ``"1r"``
         (processed) or ``"fid"`` (raw).
+    spectrum : int or str, default=0
+        For mzML/mzXML files, which spectrum to read: its 0-based position
+        in the file, or its native id (the mzML spectrum ``id``, e.g.
+        ``"scan=1"``, or the mzXML scan ``num``, e.g. ``"1"``).
 
     Returns
     -------
     pd.DataFrame
         DataFrame with columns ``['mass', 'intensity']``.
+
+    Raises
+    ------
+    ValueError
+        If ``spectrum`` is a negative position, or if the requested
+        spectrum is not found in an mzML/mzXML file.
 
     Examples
     --------
@@ -304,11 +545,27 @@ def read_spectrum(path: str | Path, *, bruker_source: str = "1r") -> pd.DataFram
 
     >>> df = read_spectrum("path/to/bruker_dir")
     >>> df = read_spectrum("path/to/bruker_dir", bruker_source="fid")
+
+    Read an open-format file:
+
+    >>> df = read_spectrum("spectrum.mzML")
+    >>> df = read_spectrum("spectrum.mzXML.gz")
+    >>> df = read_spectrum("run.mzML", spectrum="scan=2")
     """
+    if isinstance(spectrum, int) and spectrum < 0:
+        raise ValueError(
+            f"Invalid spectrum {spectrum}. Use a non-negative position or a native id."
+        )
     path = Path(path)
 
     if path.is_dir():
         return _read_bruker(path, source=bruker_source)
+
+    fmt, gzipped = _format_suffixes(path)
+    if fmt in _MZML_EXTENSIONS:
+        return _read_mzml(path, gzipped=gzipped, spectrum=spectrum)
+    if fmt in _MZXML_EXTENSIONS:
+        return _read_mzxml(path, gzipped=gzipped, spectrum=spectrum)
 
     # Default: text-based format (txt, csv, tsv, or any other extension)
     try:

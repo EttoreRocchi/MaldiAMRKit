@@ -1,0 +1,5 @@
+# Optional dependencies for extended mzML/mzXML support (numpress-compressed arrays)
+pyteomics>=4.0
+lxml>=4.0
+psims>=1.0
+pynumpress>=0.1.5; python_version >= "3.11"

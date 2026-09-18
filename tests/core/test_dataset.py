@@ -14,6 +14,7 @@ import pytest
 
 from maldiamrkit import MaldiSet, MaldiSpectrum
 from maldiamrkit.filters import MetadataFilter, SpeciesFilter
+from maldiamrkit.io import read_spectrum
 from maldiamrkit.preprocessing import PreprocessingPipeline, get_bin_metadata
 from maldiamrkit.preprocessing.binning import _uniform_edges
 
@@ -645,6 +646,17 @@ class TestSaveSpectra:
         assert len(csv_files) == 2
         df = pd.read_csv(csv_files[0])
         assert list(df.columns) == ["mass", "intensity"]
+
+    def test_save_raw_mzml(self, tmp_path):
+        """Test saving raw spectra as mzML."""
+        specs = [_make_binned_spectrum(f"{i}s", seed=i) for i in range(1, 3)]
+        meta = pd.DataFrame({"ID": ["1s", "2s"]})
+        ds = MaldiSet(specs, meta)
+        out_dir = tmp_path / "mzml"
+        ds.save_spectra(out_dir, stage="raw", fmt="mzML")
+        assert sorted(f.name for f in out_dir.glob("*.mzML")) == ["1s.mzML", "2s.mzML"]
+        df = read_spectrum(out_dir / "1s.mzML")
+        np.testing.assert_array_equal(df["intensity"], specs[0].raw["intensity"])
 
     def test_save_raw(self, tmp_path):
         """Test saving raw spectra."""

@@ -426,6 +426,9 @@ Save individual spectra (raw, preprocessed, or binned) to files:
    # Save binned spectra as CSV files
    data.save_spectra("output/binned/", stage="binned", fmt="csv")
 
+   # Save raw spectra as mzML files, readable by other mass spectrometry tools
+   data.save_spectra("output/raw/", stage="raw", fmt="mzML")
+
 Batch Effect Correction
 -----------------------
 

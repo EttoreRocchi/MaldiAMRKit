@@ -27,7 +27,7 @@ Examples
 from .dataset import MaldiSet
 from .spectrum import MaldiSpectrum
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 __author__ = "Ettore Rocchi"
 
 __all__ = [

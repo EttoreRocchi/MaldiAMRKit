@@ -80,6 +80,10 @@ class FlatLayout(InputLayout):
         ``spectra_dir`` is itself flat but the years are known from another
         source. Takes precedence over the inferred subfolder year,
         but not over ``year_column``.
+    spectrum_ext : str, default=".txt"
+        File extension of the spectrum files.  Any format understood by
+        :func:`~maldiamrkit.io.read_spectrum` works, e.g. ``".mzML"`` or
+        ``".mzXML"`` for open-format exports.
     """
 
     def __init__(
@@ -90,30 +94,39 @@ class FlatLayout(InputLayout):
         id_column: str = "ID",
         year_column: str | None = None,
         year_overrides: dict[str, str] | None = None,
+        spectrum_ext: str = ".txt",
     ) -> None:
         self.spectra_dir = Path(spectra_dir)
         self.metadata_csv = Path(metadata_csv)
         self.id_column = id_column
         self.year_column = year_column
         self.year_overrides = year_overrides
+        self.spectrum_ext = (
+            spectrum_ext if spectrum_ext.startswith(".") else f".{spectrum_ext}"
+        )
         self._year_map: dict[str, str] | None = None
         self._folder_year_map: dict[str, str] = {}
 
     def discover_spectra(self) -> list[Path]:
-        """Find ``.txt`` files, whether flat or in (possibly nested) subfolders.
+        """Find spectrum files, whether flat or in (possibly nested) subfolders.
+
+        The extension is ``spectrum_ext`` (``.txt`` by default).
 
         Files are searched flat first, then one level down, then
         recursively. Whenever a spectrum sits under a four-digit-year
         folder, that year is recorded so it can serve as a fallback when
         no ``year_column`` is supplied (see :meth:`get_year`).
         """
-        files = sorted(self.spectra_dir.glob("*.txt"))
+        pattern = f"*{self.spectrum_ext}"
+        files = sorted(self.spectra_dir.glob(pattern))
         if not files:
-            files = sorted(self.spectra_dir.glob("*/*.txt"))
+            files = sorted(self.spectra_dir.glob(f"*/{pattern}"))
         if not files:
-            files = sorted(self.spectra_dir.rglob("*.txt"))
+            files = sorted(self.spectra_dir.rglob(pattern))
         if not files:
-            raise ValueError(f"No .txt spectrum files found in {self.spectra_dir}")
+            raise ValueError(
+                f"No {self.spectrum_ext} spectrum files found in {self.spectra_dir}"
+            )
 
         self._folder_year_map = {}
         for f in files:

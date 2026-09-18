@@ -30,6 +30,22 @@ for usage examples. Reference:
    `doi:10.1186/s12866-025-04657-2
    <https://link.springer.com/article/10.1186/s12866-025-04657-2>`_
 
+Optional: extended mzML/mzXML support
+-------------------------------------
+
+``.mzML`` and ``.mzXML`` files (optionally gzipped) are read out of the box
+by :func:`maldiamrkit.io.read_spectrum` that handles zlib-compressed
+or uncompressed 32/64-bit arrays. For numpress-compressed arrays install the
+``formats`` extra, which adds `pyteomics <https://pyteomics.readthedocs.io/>`__
+with ``lxml``, ``psims``, and ``pynumpress``:
+
+.. code-block:: bash
+
+   pip install maldiamrkit[formats]
+
+``pynumpress`` ships no wheels for Python 3.10, so numpress arrays need
+Python 3.11 or newer.
+
 Development Installation
 ------------------------
 

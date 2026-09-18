@@ -43,6 +43,7 @@ dependencies = {file = ["requirements.txt"]}
 docs = {file = ["requirements-docs.txt"]}
 dev = {file = ["requirements-dev.txt"]}
 batch = {file = ["requirements-batch.txt"]}
+formats = {file = ["requirements-formats.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]

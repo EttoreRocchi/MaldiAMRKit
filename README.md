@@ -52,6 +52,14 @@ pip install maldiamrkit[batch]
 
 Installs [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) for ComBat-based batch effect correction and `umap-learn` for UMAP exploratory plots.
 
+### Optional: extended mzML/mzXML support
+
+```bash
+pip install maldiamrkit[formats]
+```
+
+`.mzML` and `.mzXML` files are read out of the box (zlib-compressed or uncompressed arrays). This extra installs [`pyteomics`](https://pyteomics.readthedocs.io/) with `lxml`, `psims`, and `pynumpress`, which additionally handle numpress-compressed arrays. `pynumpress` ships no wheels for Python 3.10, so numpress arrays need Python 3.11 or newer.
+
 ### Development Installation
 
 ```bash
@@ -104,9 +112,10 @@ pip install -e .[dev]
 - **Dataset Building & Loading**: `DatasetBuilder` and `DatasetLoader` with pluggable layout adapters (`FlatLayout`, `BrukerTreeLayout`, `DRIAMSLayout`, `MARISMaLayout`)
 - **Replicate Collapsing**: `DRIAMSLayout(collapse_replicates=True)` merges technical replicates (`_MALDI<N>`) to one row per isolate at load time via the active `duplicate_strategy`
 - **Bruker Format Support**: Read Bruker flexAnalysis binary data (fid/1r + acqus) natively via `read_spectrum()` on directories
+- **Open Formats**: Read `.mzML` and `.mzXML` files (optionally gzipped) via `read_spectrum()`, `MaldiSpectrum`, and `FlatLayout(spectrum_ext=".mzML")`; `pip install maldiamrkit[formats]` adds `pyteomics` for numpress-compressed arrays
 - **MIC Parsing**: `parse_mic_column()` for parsing MIC strings with qualifiers and European decimals
 - **Composable Filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` combinable with `&`/`|`/`~` operators
-- **Spectrum Export**: Save spectra to CSV or TXT via `MaldiSpectrum.save()` and `MaldiSet.save_spectra()`
+- **Spectrum Export**: Save spectra to CSV, TXT, or mzML via `MaldiSpectrum.save()` and `MaldiSet.save_spectra()`
 
 ### Visualization & Tools
 - **Exploratory Plots**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
