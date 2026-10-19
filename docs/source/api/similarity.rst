@@ -33,6 +33,7 @@ accepted, including :func:`~maldiamrkit.similarity.pairwise_distances` and
 .. code-block:: python
 
     import numpy as np
+    from sklearn.metrics.pairwise import manhattan_distances
     from maldiamrkit.similarity import (
         extract_mz_intensity,
         pairwise_distances,
@@ -45,10 +46,14 @@ accepted, including :func:`~maldiamrkit.similarity.pairwise_distances` and
         _, b = extract_mz_intensity(spec_b)
         return float(np.abs(np.asarray(a) - np.asarray(b)).sum())
 
-    register_spectral_metric("manhattan", manhattan)
+    register_spectral_metric("manhattan", manhattan, pairwise=manhattan_distances)
 
     spectral_distance(X.iloc[0], X.iloc[1], metric="manhattan")
-    D = pairwise_distances(X, metric="manhattan", n_jobs=-1)
+    D = pairwise_distances(X, metric="manhattan")
+
+With ``pairwise=``, :func:`~maldiamrkit.similarity.pairwise_distances`
+computes the whole matrix in one call; without it, the metric is evaluated
+pair by pair and ``n_jobs`` applies.
 
 The built-in metrics are protected: registering over one of them requires
 ``override=True``, and unregistering an overridden built-in restores the
@@ -105,7 +110,7 @@ Example
     )
 
     # Compute pairwise distance matrix
-    D = pairwise_distances(spectra, metric="cosine", n_jobs=-1)
+    D = pairwise_distances(spectra, metric="cosine")
 
     # Visualize distances
     plot_distance_heatmap(D, labels=sample_ids)

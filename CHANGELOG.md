@@ -3,6 +3,20 @@
 All notable changes to MaldiAMRKit are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.21.0] - 2026-10-19
+
+### Added
+
+- **Vectorized custom metrics**: `register_spectral_metric(..., pairwise=)` accepts a whole-matrix implementation `pairwise(X, Y)`, such as a scikit-learn distance function, which `pairwise_distances` uses instead of evaluating the metric pair by pair.
+
+### Changed
+
+- **Faster built-in vector metrics**: `pairwise_distances` computes `cosine`, `pearson`, and `spectral_contrast_angle` in a single vectorized step, for DataFrames and for lists of spectra on a common m/z grid. Spectra containing NaN or inf now raise `ValueError` for these metrics in common-grid lists, as they already did for DataFrames.
+
+### Fixed
+
+- **Pearson distance on flat spectra**: two flat spectra are at distance 0.0 and a flat spectrum is at 1.0 from any non-flat one, with no `RuntimeWarning` (previously this depended on floating-point rounding).
+
 ## [0.20.0] - 2026-09-18
 
 ### Added

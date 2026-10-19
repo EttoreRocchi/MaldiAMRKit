@@ -9,6 +9,9 @@ import pytest
 from maldiamrkit.similarity.metrics import (
     _DEFAULT_SPECTRAL_METRICS,
     _METRIC_REGISTRY,
+    _cosine_matrix,
+    _pearson_matrix,
+    _spectral_contrast_angle_matrix,
     extract_mz_intensity,
     spectral_distance,
 )
@@ -141,6 +144,71 @@ class TestSpecificMetrics:
         d = spectral_distance(df_a, df_b, metric="wasserstein")
         assert np.isfinite(d)
         assert d >= 0.0
+
+    def test_pearson_flat_spectra(self):
+        flat_a = np.full(5, 2.0)
+        flat_b = np.full(5, 7.0)
+        varied = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        assert spectral_distance(flat_a, flat_b, metric="pearson") == 0.0
+        assert spectral_distance(flat_a, varied, metric="pearson") == 1.0
+        assert spectral_distance(varied, flat_b, metric="pearson") == 1.0
+
+    def test_pearson_nan_input_still_one(self):
+        a = np.array([1.0, np.nan, 3.0])
+        b = np.array([1.0, 2.0, 3.0])
+        with np.errstate(invalid="ignore"):
+            assert spectral_distance(a, b, metric="pearson") == 1.0
+
+
+_MATRIX_FORMS = {
+    "cosine": _cosine_matrix,
+    "pearson": _pearson_matrix,
+    "spectral_contrast_angle": _spectral_contrast_angle_matrix,
+}
+
+
+class TestMatrixForms:
+    """Whole-matrix built-ins agree with the per-pair metrics on ``(X, Y)``."""
+
+    @pytest.fixture
+    def blocks(self):
+        rng = np.random.default_rng(11)
+        X = rng.exponential(1.0, (7, 300))
+        X[1] = 0.0
+        X[2] = 0.5
+        X[5] = 3.0
+        X[6] = X[3]
+        return X[:4], X[4:]
+
+    @pytest.mark.parametrize("metric", sorted(_MATRIX_FORMS))
+    def test_cross_block_matches_per_pair(self, blocks, metric):
+        A, B = blocks
+        D = _MATRIX_FORMS[metric](A, B)
+        expected = np.array([[spectral_distance(a, b, metric) for b in B] for a in A])
+        near = np.array(
+            [[spectral_distance(a, b, "cosine") < 1e-10 for b in B] for a in A]
+        )
+        assert D.shape == (len(A), len(B))
+        atol = 1e-6 if metric == "spectral_contrast_angle" else 1e-12
+        np.testing.assert_allclose(D[near], expected[near], atol=atol)
+        np.testing.assert_allclose(D[~near], expected[~near], atol=1e-12)
+
+    @pytest.mark.parametrize("metric", sorted(_MATRIX_FORMS))
+    def test_read_only_inputs_untouched(self, blocks, metric):
+        A, B = (block.copy() for block in blocks)
+        before = A.copy(), B.copy()
+        A.flags.writeable = False
+        B.flags.writeable = False
+        _MATRIX_FORMS[metric](A, B)
+        np.testing.assert_array_equal(A, before[0])
+        np.testing.assert_array_equal(B, before[1])
+
+    @pytest.mark.parametrize("metric", sorted(_MATRIX_FORMS))
+    def test_non_finite_rejected(self, blocks, metric):
+        A, B = (block.copy() for block in blocks)
+        B[0, 0] = np.nan
+        with pytest.raises(ValueError, match="finite"):
+            _MATRIX_FORMS[metric](A, B)
 
 
 class TestMetricRegistry:

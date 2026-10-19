@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Callable
 
@@ -157,14 +158,86 @@ def _pearson_correlation(
     """Pearson-correlation distance (``1 - r``) for binned vectors.
 
     Returns a value in ``[0, 2]``: 0 for perfectly correlated spectra,
-    1 for uncorrelated, and 2 for perfectly anti-correlated.
+    1 for uncorrelated, and 2 for perfectly anti-correlated. A flat
+    spectrum (every intensity equal) has no defined correlation: two flat
+    spectra are at distance 0, and a flat spectrum is at distance 1 from
+    any other.
     """
     _, a = extract_mz_intensity(spec_a)
     _, b = extract_mz_intensity(spec_b)
+    flat_a, flat_b = _is_flat(a), _is_flat(b)
+    if flat_a or flat_b:
+        return 0.0 if flat_a and flat_b else 1.0
     corr = np.corrcoef(a, b)[0, 1]
     if np.isnan(corr):
         return 1.0
     return float(1.0 - corr)
+
+
+def _is_flat(intensity: np.ndarray) -> bool:
+    """Whether every intensity of a non-empty spectrum is equal."""
+    return intensity.size > 0 and bool(intensity.max() == intensity.min())
+
+
+def _require_finite(metric: str, *matrices: np.ndarray) -> None:
+    """Reject NaN or infinite intensities before a whole-matrix computation."""
+    for X in matrices:
+        if not np.isfinite(X).all():
+            raise ValueError(f"Metric {metric!r} requires finite intensities.")
+
+
+def _unit_rows(X: np.ndarray) -> np.ndarray:
+    """Return the rows of *X* scaled to unit norm, as a new array.
+
+    Rows whose norm is below ``finfo(float).tiny`` become zero, the same
+    threshold the per-pair metrics use for empty spectra.
+    """
+    norms = np.linalg.norm(X, axis=1)
+    zero = norms < np.finfo(float).tiny
+    U = X / np.where(zero, 1.0, norms)[:, None]
+    U[zero] = 0.0
+    return U
+
+
+def _cosine_similarity_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """Row-wise cosine similarities between *X* and *Y* (zero rows give 0)."""
+    U = _unit_rows(X)
+    V = U if Y is X else _unit_rows(Y)
+    return U @ V.T
+
+
+def _cosine_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """Whole-matrix form of :func:`_cosine_distance`."""
+    _require_finite("cosine", X, Y)
+    return np.clip(1.0 - _cosine_similarity_matrix(X, Y), 0.0, 2.0)
+
+
+def _spectral_contrast_angle_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """Whole-matrix form of :func:`_spectral_contrast_angle`."""
+    _require_finite("spectral_contrast_angle", X, Y)
+    cos_sim = np.clip(_cosine_similarity_matrix(X, Y), -1.0, 1.0)
+    return (2.0 / np.pi) * np.arccos(cos_sim)
+
+
+def _centred_rows(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Mean-centre the rows of *X*; flat rows become exactly zero.
+
+    Returns the centred copy and the boolean mask of flat rows.
+    """
+    flat = X.max(axis=1) == X.min(axis=1)
+    C = X - X.mean(axis=1, keepdims=True)
+    C[flat] = 0.0
+    return C, flat
+
+
+def _pearson_matrix(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """Whole-matrix form of :func:`_pearson_correlation`."""
+    _require_finite("pearson", X, Y)
+    CX, flat_x = _centred_rows(X)
+    CY, flat_y = (CX, flat_x) if Y is X else _centred_rows(Y)
+    D = np.clip(1.0 - _cosine_similarity_matrix(CX, CY), 0.0, 2.0)
+    D[np.ix_(flat_x, flat_y)] = 0.0
+    return D
 
 
 class SpectralMetric(str, Enum):
@@ -191,10 +264,27 @@ class SpectralMetric(str, Enum):
     pearson = "pearson"
 
 
-def _require_callable(fn: object) -> None:
-    """Reject non-callable metric candidates at registration time."""
-    if not callable(fn):
-        raise TypeError(f"fn must be callable, got {type(fn).__name__}.")
+@dataclass(frozen=True)
+class _MetricEntry:
+    """A registered metric: its per-pair function and optional matrix form.
+
+    ``fn(spec_a, spec_b) -> float`` is always present. ``pairwise(X, Y)``,
+    when set, computes the whole ``(len(X), len(Y))`` distance matrix of two
+    intensity matrices in one call.
+    """
+
+    fn: Callable[..., float]
+    pairwise: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None
+
+
+def _validate_entry(entry: _MetricEntry) -> None:
+    """Reject non-callable metric components at registration time."""
+    if not callable(entry.fn):
+        raise TypeError(f"fn must be callable, got {type(entry.fn).__name__}.")
+    if entry.pairwise is not None and not callable(entry.pairwise):
+        raise TypeError(
+            f"pairwise must be callable or None, got {type(entry.pairwise).__name__}."
+        )
 
 
 _METRIC_REGISTRY = _ComponentRegistry(
@@ -202,15 +292,20 @@ _METRIC_REGISTRY = _ComponentRegistry(
     short="metric",
     register_fn="register_spectral_metric",
     entries={
-        "wasserstein": _wasserstein_distance,
-        "dtw": _dtw_distance,
-        "cosine": _cosine_distance,
-        "spectral_contrast_angle": _spectral_contrast_angle,
-        "pearson": _pearson_correlation,
+        "wasserstein": _MetricEntry(_wasserstein_distance),
+        "dtw": _MetricEntry(_dtw_distance),
+        "cosine": _MetricEntry(_cosine_distance, _cosine_matrix),
+        "spectral_contrast_angle": _MetricEntry(
+            _spectral_contrast_angle, _spectral_contrast_angle_matrix
+        ),
+        "pearson": _MetricEntry(_pearson_correlation, _pearson_matrix),
     },
-    validate=_require_callable,
+    validate=_validate_entry,
 )
-"""Mapping of metric name to its pairwise spectral-distance function.
+"""Mapping of metric name to its registry entry.
+
+Each value is a ``_MetricEntry`` holding the per-pair distance function and,
+for metrics that have one, its whole-matrix form.
 
 Keys are the values of :class:`~maldiamrkit.similarity.SpectralMetric`
 (``"wasserstein"``, ``"dtw"``, ``"cosine"``, ``"spectral_contrast_angle"``,
@@ -224,8 +319,8 @@ _DEFAULT_SPECTRAL_METRICS: frozenset[str] = frozenset(_METRIC_REGISTRY.defaults)
 """Names of the built-in metrics, which cannot be removed (only overridden)."""
 
 
-def _resolve_metric(metric: str | SpectralMetric) -> tuple[str, Callable]:
-    """Resolve a metric name or enum member to ``(registry key, function)``.
+def _resolve_metric(metric: str | SpectralMetric) -> tuple[str, _MetricEntry]:
+    """Resolve a metric name or enum member to ``(registry key, entry)``.
 
     Accepts a :class:`SpectralMetric` member, one of its string values, or
     the name of a metric added with :func:`register_spectral_metric`.
@@ -243,6 +338,7 @@ def register_spectral_metric(
     name: str,
     fn: Callable[..., float],
     *,
+    pairwise: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None,
     override: bool = False,
 ) -> None:
     """Register a custom metric for use with the spectral-distance functions.
@@ -263,6 +359,16 @@ def register_spectral_metric(
         :class:`~maldiamrkit.spectrum.MaldiSpectrum`, a ``(mass, intensity)``
         DataFrame, or a 1-D intensity array), so normalize both arguments
         through :func:`extract_mz_intensity`.
+    pairwise : callable, optional
+        Whole-matrix form of the same metric, ``pairwise(X, Y) -> D``. ``X``
+        and ``Y`` are read-only float64 intensity matrices of shape
+        ``(n, d)`` and ``(m, d)``, one spectrum per row in the order passed,
+        and ``D`` must be the ``(n, m)`` array of ``fn`` applied to every
+        pair of rows. Return a new array, since
+        :func:`~maldiamrkit.similarity.pairwise_distances` may modify the
+        result in place. The distance functions of
+        :mod:`sklearn.metrics.pairwise` (e.g. ``manhattan_distances``) have
+        this signature.
     override : bool, default=False
         Allow replacing one of the built-in metrics. The replacement is
         undone by :func:`unregister_spectral_metric`, which restores the
@@ -271,35 +377,45 @@ def register_spectral_metric(
     Raises
     ------
     TypeError
-        If ``fn`` is not callable.
+        If ``fn`` is not callable, or ``pairwise`` is neither callable nor
+        None.
     ValueError
         If ``name`` is a built-in metric and ``override`` is False.
 
     Notes
     -----
-    :func:`~maldiamrkit.similarity.pairwise_distances` resolves the function
-    in the calling process and hands it to its workers, so a custom metric
-    works at any ``n_jobs`` provided ``fn`` is serialisable (module-level
-    functions and functions defined in a notebook both are).
+    Without ``pairwise``,
+    :func:`~maldiamrkit.similarity.pairwise_distances` evaluates ``fn`` pair
+    by pair. It resolves the function in the calling process and hands it to
+    its workers, so a custom metric works at any ``n_jobs`` provided ``fn``
+    is serialisable (module-level functions and functions defined in a
+    notebook both are).
+
+    With ``pairwise``, :func:`~maldiamrkit.similarity.pairwise_distances`
+    computes the whole matrix in one call in the calling process whenever the
+    spectra are a DataFrame or share one m/z grid, which is much faster for
+    vectorizable metrics; ``n_jobs`` then has no effect.
 
     Examples
     --------
     >>> import numpy as np
+    >>> from sklearn.metrics.pairwise import manhattan_distances
     >>> from maldiamrkit.similarity import (
     ...     extract_mz_intensity,
     ...     register_spectral_metric,
     ...     spectral_distance,
+    ...     unregister_spectral_metric,
     ... )
     >>> def manhattan(spec_a, spec_b):
     ...     _, a = extract_mz_intensity(spec_a)
     ...     _, b = extract_mz_intensity(spec_b)
     ...     return float(np.abs(np.asarray(a) - np.asarray(b)).sum())
-    >>> register_spectral_metric("manhattan", manhattan)
+    >>> register_spectral_metric("manhattan", manhattan, pairwise=manhattan_distances)
     >>> spectral_distance(np.array([1.0, 2.0]), np.array([1.0, 5.0]), "manhattan")
     3.0
     >>> unregister_spectral_metric("manhattan")
     """
-    _METRIC_REGISTRY.register(name, fn, override=override)
+    _METRIC_REGISTRY.register(name, _MetricEntry(fn, pairwise), override=override)
 
 
 def unregister_spectral_metric(name: str) -> None:
@@ -385,5 +501,5 @@ def spectral_distance(
         :class:`~maldiamrkit.similarity.SpectralMetric` nor a registered
         custom metric.
     """
-    _, metric_fn = _resolve_metric(metric)
-    return metric_fn(spec_a, spec_b)
+    _, entry = _resolve_metric(metric)
+    return entry.fn(spec_a, spec_b)

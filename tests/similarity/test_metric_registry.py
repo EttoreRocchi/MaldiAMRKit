@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.metrics.pairwise import manhattan_distances, nan_euclidean_distances
 
+import maldiamrkit.similarity.pairwise as pairwise_module
 from maldiamrkit.similarity import (
     extract_mz_intensity,
     list_spectral_metrics,
@@ -60,12 +62,13 @@ class TestRegister:
     def test_builtin_protected_without_override(self, name, clean_registry):
         with pytest.raises(ValueError, match="built-in spectral metric"):
             register_spectral_metric(name, manhattan)
-        assert _METRIC_REGISTRY[name] is not manhattan
+        assert _METRIC_REGISTRY[name].fn is not manhattan
 
     @pytest.mark.parametrize("name", _BUILTINS)
     def test_builtin_replaceable_with_override(self, name, clean_registry):
         register_spectral_metric(name, manhattan, override=True)
-        assert _METRIC_REGISTRY[name] is manhattan
+        assert _METRIC_REGISTRY[name].fn is manhattan
+        assert _METRIC_REGISTRY[name].pairwise is None
 
 
 class TestUnregister:
@@ -87,7 +90,7 @@ class TestUnregister:
     def test_unregister_overridden_builtin_restores_default(self, clean_registry):
         default = _METRIC_REGISTRY["cosine"]
         register_spectral_metric("cosine", manhattan, override=True)
-        assert _METRIC_REGISTRY["cosine"] is manhattan
+        assert _METRIC_REGISTRY["cosine"].fn is manhattan
         unregister_spectral_metric("cosine")
         assert _METRIC_REGISTRY["cosine"] is default
         a = np.array([1.0, 2.0, 3.0])
@@ -147,6 +150,84 @@ class TestPairwiseWithCustomMetric:
         assert D.shape == (3, 3)
         assert D[0, 1] == pytest.approx(3.0)
         assert D[0, 2] == pytest.approx(1.0)
+
+
+class TestMatrixForm:
+    """A metric registered with ``pairwise=`` is computed in one call."""
+
+    @pytest.fixture
+    def X(self):
+        return pd.DataFrame(np.random.RandomState(0).rand(5, 8))
+
+    @pytest.fixture
+    def no_per_pair(self, monkeypatch):
+        def _fail(*args, **kwargs):
+            raise AssertionError("per-pair path was used")
+
+        monkeypatch.setattr(pairwise_module, "_pairwise_general", _fail)
+
+    @pytest.mark.parametrize("n_jobs", [1, -1])
+    def test_takes_vectorized_path(self, X, n_jobs, clean_registry, no_per_pair):
+        register_spectral_metric("manhattan", manhattan, pairwise=manhattan_distances)
+        D = pairwise_distances(X, metric="manhattan", n_jobs=n_jobs)
+        expected = TestPairwiseWithCustomMetric._reference(X)
+        np.testing.assert_allclose(D, expected, atol=1e-9)
+
+    def test_rejects_non_callable_pairwise(self, clean_registry):
+        with pytest.raises(TypeError, match="must be callable"):
+            register_spectral_metric("manhattan", manhattan, pairwise="nope")
+
+    def test_custom_form_may_accept_nan(self, clean_registry):
+        register_spectral_metric(
+            "nan_euclidean", manhattan, pairwise=nan_euclidean_distances
+        )
+        values = np.random.RandomState(1).rand(4, 6)
+        values[1, 2] = np.nan
+        D = pairwise_distances(pd.DataFrame(values), metric="nan_euclidean")
+        assert np.isfinite(D).all()
+
+    def test_input_is_read_only(self, X, clean_registry):
+        def mutating(A, B):
+            A -= 1.0
+            return manhattan_distances(A, B)
+
+        before = X.copy()
+        register_spectral_metric("mutating", manhattan, pairwise=mutating)
+        with pytest.raises(ValueError, match="read-only"):
+            pairwise_distances(X, metric="mutating")
+        pd.testing.assert_frame_equal(X, before)
+
+    def test_result_not_owned_is_copied(self, X, clean_registry):
+        cached = np.ones((len(X), len(X)))
+        cached.flags.writeable = False
+        register_spectral_metric("cached", manhattan, pairwise=lambda A, B: cached)
+        D = pairwise_distances(X, metric="cached")
+        assert np.all(np.diag(D) == 0.0)
+        assert np.all(cached == 1.0)
+
+    def test_wrong_shape_raises(self, X, clean_registry):
+        register_spectral_metric(
+            "bad_shape", manhattan, pairwise=lambda A, B: np.zeros((2, 2))
+        )
+        with pytest.raises(ValueError, match="'bad_shape'"):
+            pairwise_distances(X, metric="bad_shape")
+
+    def test_override_routes_through_fn(self, X, clean_registry):
+        register_spectral_metric("cosine", lambda a, b: 42.0, override=True)
+        D = pairwise_distances(X, metric="cosine")
+        off_diagonal = D[~np.eye(len(X), dtype=bool)]
+        assert np.all(off_diagonal == 42.0)
+
+    def test_unregister_restores_vectorized_route(self, X, clean_registry, no_per_pair):
+        register_spectral_metric("cosine", lambda a, b: 42.0, override=True)
+        unregister_spectral_metric("cosine")
+        D = pairwise_distances(X, metric="cosine")
+        rows = X.to_numpy()
+        expected = np.array(
+            [[spectral_distance(a, b, metric="cosine") for b in rows] for a in rows]
+        )
+        np.fill_diagonal(expected, 0.0)
+        np.testing.assert_allclose(D, expected, atol=1e-12)
 
 
 class TestBuiltinsUnaffected:
