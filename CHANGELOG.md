@@ -1,7 +1,8 @@
 # Changelog
 
 All notable changes to MaldiAMRKit are documented in this file.
-Format follows [Keep a Changelog](https://keepachangelog.com/).
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.21.0] - 2026-10-19
 
@@ -41,13 +42,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **Faster parallel `pairwise_distances`**: work is dispatched to workers in blocks, substantially speeding up expensive metrics such as `wasserstein` and `dtw` at `n_jobs=-1`; the docstring explains how to choose `n_jobs`.
 - **Safer pipeline serialisation**: `PreprocessingPipeline.to_dict()` warns at save time when a config could not be reloaded faithfully, and `from_dict()` raises `ValueError` (previously `KeyError`) for malformed configs or unknown transformer names.
 
-### Fixed
-
-- Custom metrics no longer fail with `KeyError` when `pairwise_distances` is parallelised.
-
 ### Removed
 
 - The `sphinx-autodoc-typehints` docs dependency. No effect on the installed package.
+
+### Fixed
+
+- Custom metrics no longer fail with `KeyError` when `pairwise_distances` is parallelised.
 
 ## [0.18.0] - 2026-06-30
 
@@ -165,25 +166,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **`verbose` parameter on `DatasetLoader`**: When `True` (with `n_jobs=1`), shows a tqdm progress bar during spectrum loading. Passed through to `MaldiSet`.
 - **tqdm progress bar in `MaldiSet`**: When `verbose=True`, displays a progress bar during per-spectrum preprocessing and binning.
 
+### Changed
+
+- **New dependency**: `tqdm` is now a required dependency.
+
 ### Fixed
 
 - **`MaldiSet.meta` / `.X` / `.y` row alignment**: `.meta` now contains only the sample IDs present in `.X` (i.e. spectra that exist on disk and pass `aggregate_by` filters). Previously `.meta` could have extra rows for samples whose spectrum files were missing.
 - **`MARISMaLayout.collect_spectrum_files()` path resolution**: Metadata paths with a leading segment that duplicates `root_dir.name` no longer produce doubled paths.
 
-### Dependencies
-
-- Added `tqdm`.
-
 ## [0.11.1] - 2026-04-03
+
+### Added
+
+- `species_column` parameter on `DRIAMSLayout` for explicitly specifying the metadata species column name.
 
 ### Fixed
 
 - **String intensity TypeError**: `read_spectrum()` now coerces `mass` and `intensity` columns to numeric and drops unparseable rows (this fixes embedded headers in spectra). Raises `ValueError` when a file contains no valid numeric data.
 - **Species column case mismatch**: `DRIAMSLayout.discover_metadata()` now normalizes the species column to `"Species"` via case-insensitive auto-detection, fixing `KeyError: 'Species'` on DRIAMS sites that use lowercase `"species"`.
-
-### Added
-
-- `species_column` parameter on `DRIAMSLayout` for explicitly specifying the metadata species column name.
 
 ## [0.11.0] - 2026-04-02
 
@@ -219,15 +220,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **`[batch]` install extra**: `pip install maldiamrkit[batch]` installs `combatlearn` for ComBat-based batch effect correction and `umap-learn` for UMAP plots.
 - **`[all]` install extra**: `pip install maldiamrkit[all]` installs all optional dependencies (formats + batch).
 
-### Fixed
-
-- Notebook images on ReadTheDocs: fixed broken image extraction on ReadTheDocs.
-
 ### Changed
 
 - Updated installation guide with `[batch]` and `[all]` extras, combatlearn links and reference.
 - Added exploratory plots and multi-drug evaluation sections to API reference, quickstart, and README.
 - Tutorial notebook `05_exploration.ipynb` demonstrating PCA, t-SNE, UMAP, and batch correction workflow.
+
+### Fixed
+
+- Notebook images on ReadTheDocs: fixed broken image extraction on ReadTheDocs.
 
 ## [0.9.0] - 2026-03-25
 
@@ -259,8 +260,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [0.7.0] - 2026-02-10
 
-First changelog-tracked release of MaldiAMRKit.
-
 ### Added
 
 - **Spectral preprocessing**: composable pipeline of transformers (smoothing, baseline correction, normalization, trimming) with multiple binning strategies (uniform, proportional, adaptive, custom) and raw-spectrum alignment (shift, linear, piecewise, DTW).
@@ -269,3 +268,128 @@ First changelog-tracked release of MaldiAMRKit.
 - **CLI**: `maldiamrkit preprocess` and `maldiamrkit quality` for batch processing and quality assessment from the command line.
 
 See the [documentation](https://maldiamrkit.readthedocs.io/) for the complete API reference and the full set of package functionalities.
+
+## [0.6.2] - 2026-02-06
+
+### Changed
+
+- **Faster `MaldiSet.from_directory`**: only spectra whose IDs appear in the metadata are loaded, skipping unneeded files.
+- **Optional `aggregate_by`**: `None` loads all matching spectra without filtering.
+
+### Fixed
+
+- **`sniff_delimiter`**: no longer crashes on files shorter than `sample_lines`.
+- **Alignment quality metrics**: `NaN` correlation values are handled in `Warping` and `RawWarping`.
+
+## [0.6.1] - 2026-01-15
+
+### Fixed
+
+- **`RawWarping` examples**: now use `create_raw_input()` and show parallelization with `n_jobs`.
+
+## [0.6.0] - 2026-01-14
+
+### Added
+
+- **Parallel processing**: all major processing components accept an `n_jobs` parameter.
+- **`SpectrumQuality`**: spectrum quality assessment.
+- **`create_raw_input()`**: builds the input DataFrame expected by `RawWarping`.
+
+### Changed
+
+- **`RawWarping`**: refactored for seamless scikit-learn `Pipeline` compatibility.
+
+## [0.5.0] - 2026-01-12
+
+### Added
+
+- **Dynamic binning strategies**: uniform, logarithmic, adaptive, and custom.
+- **`RawWarping`**: spectral alignment at full resolution.
+
+### Changed
+
+- **Package layout**: modules reorganised into subpackages.
+
+## [0.4.1] - 2025-11-27
+
+### Changed
+
+- **`MaldiPeakDetector(prevalence_threshold=...)`**: the default is now `1e-6`.
+
+### Fixed
+
+- **`MaldiPeakDetector` in a `Pipeline`**: `prevalence_threshold` is now well defined when the detector is used within a scikit-learn `Pipeline`.
+
+## [0.4.0] - 2025-10-21
+
+### Added
+
+- **Persistent-homology peak detection**: `MaldiPeakDetector(method=...)` accepts `"local"` (peaks via `scipy.signal.find_peaks`) or `"ph"` (persistent homology via `gudhi`).
+
+## [0.3.1] - 2025-10-20
+
+### Added
+
+- **`Warping(smooth_sigma=...)`**: Gaussian smoothing of piecewise segment shifts.
+- **Pseudogel regions**: the `MaldiSet` pseudogel visualization can plot specific regions.
+
+## [0.3.0] - 2025-10-02
+
+### Added
+
+- **Spectral warping**: `Warping` transformer aligning MALDI-TOF spectra within machine-learning pipelines, with `shift`, `linear`, `piecewise`, and `dtw` strategies correcting global and local mass-calibration drift.
+- **`plot_alignment()`**: visualizes the effect of alignment.
+
+## [0.2.2] - 2025-07-22
+
+### Fixed
+
+- **`MaldiSet` properties**: minor fix for the `X`, `y`, and `other` properties.
+
+## [0.2.1] - 2025-07-22
+
+### Fixed
+
+- **`MaldiSet.other`**: minor fix for the `other` property.
+
+## [0.2.0] - 2025-07-22
+
+### Changed
+
+- **`MaldiSet` metadata**: enhanced metadata and antibiotics collection.
+
+## [0.1.0] - 2025-07-21
+
+### Added
+
+- **First public release**: processing of MALDI-TOF mass spectra and preparation of the dataset for machine-learning analyses.
+
+[0.21.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.11.2...v0.12.0
+[0.11.2]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.11.0...v0.11.1
+[0.11.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/EttoreRocchi/MaldiAMRKit/releases/tag/v0.1.0
