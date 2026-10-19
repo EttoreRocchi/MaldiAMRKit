@@ -44,10 +44,11 @@ jobs:
           pip install -e ".[dev,formats]"
 
       - name: Run tests (excluding slow)
+        if: matrix.python-version != '3.12'
         run: |
           pytest tests/ -v -m "not slow" --tb=short
 
-      - name: Run tests with coverage
+      - name: Run tests with coverage (including slow)
         if: matrix.python-version == '3.12'
         run: |
           pytest tests/ -v --tb=short \
