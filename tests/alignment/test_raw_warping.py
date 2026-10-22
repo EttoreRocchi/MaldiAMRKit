@@ -180,10 +180,11 @@ class TestRawWarpingFitTransform:
     def test_transform_dtw(self, synthetic_raw_spectra):
         """Test transform with DTW method."""
         spectra_dir, X = synthetic_raw_spectra
-        # Use fewer samples for DTW (it's slow)
+        # Use fewer samples for DTW (it's slow), on a 3 Da reference grid
+        # (DTW memory grows with the square of the grid length).
         X_small = X.iloc[:3]
 
-        warper = RawWarping(method="dtw", bin_width=3.0)
+        warper = RawWarping(method="dtw", bin_width=3.0, interp_step=3.0)
         result = warper.fit_transform(X_small)
 
         assert isinstance(result, pd.DataFrame)
@@ -489,7 +490,11 @@ RAW_CONFIGS = [
     pytest.param({"method": "piecewise"}, id="piecewise"),
     pytest.param({"method": "quadratic"}, id="quadratic"),
     pytest.param({"method": "lowess"}, id="lowess", marks=pytest.mark.slow),
-    pytest.param({"method": "dtw"}, id="dtw", marks=pytest.mark.slow),
+    # DTW memory grows with the square of the reference grid: a 3 Da grid
+    # keeps it within a CI runner.
+    pytest.param(
+        {"method": "dtw", "interp_step": 3.0}, id="dtw", marks=pytest.mark.slow
+    ),
 ]
 
 
@@ -626,11 +631,15 @@ class TestRawWarpingRenormalize:
     """Optional division of each output spectrum by its total intensity."""
 
     @pytest.mark.parametrize(
-        "method", ["lowess", pytest.param("dtw", marks=pytest.mark.slow)]
+        "params",
+        [
+            {"method": "lowess"},
+            pytest.param({"method": "dtw", "interp_step": 3.0}, marks=pytest.mark.slow),
+        ],
     )
-    def test_sums_to_one_and_keeps_the_shape(self, raw_input, method):
-        plain = RawWarping(method=method).fit(raw_input).transform(raw_input)
-        scaled = RawWarping(method=method, renormalize=True).fit(raw_input)
+    def test_sums_to_one_and_keeps_the_shape(self, raw_input, params):
+        plain = RawWarping(**params).fit(raw_input).transform(raw_input)
+        scaled = RawWarping(renormalize=True, **params).fit(raw_input)
         scaled = scaled.transform(raw_input)
         np.testing.assert_allclose(scaled.sum(axis=1), 1.0)
         expected = plain.to_numpy() / plain.to_numpy().sum(axis=1, keepdims=True)

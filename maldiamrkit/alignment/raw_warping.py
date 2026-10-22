@@ -145,7 +145,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
     n_segments : int, default=5
         Number of segments for piecewise warping.
     dtw_radius : int, default=10
-        Radius constraint for DTW.
+        Radius constraint for DTW. DTW memory grows with the square of the
+        number of reference points (about 10 GB per spectrum for a 0.5 Da
+        grid over 2-20 kDa), so a coarser ``interp_step`` is needed to run
+        it on full-resolution spectra.
     smooth_sigma : float, default=2.0
         Gaussian smoothing for piecewise transitions.
     lowess_frac : float, default=0.3
