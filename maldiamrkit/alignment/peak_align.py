@@ -25,18 +25,18 @@ def _build_strategy(
 ) -> AlignmentStrategy:
     """Instantiate the requested alignment strategy with its parameters."""
     cls = _ALIGNMENT_REGISTRY[method]
+    # Peak sets carry no spectrum to correlate with: estimate from peaks only.
+    shared = dict(max_shift=max_shift_da, estimator="peaks", min_gain=None)
     if method in (AlignmentMethod.shift, AlignmentMethod.linear):
-        return cls(max_shift=max_shift_da)
+        return cls(**shared)
     if method == AlignmentMethod.piecewise:
-        return cls(
-            n_segments=n_segments, smooth_sigma=smooth_sigma, max_shift=max_shift_da
-        )
+        return cls(n_segments=n_segments, smooth_sigma=smooth_sigma, **shared)
     if method == AlignmentMethod.quadratic:
-        return cls(max_shift=max_shift_da, degree=2)
+        return cls(degree=2, **shared)
     if method == AlignmentMethod.cubic:
-        return cls(max_shift=max_shift_da, degree=3)
+        return cls(degree=3, **shared)
     if method == AlignmentMethod.lowess:
-        return cls(max_shift=max_shift_da, frac=lowess_frac, it=lowess_it)
+        return cls(frac=lowess_frac, it=lowess_it, **shared)
     return cls()
 
 
@@ -67,8 +67,9 @@ def align_peaks(
         Warping strategy. ``"dtw"`` is unsupported for peak sets because it
         resamples onto a dense grid and would destroy the set structure.
     max_shift_da : float, default=50.0
-        Maximum allowed shift in Daltons (used by the shift fallback and the
-        rigid/linear strategies).
+        Largest shift considered, in Daltons. Sample and reference peaks are
+        paired only when mutually nearest and within this distance (around
+        the global shift, for the non-rigid methods).
     n_segments : int, default=5
         Number of segments for ``method="piecewise"``.
     smooth_sigma : float, default=2.0
@@ -96,6 +97,10 @@ def align_peaks(
     from the median spacing of the input points; on a sparse peak set that
     spacing is large, so the smoothing is effectively inactive and the warp
     reduces to an unsmoothed piecewise-linear transform.
+
+    The global shift is the median offset of the mutually nearest peak
+    pairs. A non-rigid warp whose mapping is not strictly increasing is
+    replaced by that global shift, with a warning.
     """
     method = AlignmentMethod(method)
     if method == AlignmentMethod.dtw:

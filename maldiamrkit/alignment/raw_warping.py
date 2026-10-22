@@ -16,7 +16,15 @@ from ..io.readers import read_spectrum
 from ..preprocessing.binning import BinningMethod, bin_spectrum
 from ..preprocessing.pipeline import preprocess
 from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
-from .strategies import _ALIGNMENT_REGISTRY, AlignmentMethod
+from .strategies import (
+    _ALIGNMENT_REGISTRY,
+    _SHIFT_ESTIMATORS,
+    AlignmentMethod,
+    DTWStrategy,
+    ShiftStrategy,
+    _most_prominent,
+)
+from .warping import _renormalize
 
 
 def create_raw_input(
@@ -76,7 +84,7 @@ def create_raw_input(
     >>> # Use in pipeline
     >>> from sklearn.pipeline import Pipeline
     >>> pipe = Pipeline([
-    ...     ("warp", RawWarping(method="piecewise")),
+    ...     ("warp", RawWarping(method="lowess")),
     ...     ("scaler", StandardScaler()),
     ... ])
     >>> X_binned = pipe.fit_transform(X_raw)
@@ -117,7 +125,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
     ----------
     method : str, default="shift"
         Warping method:
-        - "shift" : global m/z shift in Daltons
+        - "shift" : global m/z shift in Daltons, see ``shift_estimator``
         - "linear" : linear m/z transformation (mz' = a*mz + b)
         - "piecewise" : segment-wise m/z shifts with smoothing
         - "dtw" : dynamic time warping
@@ -130,8 +138,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
     bin_kwargs : dict, optional
         Additional keyword arguments for binning.
-    max_shift_da : float, default=50.0
-        Maximum allowed shift in Daltons.
+    max_shift_da : float, default=10.0
+        Largest shift considered, in Daltons. It bounds the global shift
+        (the total of both steps with ``prealign``) and the distance between
+        matched peak pairs.
     n_segments : int, default=5
         Number of segments for piecewise warping.
     dtw_radius : int, default=10
@@ -159,6 +169,38 @@ class RawWarping(BaseEstimator, TransformerMixin):
     n_jobs : int, default=1
         Number of parallel jobs for transform. Use -1 for all available
         cores, 1 for sequential processing.
+    shift_estimator : {"xcorr", "peaks"}, default="xcorr"
+        How the global shift is estimated. ``"xcorr"`` resamples the
+        spectrum onto a uniform grid at the reference spacing and takes the
+        lag (within ``max_shift_da``) that maximises the Pearson correlation
+        with the reference. ``"peaks"`` takes the median offset between
+        mutually nearest sample and reference peaks within ``max_shift_da``.
+        Either shift is applied only if it raises the correlation with the
+        reference by ``min_gain``.
+    min_gain : float, default=0.05
+        Minimum relative gain in correlation with the reference (as a
+        fraction of the correlation it improves on) required to apply a
+        shift and to keep the "dtw" result instead of the unwarped spectrum.
+        With ``prealign``, each step is checked against its own reference.
+    min_support : float, default=0.6
+        Share of the matched peak pairs that a non-rigid warp must bring
+        within ``max_shift_da / 3`` Daltons of their reference partner to be
+        used instead of the global shift.
+    n_peaks : int or None, default=200
+        Number of most prominent detected peaks, in each spectrum and in
+        the reference, used to match peaks (by the "peaks" shift estimator
+        and the non-rigid methods). ``None`` uses every detected peak.
+    prealign : bool, default=True
+        Shift the m/z axis of each spectrum first and fit the alignment to
+        the median of the shifted training spectra; :meth:`transform`
+        applies the same two steps at full resolution before binning, and
+        the global shift of both steps together stays within
+        ``max_shift_da``. This keeps a median reference sharp when the
+        spectra come from different calibrations (for instance several
+        instruments).
+    renormalize : bool, default=False
+        Divide each aligned, binned spectrum by its total intensity, so
+        that it sums to 1 (spectra with no intensity are left unchanged).
 
     Attributes
     ----------
@@ -167,7 +209,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
     ref_intensity_ : np.ndarray
         Reference spectrum intensities (after fit).
     ref_peaks_mz_ : np.ndarray
-        Peak m/z positions in reference spectrum.
+        m/z positions of the ``n_peaks`` most prominent peaks of the
+        reference spectrum.
+    prealign_mz_, prealign_intensity_, prealign_peaks_mz_ : np.ndarray or None
+        Reference of the global-shift step applied first (and its peaks),
+        with ``prealign=True``; otherwise None. ``ref_mz_`` and
+        ``ref_intensity_`` then hold the reference of the shifted spectra.
     output_columns_ : pd.Index
         Column names for output DataFrame (m/z bin centers).
     pipeline_ : PreprocessingPipeline
@@ -184,7 +231,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
     >>>
     >>> # Use in sklearn pipeline
     >>> pipe = Pipeline([
-    ...     ("warp", RawWarping(method="piecewise", bin_width=3)),
+    ...     ("warp", RawWarping(method="lowess", bin_width=3)),
     ...     ("scaler", StandardScaler()),
     ...     ("clf", RandomForestClassifier())
     ... ])
@@ -197,6 +244,22 @@ class RawWarping(BaseEstimator, TransformerMixin):
     - Column "path": paths to raw spectrum files
 
     Use `create_raw_input()` to easily create this DataFrame from a directory.
+
+    The non-rigid methods fit their warp on the ``n_peaks`` most prominent
+    peaks, matched around the global shift (after the shift step of
+    ``prealign``), and use it only if the warped m/z axis is strictly
+    increasing (otherwise the global shift is used, with a warning) and it
+    is supported by at least ``min_support`` of the matched pairs. Apart
+    from "dtw", every method moves the m/z values and leaves the
+    intensities unchanged, so binning preserves the total intensity within
+    the m/z range; "dtw" does not, because it averages the sample points
+    matched to each reference point. ``renormalize=True`` makes every
+    output spectrum sum to 1 whatever the method.
+
+    Only the reference spectrum is learned in :meth:`fit`; :meth:`transform`
+    aligns each spectrum on its own (replicates of one sample are averaged
+    after alignment), so its result does not depend on the other spectra
+    transformed with it.
     """
 
     def __init__(
@@ -205,7 +268,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         bin_width: float = 3,
         bin_method: str | BinningMethod = BinningMethod.uniform,
         bin_kwargs: dict | None = None,
-        max_shift_da: float = 50.0,
+        max_shift_da: float = 10.0,
         n_segments: int = 5,
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
@@ -217,6 +280,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         min_reference_peaks: int = 5,
         interp_step: float = 0.5,
         n_jobs: int = 1,
+        shift_estimator: str = "xcorr",
+        min_gain: float = 0.05,
+        min_support: float = 0.6,
+        n_peaks: int | None = 200,
+        prealign: bool = True,
+        renormalize: bool = False,
     ) -> None:
         self.method = AlignmentMethod(method)
         self.bin_width = bin_width
@@ -236,6 +305,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         )
         self.min_reference_peaks = min_reference_peaks
         self.n_jobs = n_jobs
+        self.shift_estimator = shift_estimator
+        self.min_gain = min_gain
+        self.min_support = min_support
+        self.n_peaks = n_peaks
+        self.prealign = prealign
+        self.renormalize = renormalize
 
     def _load_raw_spectrum(self, path: str) -> pd.DataFrame:
         """Load and preprocess a raw spectrum from file."""
@@ -249,13 +324,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         return preprocess(raw, self.pipeline_)
 
     def _detect_peaks_mz(self, mz: np.ndarray, intensity: np.ndarray) -> np.ndarray:
-        """Detect peaks and return their m/z positions using the peak detector."""
+        """m/z positions of the ``n_peaks`` most prominent detected peaks."""
         # Create temporary single-row DataFrame for peak detection
         spec_df = pd.DataFrame([intensity], columns=mz)
         peaks_df = self.peak_detector.transform(spec_df)
-        # Get m/z positions where peaks were detected (non-zero values)
-        peak_mask = peaks_df.iloc[0].to_numpy() != 0
-        return mz[peak_mask]
+        peaks = np.flatnonzero(peaks_df.iloc[0].to_numpy() != 0)
+        return mz[_most_prominent(intensity, peaks, self.n_peaks)]
 
     def _compute_raw_reference(
         self, paths: list[str]
@@ -363,6 +437,18 @@ class RawWarping(BaseEstimator, TransformerMixin):
                 "Use create_raw_input() to create the input DataFrame."
             )
 
+        if self.shift_estimator not in _SHIFT_ESTIMATORS:
+            raise ValueError(
+                f"shift_estimator must be one of {_SHIFT_ESTIMATORS}, "
+                f"got {self.shift_estimator!r}"
+            )
+        if self.min_gain < 0:
+            raise ValueError(f"min_gain must be >= 0, got {self.min_gain}")
+        if not (0.0 <= self.min_support <= 1.0):
+            raise ValueError(f"min_support must be in [0, 1], got {self.min_support}")
+        if self.n_peaks is not None and self.n_peaks < 1:
+            raise ValueError(f"n_peaks must be >= 1 or None, got {self.n_peaks}")
+
         # Store preprocessing config
         self.pipeline_ = self.pipeline or PreprocessingPipeline.default()
 
@@ -373,6 +459,16 @@ class RawWarping(BaseEstimator, TransformerMixin):
         self.ref_mz_, self.ref_intensity_, self.ref_peaks_mz_ = (
             self._compute_raw_reference(paths)
         )
+        self.prealign_mz_ = self.prealign_intensity_ = self.prealign_peaks_mz_ = None
+        if self._prealigns():
+            self.prealign_mz_ = self.ref_mz_
+            self.prealign_intensity_ = self.ref_intensity_
+            self.prealign_peaks_mz_ = self.ref_peaks_mz_
+            if self.reference == "median":
+                self.ref_intensity_ = self._shifted_median(paths)
+                self.ref_peaks_mz_ = self._detect_peaks_mz(
+                    self.ref_mz_, self.ref_intensity_
+                )
 
         # Validate reference quality
         n_peaks = len(self.ref_peaks_mz_)
@@ -394,29 +490,63 @@ class RawWarping(BaseEstimator, TransformerMixin):
     def _get_strategy(self):
         """Build strategy instance from current parameters."""
         cls = _ALIGNMENT_REGISTRY[self.method]
+        shared = dict(
+            max_shift=self.max_shift_da,
+            estimator=self.shift_estimator,
+            min_gain=self.min_gain,
+        )
+        warp = dict(shared, min_support=self.min_support)
         if self.method == "shift":
-            return cls(max_shift=self.max_shift_da)
+            return cls(**shared)
         elif self.method == "linear":
-            return cls(max_shift=self.max_shift_da)
+            return cls(**warp)
         elif self.method == "piecewise":
             return cls(
-                n_segments=self.n_segments,
-                smooth_sigma=self.smooth_sigma,
-                max_shift=self.max_shift_da,
+                n_segments=self.n_segments, smooth_sigma=self.smooth_sigma, **warp
             )
         elif self.method == "dtw":
-            return cls(dtw_radius=self.dtw_radius)
+            return cls(dtw_radius=self.dtw_radius, min_gain=self.min_gain)
         elif self.method == "quadratic":
-            return cls(max_shift=self.max_shift_da, degree=2)
+            return cls(degree=2, **warp)
         elif self.method == "cubic":
-            return cls(max_shift=self.max_shift_da, degree=3)
+            return cls(degree=3, **warp)
         elif self.method == "lowess":
-            return cls(
-                max_shift=self.max_shift_da,
-                frac=self.lowess_frac,
-                it=self.lowess_it,
-            )
+            return cls(frac=self.lowess_frac, it=self.lowess_it, **warp)
         return cls()
+
+    def _prealigns(self) -> bool:
+        """Whether a global-shift step runs before the alignment."""
+        return bool(self.prealign)
+
+    def _prealign_shift(
+        self,
+        mz: np.ndarray,
+        intensity: np.ndarray,
+        peaks_mz: np.ndarray | None = None,
+    ) -> float:
+        """Global shift (in Daltons) of a spectrum to the prealign reference."""
+        if peaks_mz is None and self.shift_estimator == "peaks":
+            peaks_mz = self._detect_peaks_mz(mz, intensity)
+        strategy = ShiftStrategy(self.max_shift_da, self.shift_estimator, self.min_gain)
+        return strategy.estimate_raw(
+            mz,
+            intensity,
+            peaks_mz,
+            self.prealign_peaks_mz_,
+            self.prealign_mz_,
+            self.prealign_intensity_,
+        )
+
+    def _shifted_median(self, paths: list[str]) -> np.ndarray:
+        """Median on ``ref_mz_`` of the training spectra after their shift."""
+        rows = np.empty((len(paths), len(self.ref_mz_)))
+        for i, path in enumerate(paths):
+            spec_df = self._load_raw_spectrum(path)
+            mz = spec_df["mass"].to_numpy()
+            intensity = spec_df["intensity"].to_numpy()
+            shift = self._prealign_shift(mz, intensity)
+            rows[i] = np.interp(self.ref_mz_, mz + shift, intensity)
+        return np.median(rows, axis=0)
 
     def _bin_warped(self, mz: np.ndarray, intensity: np.ndarray) -> pd.DataFrame:
         """Bin warped raw spectrum to output grid."""
@@ -440,8 +570,18 @@ class RawWarping(BaseEstimator, TransformerMixin):
         intensity = spec_df["intensity"].to_numpy()
 
         peaks_mz = self._detect_peaks_mz(mz, intensity)
+        applied = 0.0
+        if self.prealign_mz_ is not None:
+            applied = self._prealign_shift(mz, intensity, peaks_mz)
+            mz, peaks_mz = mz + applied, peaks_mz + applied
 
         strategy = self._get_strategy()
+        budget = {}
+        if not isinstance(strategy, DTWStrategy):
+            budget["shift_bounds"] = (
+                -self.max_shift_da - applied,
+                self.max_shift_da - applied,
+            )
         warped_mz, warped_int = strategy.align_raw(
             mz,
             intensity,
@@ -449,6 +589,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
             self.ref_peaks_mz_,
             self.ref_mz_,
             self.ref_intensity_,
+            **budget,
         )
 
         binned = self._bin_warped(warped_mz, warped_int)
@@ -495,9 +636,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
         )
 
         # Combine into DataFrame
-        result = pd.DataFrame(
-            np.vstack(aligned_rows), index=X.index, columns=self.output_columns_
-        )
+        aligned = np.vstack(aligned_rows)
+        if self.renormalize:
+            _renormalize(aligned)
+        result = pd.DataFrame(aligned, index=X.index, columns=self.output_columns_)
 
         # Average replicates when create_raw_input used strategy="average"
         if "_original_id" in X.columns:

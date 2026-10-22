@@ -4,6 +4,31 @@ All notable changes to MaldiAMRKit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-10-22
+
+### Added
+
+- **Shift estimator choice**: `Warping` and `RawWarping` accept `shift_estimator` (`"xcorr"`, the new default, or `"peaks"`) and `min_gain`, the relative gain in correlation with the reference that a shift (or a DTW result) must bring before it is applied.
+- **Peak-supported warps**: `Warping` and `RawWarping` accept `min_support` (default 0.6), the share of matched peak pairs that a non-rigid warp must bring within a third of the maximum shift of each other, and `n_peaks` (default 200), the number of most prominent peaks used for matching.
+- **Two-step alignment**: `Warping` and `RawWarping` accept `prealign` (default `True`): every method first applies a global shift and then aligns to the reference of the shifted spectra, which keeps the reference sharp when spectra come from different calibrations; the global shift of both steps stays within the maximum shift. `RawWarping` runs both steps at full resolution before binning.
+- **Optional renormalization**: `Warping` and `RawWarping` accept `renormalize` (default `False`), which divides each aligned spectrum by its total intensity so that it sums to 1.
+
+### Changed
+
+- **Alignment applied only when justified**: the default `"xcorr"` shift is chosen by cross-correlation with the reference; a shift or a DTW result is applied only if it raises the spectrum's correlation with the reference by `min_gain`, and non-rigid warps, fitted after that shift on the matched peaks (`prealign`), are kept only if the matched peaks support them (`min_support`). Non-rigid output preserves the total intensity (apart from what is moved past the spectrum edges); `"dtw"` does not. Spectra of several species are best aligned one species at a time.
+- **Tighter default search**: `Warping(max_shift=...)` defaults to 3 bins (about 9 Da with the default 3 Da bins) and `RawWarping(max_shift_da=...)` to 10 Da, instead of 50.
+- **Output dtype**: `Warping.transform` returns the floating dtype of its input for every method.
+- **Migration**: aligned spectra differ from earlier releases. `shift_estimator="peaks"` with the former `max_shift` is the closest setting, but the earlier estimates were biased by noise peaks and cannot be reproduced exactly.
+- **Faster, leaner `Warping.transform`**: spectra are aligned in chunks, so large batches run much faster in parallel and use far less memory.
+- **Lazy DTW dependency**: `tslearn` is imported only when DTW alignment runs.
+
+### Fixed
+
+- **Peak matching**: sample and reference peaks are paired only when mutually nearest and within the maximum shift (also in `align_peaks`). Previously every sample peak was paired with its nearest reference peak, so noise peaks biased the shift and peaks beyond the last reference peak produced very large warps.
+- **LOWESS edges and robustness**: the `"lowess"` warp keeps the shift constant beyond the outermost matched peaks instead of collapsing those regions onto a single position, and its robustness iterations no longer break down when the peak offsets are fitted exactly (which could move part of a spectrum by hundreds of bins).
+- **No silent reordering**: a non-monotonic warp is no longer sorted and averaged silently; the global shift is used for that spectrum and the aggregated warning reports it.
+- **Piecewise precision**: each `"piecewise"` segment shift is the mean of the peak offsets close to the segment median, instead of the median itself, which on binned spectra could only take whole-bin values.
+
 ## [0.21.0] - 2026-10-19
 
 ### Added
@@ -364,6 +389,7 @@ See the [documentation](https://maldiamrkit.readthedocs.io/) for the complete AP
 
 - **First public release**: processing of MALDI-TOF mass spectra and preparation of the dataset for machine-learning analyses.
 
+[0.22.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.18.0...v0.19.0

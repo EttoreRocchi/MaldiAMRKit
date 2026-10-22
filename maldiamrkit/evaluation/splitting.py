@@ -199,7 +199,18 @@ class SpeciesDrugStratifiedKFold:
         y: np.ndarray | None = None,
         groups: np.ndarray | None = None,
     ) -> int:
-        """Return the number of splits."""
+        """Return the number of splits.
+
+        Parameters
+        ----------
+        X, y, groups : ignored
+            Present for sklearn API compatibility.
+
+        Returns
+        -------
+        int
+            The number of folds, ``n_splits``.
+        """
         return self.n_splits
 
     def split(
@@ -283,7 +294,18 @@ class CaseGroupedKFold:
         y: np.ndarray | None = None,
         groups: np.ndarray | None = None,
     ) -> int:
-        """Return the number of splits."""
+        """Return the number of splits.
+
+        Parameters
+        ----------
+        X, y, groups : ignored
+            Present for sklearn API compatibility.
+
+        Returns
+        -------
+        int
+            The number of folds, ``n_splits``.
+        """
         return self.n_splits
 
     def split(

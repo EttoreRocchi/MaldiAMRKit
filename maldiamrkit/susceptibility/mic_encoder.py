@@ -165,13 +165,39 @@ class MICEncoder(BaseEstimator, TransformerMixin):
         return out
 
     def fit_transform(self, X: pd.DataFrame, y=None, **kwargs) -> pd.DataFrame:
-        """Fit then transform in one step."""
+        """Fit then transform in one step.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Input frame with at least ``mic_col`` (see :meth:`fit`).
+        y : ignored
+            Present for sklearn API compatibility.
+        **kwargs
+            Ignored.
+
+        Returns
+        -------
+        pd.DataFrame
+            The encoded frame (see :meth:`transform`).
+        """
         return self.fit(X, y).transform(X)
 
     def get_feature_names_out(
         self, input_features: Iterable[str] | None = None
     ) -> np.ndarray:
-        """Return output column names for sklearn pipelines."""
+        """Return output column names for sklearn pipelines.
+
+        Parameters
+        ----------
+        input_features : iterable of str or None, default=None
+            Ignored (the output columns do not depend on the input).
+
+        Returns
+        -------
+        np.ndarray
+            Names of the output columns.
+        """
         return np.array(list(_OUTPUT_COLUMNS), dtype=object)
 
     def _check_columns(self, X: pd.DataFrame) -> None:

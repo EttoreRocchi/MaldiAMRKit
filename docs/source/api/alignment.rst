@@ -53,17 +53,17 @@ Example Usage
     from sklearn.preprocessing import StandardScaler
 
     # Alignment on binned data
-    warper = Warping(method="piecewise", n_jobs=-1)
+    warper = Warping(method="lowess", n_jobs=-1)
     X_aligned = warper.fit_transform(X_binned)
 
     # Raw warping: create input from directory, get binned output
     X_raw = create_raw_input("spectra/")  # DataFrame with file paths
-    raw_warper = RawWarping(method="piecewise", bin_width=3, n_jobs=-1)
+    raw_warper = RawWarping(method="lowess", bin_width=3, n_jobs=-1)
     X_binned = raw_warper.fit_transform(X_raw)
 
     # Use in sklearn pipeline
     pipe = Pipeline([
-        ("warp", RawWarping(method="piecewise", bin_width=3)),
+        ("warp", RawWarping(method="lowess", bin_width=3)),
         ("scaler", StandardScaler()),
     ])
     X_processed = pipe.fit_transform(X_raw)

@@ -93,7 +93,7 @@ For higher precision alignment, use RawWarping with ``create_raw_input()``:
 
    # Create pipeline with raw warping
    pipe = Pipeline([
-       ("warp", RawWarping(method="piecewise", bin_width=3, n_jobs=-1)),
+       ("warp", RawWarping(method="lowess", bin_width=3, n_jobs=-1)),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier())
    ])

@@ -2,15 +2,33 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, effective_n_jobs
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..detection.peak_detector import MaldiPeakDetector
-from .strategies import _ALIGNMENT_REGISTRY, AlignmentMethod, DTWStrategy
+from .strategies import (
+    _ALIGNMENT_REGISTRY,
+    _NON_MONOTONIC,
+    _SHIFT_ESTIMATORS,
+    AlignmentMethod,
+    DTWStrategy,
+    ShiftStrategy,
+    _most_prominent,
+    _shift_row,
+)
+
+_MAX_CHUNK_ROWS = 256
+
+
+def _renormalize(rows: np.ndarray) -> None:
+    """Divide each row by its sum in place, leaving rows that sum to 0."""
+    totals = rows.sum(axis=1, keepdims=True)
+    np.divide(rows, totals, out=rows, where=totals != 0)
 
 
 class Warping(BaseEstimator, TransformerMixin):
@@ -31,18 +49,21 @@ class Warping(BaseEstimator, TransformerMixin):
         - int : use that row index as reference
     method : str, default="shift"
         Alignment method:
-        - "shift" : global median shift
+        - "shift" : global (rigid) shift, see ``shift_estimator``
         - "linear" : least-squares linear transform
-        - "piecewise" : local median shifts across segments
+        - "piecewise" : local shifts interpolated between segments
         - "dtw" : dynamic time warping
         - "quadratic" : quadratic polynomial fit on matched peak pairs
         - "cubic" : cubic polynomial fit on matched peak pairs
         - "lowess" : LOWESS (Cleveland 1979) non-linear warping
     n_segments : int, default=5
         Number of segments for piecewise warping.
-    max_shift : int, default=50
-        Max allowed shift in bins (used as fallback for shift / linear /
-        polynomial / LOWESS methods when too few peaks match).
+    max_shift : int, default=3
+        Largest shift considered, in bins. It bounds the global shift (the
+        total of both steps with ``prealign``) and the distance between
+        matched peak pairs. The default suits the
+        package's 3 Da bins (about 9 Da); a value close to 10 Da divided
+        by the bin width is a reasonable choice for other bin widths.
     dtw_radius : int, default=10
         Radius constraint for DTW to limit warping path search space.
     smooth_sigma : float, default=2.0
@@ -59,11 +80,75 @@ class Warping(BaseEstimator, TransformerMixin):
         Number of parallel jobs for transform. Use -1 for all available
         cores, 1 for sequential processing. Parallelization is particularly
         beneficial for the "dtw" method which is CPU-intensive.
+    shift_estimator : {"xcorr", "peaks"}, default="xcorr"
+        How the global shift is estimated. ``"xcorr"`` takes the lag (within
+        ``max_shift``) that maximises the Pearson correlation with the
+        reference spectrum, and needs no peak detection. ``"peaks"`` takes
+        the median offset between mutually nearest sample and reference
+        peaks within ``max_shift``. Either shift is applied only if it
+        raises the correlation with the reference by ``min_gain``.
+    min_gain : float, default=0.05
+        Minimum relative gain in correlation with the reference (as a
+        fraction of the correlation it improves on) required to apply a
+        shift and to keep the "dtw" result instead of the unwarped
+        spectrum. With ``prealign``, each step is checked against its own
+        reference.
+    min_support : float, default=0.6
+        Share of the matched peak pairs that a non-rigid warp must bring
+        within ``max_shift / 3`` bins of their reference partner (1 bin by
+        default) to be used instead of the global shift. A warp that leaves
+        many pairs unexplained signals a sample that does not share its
+        peaks with the reference, for which the warp is unreliable.
+    n_peaks : int or None, default=200
+        Number of most prominent detected peaks, in each spectrum and in
+        the reference, used to match peaks (by the "peaks" shift estimator
+        and the non-rigid methods). ``None`` uses every detected peak.
+    prealign : bool, default=True
+        Align the spectra with a global shift first and fit the alignment
+        to the reference of the shifted spectra; :meth:`transform` applies
+        the same two steps, and the global shift of both steps together
+        stays within ``max_shift``. This keeps a median reference sharp
+        when the spectra come from different calibrations (for instance
+        several instruments).
+    renormalize : bool, default=False
+        Divide each aligned spectrum by its total intensity, so that it
+        sums to 1 (spectra with no intensity are left unchanged).
 
     Attributes
     ----------
     ref_spec_ : np.ndarray
-        The fitted reference spectrum (stored after fit()).
+        The fitted reference spectrum (stored after fit()). With
+        ``prealign``, the reference of the shifted spectra.
+    prealign_ref_ : np.ndarray or None
+        Reference of the global-shift step applied first (with
+        ``prealign=True``), otherwise None.
+
+    Notes
+    -----
+    The non-rigid methods ("linear", "piecewise", "quadratic", "cubic",
+    "lowess") fit their warp on the ``n_peaks`` most prominent peaks,
+    matched around the global shift (after the shift step of
+    ``prealign``). A warp is used only if its m/z mapping is strictly
+    increasing (otherwise the global shift is used and the sample is
+    counted in a warning) and only if it is supported by at least
+    ``min_support`` of the matched pairs; otherwise the global shift is
+    used. Their output is resampled so that the total intensity is
+    preserved, apart from the part moved past either end of the spectrum;
+    "shift" preserves it in the same way. "dtw" does not preserve the total
+    intensity, because it averages the sample points matched to each
+    reference point. ``renormalize=True`` makes every aligned spectrum sum
+    to 1 whatever the method.
+
+    A median reference stands for spectra that share most of their peaks,
+    such as spectra of one species. For a collection of several species,
+    fitting one transformer per species aligns each spectrum to peaks it
+    actually has.
+
+    Only the reference spectrum is learned in :meth:`fit`; :meth:`transform`
+    aligns each spectrum on its own, so its result does not depend on the
+    other spectra transformed with it.
+
+    The output has the same floating dtype as ``X``.
 
     Examples
     --------
@@ -79,13 +164,19 @@ class Warping(BaseEstimator, TransformerMixin):
         reference: str | int = "median",
         method: str | AlignmentMethod = AlignmentMethod.shift,
         n_segments: int = 5,
-        max_shift: int = 50,
+        max_shift: int = 3,
         dtw_radius: int = 10,
         smooth_sigma: float = 2.0,
         lowess_frac: float = 0.3,
         lowess_it: int = 3,
         min_reference_peaks: int = 5,
         n_jobs: int = 1,
+        shift_estimator: str = "xcorr",
+        min_gain: float = 0.05,
+        min_support: float = 0.6,
+        n_peaks: int | None = 200,
+        prealign: bool = True,
+        renormalize: bool = False,
     ) -> None:
         self.peak_detector = peak_detector or MaldiPeakDetector(
             binary=True, prominence=1e-5
@@ -100,6 +191,12 @@ class Warping(BaseEstimator, TransformerMixin):
         self.lowess_it = lowess_it
         self.min_reference_peaks = min_reference_peaks
         self.n_jobs = n_jobs
+        self.shift_estimator = shift_estimator
+        self.min_gain = min_gain
+        self.min_support = min_support
+        self.n_peaks = n_peaks
+        self.prealign = prealign
+        self.renormalize = renormalize
 
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -127,21 +224,6 @@ class Warping(BaseEstimator, TransformerMixin):
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
 
-        if self.reference == "median":
-            self.ref_spec_ = X.median(axis=0).to_numpy()
-        elif isinstance(self.reference, int):
-            if self.reference < 0 or self.reference >= len(X):
-                raise ValueError(
-                    f"Reference index {self.reference} is out of bounds "
-                    f"for X with {len(X)} samples"
-                )
-            self.ref_spec_ = X.iloc[self.reference].to_numpy()
-        else:
-            raise ValueError(
-                f"Unsupported reference specifier: {self.reference}. "
-                f"Must be 'median' or int."
-            )
-
         # Validate parameters
         if self.n_segments < 1:
             raise ValueError(f"n_segments must be >= 1, got {self.n_segments}")
@@ -151,11 +233,50 @@ class Warping(BaseEstimator, TransformerMixin):
             raise ValueError(f"lowess_frac must be in (0, 1], got {self.lowess_frac}")
         if self.lowess_it < 0:
             raise ValueError(f"lowess_it must be >= 0, got {self.lowess_it}")
+        if self.shift_estimator not in _SHIFT_ESTIMATORS:
+            raise ValueError(
+                f"shift_estimator must be one of {_SHIFT_ESTIMATORS}, "
+                f"got {self.shift_estimator!r}"
+            )
+        if self.min_gain < 0:
+            raise ValueError(f"min_gain must be >= 0, got {self.min_gain}")
+        if not (0.0 <= self.min_support <= 1.0):
+            raise ValueError(f"min_support must be in [0, 1], got {self.min_support}")
+        if self.n_peaks is not None and self.n_peaks < 1:
+            raise ValueError(f"n_peaks must be >= 1 or None, got {self.n_peaks}")
+
+        self.prealign_ref_ = None
+        if self._prealigns():
+            self.prealign_ref_ = self._reference_of(X)
+            prealign_peaks = self._prealign_reference_peaks(X.columns)
+            shifted = np.empty(X.shape, dtype=self._out_dtype(X))
+            for start, stop, block in self._run_chunks(
+                X, self._prealign_chunk, prealign_peaks
+            ):
+                shifted[start:stop] = block
+            X = pd.DataFrame(shifted, index=X.index, columns=X.columns)
+        self.ref_spec_ = self._reference_of(X)
 
         # Validate reference quality
         self._validate_reference_quality(X)
 
         return self
+
+    def _reference_of(self, X: pd.DataFrame) -> np.ndarray:
+        """Return the reference spectrum of ``X`` chosen by ``reference``."""
+        if self.reference == "median":
+            return X.median(axis=0).to_numpy()
+        if isinstance(self.reference, int):
+            if self.reference < 0 or self.reference >= len(X):
+                raise ValueError(
+                    f"Reference index {self.reference} is out of bounds "
+                    f"for X with {len(X)} samples"
+                )
+            return X.iloc[self.reference].to_numpy()
+        raise ValueError(
+            f"Unsupported reference specifier: {self.reference}. "
+            f"Must be 'median' or int."
+        )
 
     def _validate_reference_quality(self, X: pd.DataFrame):
         """Validate that the reference spectrum has sufficient quality."""
@@ -178,29 +299,92 @@ class Warping(BaseEstimator, TransformerMixin):
     def _get_strategy(self):
         """Build strategy instance from current parameters."""
         cls = _ALIGNMENT_REGISTRY[self.method]
+        shared = dict(
+            max_shift=self.max_shift,
+            estimator=self.shift_estimator,
+            min_gain=self.min_gain,
+        )
+        warp = dict(shared, min_support=self.min_support)
         if self.method == "shift":
-            return cls(max_shift=self.max_shift)
+            return cls(**shared)
         elif self.method == "linear":
-            return cls(max_shift=self.max_shift)
+            return cls(**warp)
         elif self.method == "piecewise":
             return cls(
-                n_segments=self.n_segments,
-                smooth_sigma=self.smooth_sigma,
-                max_shift=self.max_shift,
+                n_segments=self.n_segments, smooth_sigma=self.smooth_sigma, **warp
             )
         elif self.method == "dtw":
-            return cls(dtw_radius=self.dtw_radius)
+            return cls(dtw_radius=self.dtw_radius, min_gain=self.min_gain)
         elif self.method == "quadratic":
-            return cls(max_shift=self.max_shift, degree=2)
+            return cls(degree=2, **warp)
         elif self.method == "cubic":
-            return cls(max_shift=self.max_shift, degree=3)
+            return cls(degree=3, **warp)
         elif self.method == "lowess":
-            return cls(
-                max_shift=self.max_shift,
-                frac=self.lowess_frac,
-                it=self.lowess_it,
-            )
+            return cls(frac=self.lowess_frac, it=self.lowess_it, **warp)
         return cls()
+
+    def _select_peaks(self, row: np.ndarray, peaks: np.ndarray) -> np.ndarray:
+        """Keep the ``n_peaks`` most prominent of the peaks detected in ``row``."""
+        return _most_prominent(row, peaks, self.n_peaks)
+
+    def _prealigns(self) -> bool:
+        """Whether a global-shift step runs before the alignment."""
+        return bool(self.prealign)
+
+    @staticmethod
+    def _out_dtype(X: pd.DataFrame) -> np.dtype:
+        """Floating dtype of ``X``, or float64 when ``X`` is not floating."""
+        dtype = X.iloc[:0].to_numpy().dtype
+        return dtype if np.issubdtype(dtype, np.floating) else np.dtype(np.float64)
+
+    def _reference_peaks(self, spectrum: np.ndarray, columns: pd.Index) -> np.ndarray:
+        """Return the ``n_peaks`` most prominent peaks detected in ``spectrum``."""
+        detected = self.peak_detector.transform(
+            pd.DataFrame(spectrum[np.newaxis, :], columns=columns)
+        )
+        return self._select_peaks(spectrum, detected.iloc[0].to_numpy().nonzero()[0])
+
+    def _prealign_reference_peaks(self, columns: pd.Index) -> np.ndarray:
+        """Peaks of the prealign reference (used by the "peaks" estimator)."""
+        if self.shift_estimator != "peaks":
+            return np.empty(0, dtype=int)
+        return self._reference_peaks(self.prealign_ref_, columns)
+
+    def _prealign_rows(
+        self, chunk: pd.DataFrame, prealign_peaks: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Shift every row of ``chunk`` to the prealign reference.
+
+        Returns the shifted rows and the shift (in bins) of each row.
+        """
+        rows = chunk.to_numpy()
+        peaks = None
+        if self.shift_estimator == "peaks":
+            peaks = self.peak_detector.transform(chunk).to_numpy()
+        strategy = ShiftStrategy(self.max_shift, self.shift_estimator, self.min_gain)
+        shifted = np.empty_like(rows)
+        lags = np.zeros(len(rows), dtype=int)
+        for i, row in enumerate(rows):
+            row_peaks = None
+            if peaks is not None:
+                row_peaks = self._select_peaks(row, peaks[i].nonzero()[0])
+            lags[i] = strategy.estimate_binned(
+                row, row_peaks, prealign_peaks, self.prealign_ref_
+            )
+            shifted[i] = _shift_row(row, lags[i])
+        return shifted, lags
+
+    def _prealign_chunk(
+        self, chunk: pd.DataFrame, prealign_peaks: np.ndarray
+    ) -> np.ndarray:
+        """Shift every row of ``chunk`` to the prealign reference (in a worker)."""
+        return self._prealign_rows(chunk, prealign_peaks)[0]
+
+    def _needs_peaks(self) -> bool:
+        """Whether the method uses detected peaks (DTW and the xcorr shift do not)."""
+        if self.method == "dtw":
+            return False
+        return not (self.method == "shift" and self.shift_estimator == "xcorr")
 
     def _align_single_row(
         self,
@@ -208,26 +392,101 @@ class Warping(BaseEstimator, TransformerMixin):
         peaks: np.ndarray | None,
         ref_peaks: np.ndarray,
         mz_axis: np.ndarray,
+        applied_shift: int = 0,
     ) -> tuple[np.ndarray, bool]:
         """Align a single row (helper for parallelization).
 
-        Returns ``(aligned_row, was_non_monotonic)``.  The boolean flag
-        captures whether ``monotonic_interp`` had to fall back to the
-        sort-and-deduplicate branch, so :meth:`transform` can emit a
-        single aggregated warning instead of one per sample (which would
-        otherwise spam the log on large batches).
+        ``applied_shift`` is the shift (in bins) the prealign step already
+        gave the row; the global shift left to this step is bounded so that
+        both together stay within ``max_shift``.
+
+        Returns ``(aligned_row, was_non_monotonic)``. The flag records that a
+        warp was rejected for not being strictly increasing (the strategy
+        then used the global shift), so :meth:`transform` can emit a single
+        aggregated warning instead of one per sample.
         """
         strategy = self._get_strategy()
+        max_shift = int(self.max_shift)
+        bounds = (-max_shift - applied_shift, max_shift - applied_shift)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", UserWarning)
             if isinstance(strategy, DTWStrategy):
-                aligned = strategy._dtw_align(row, self.ref_spec_)
+                aligned = strategy.align_to_reference(row, self.ref_spec_)
             else:
-                aligned = strategy.align_binned(row, peaks, ref_peaks, mz_axis)
-        non_monotonic = any(
-            "non-monotonic m/z mapping" in str(w.message) for w in caught
-        )
+                aligned = strategy.align_binned(
+                    row,
+                    peaks,
+                    ref_peaks,
+                    mz_axis,
+                    reference=self.ref_spec_,
+                    shift_bounds=bounds,
+                )
+        non_monotonic = any(_NON_MONOTONIC in str(w.message) for w in caught)
         return aligned, non_monotonic
+
+    def _align_chunk(
+        self,
+        chunk: pd.DataFrame,
+        ref_peaks: np.ndarray,
+        prealign_peaks: np.ndarray,
+        mz_axis: np.ndarray,
+    ) -> tuple[np.ndarray, int]:
+        """Prealign, detect peaks in and align every row of ``chunk`` (in a worker).
+
+        Returns ``(aligned, n_non_monotonic)``: the aligned rows stacked
+        into one array and the number of rows whose warp was non-monotonic.
+        """
+        lags = np.zeros(len(chunk), dtype=int)
+        if self.prealign_ref_ is not None:
+            shifted, lags = self._prealign_rows(chunk, prealign_peaks)
+            chunk = pd.DataFrame(shifted, index=chunk.index, columns=chunk.columns)
+        peaks = None
+        if self._needs_peaks():
+            peaks = self.peak_detector.transform(chunk).to_numpy()
+        aligned_rows = []
+        n_non_monotonic = 0
+        for i, row in enumerate(chunk.to_numpy()):
+            aligned, non_monotonic = self._align_single_row(
+                row,
+                self._select_peaks(row, peaks[i].nonzero()[0])
+                if peaks is not None
+                else None,
+                ref_peaks,
+                mz_axis,
+                int(lags[i]),
+            )
+            aligned_rows.append(aligned)
+            n_non_monotonic += non_monotonic
+        return np.vstack(aligned_rows), n_non_monotonic
+
+    def _run_chunks(self, X: pd.DataFrame, func, *args):
+        """Run ``func(chunk, *args)`` on row chunks of ``X`` in parallel.
+
+        Yields ``(start, stop, result)`` for every chunk ``X[start:stop]``.
+        Chunks are copied before dispatch and processed in waves of one
+        chunk per worker, so transient memory stays bounded.
+        """
+        n_rows = len(X)
+        n_workers = effective_n_jobs(self.n_jobs)
+        chunk_rows = min(_MAX_CHUNK_ROWS, max(1, math.ceil(n_rows / (4 * n_workers))))
+        bounds = [
+            (start, min(start + chunk_rows, n_rows))
+            for start in range(0, n_rows, chunk_rows)
+        ]
+        with Parallel(
+            n_jobs=min(n_workers, max(len(bounds), 1)),
+            prefer="processes",
+            batch_size=1,
+        ) as parallel:
+            for wave_start in range(0, len(bounds), n_workers):
+                wave = bounds[wave_start : wave_start + n_workers]
+                results = parallel(
+                    delayed(func)(X.iloc[start:stop].copy(), *args)
+                    for start, stop in wave
+                )
+                for (start, stop), result in zip(wave, results, strict=True):
+                    yield start, stop, result
+                del results
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -250,6 +509,14 @@ class Warping(BaseEstimator, TransformerMixin):
         ValueError
             If the number of features in X does not match the reference
             spectrum length.
+
+        Notes
+        -----
+        Spectra are processed in chunks of at most 256 rows, each chunk
+        being one joblib task (prealign shift, peak detection and
+        alignment), so memory
+        use beyond the input and the output stays bounded however many
+        spectra are transformed.
         """
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before transform")
@@ -261,44 +528,35 @@ class Warping(BaseEstimator, TransformerMixin):
             )
 
         mz_axis = np.arange(X.shape[1])
+        ref_peaks = np.empty(0, dtype=int)
+        if self._needs_peaks():
+            ref_peaks = self._reference_peaks(self.ref_spec_, X.columns)
+        prealign_peaks = np.empty(0, dtype=int)
+        if self.prealign_ref_ is not None:
+            prealign_peaks = self._prealign_reference_peaks(X.columns)
 
-        # Detect peaks in reference (do once)
-        ref_peaks_df = self.peak_detector.transform(
-            pd.DataFrame(self.ref_spec_[np.newaxis, :], columns=X.columns)
-        )
-        ref_peaks = ref_peaks_df.iloc[0].to_numpy().nonzero()[0]
+        aligned = np.empty(X.shape, dtype=self._out_dtype(X))
+        n_non_monotonic = 0
+        for start, stop, (block, n_bad) in self._run_chunks(
+            X, self._align_chunk, ref_peaks, prealign_peaks, mz_axis
+        ):
+            aligned[start:stop] = block
+            n_non_monotonic += n_bad
 
-        # Batch peak detection for efficiency (for non-DTW methods)
-        peaks_list = None
-        if self.method != "dtw":
-            peaks_df = self.peak_detector.transform(X)
-            peaks_list = [
-                peaks_df.iloc[i].to_numpy().nonzero()[0] for i in range(len(X))
-            ]
-
-        # Use parallel processing with joblib
-        results = Parallel(n_jobs=self.n_jobs, prefer="processes")(
-            delayed(self._align_single_row)(
-                X.iloc[i].to_numpy(),
-                peaks_list[i] if peaks_list is not None else None,
-                ref_peaks,
-                mz_axis,
-            )
-            for i in range(len(X))
-        )
-        aligned_rows = [r[0] for r in results]
-        n_non_monotonic = sum(1 for r in results if r[1])
         if n_non_monotonic:
             warnings.warn(
                 f"Warping produced non-monotonic m/z mappings for "
-                f"{n_non_monotonic}/{len(X)} sample(s). This may indicate "
-                "poor alignment quality; consider adjusting alignment "
-                "parameters (e.g. reduce max_shift, increase n_segments).",
+                f"{n_non_monotonic}/{len(X)} sample(s); the global shift was "
+                "used for them instead. Consider a rigid method or fewer "
+                "segments.",
                 UserWarning,
                 stacklevel=2,
             )
 
-        return pd.DataFrame(aligned_rows, index=X.index, columns=X.columns)
+        if self.renormalize:
+            _renormalize(aligned)
+
+        return pd.DataFrame(aligned, index=X.index, columns=X.columns, copy=False)
 
     def get_alignment_quality(
         self, X_original: pd.DataFrame, X_aligned: pd.DataFrame | None = None

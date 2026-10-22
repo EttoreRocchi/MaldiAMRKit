@@ -79,7 +79,7 @@ pip install -e .[dev]
 - **Replicate Merging**: Mean/median/weighted merging with correlation-based outlier detection
 
 ### Alignment & Detection
-- **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra
+- **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra. Spectra are first shifted and then aligned to the reference of the shifted spectra, a non-rigid warp is kept only when the matched peaks support it, and resampling preserves the total intensity; spectra of several species are best aligned one species at a time
 - **Peak Detection**: Local maxima and persistent homology methods
 - **Peak Sets**: `PeakSet` / `PeakList` represent each spectrum as a variable-length `(m/z, intensity)` set for peak-set models, via `MaldiPeakDetector.transform_peaklist()` on binned spectra or `create_peakset_input()` at full m/z resolution; extraction is stateless per spectrum, so results are cacheable without leakage
 - **Fit-Free Peak Alignment**: `align_peaks()` warps a peak set onto caller-supplied reference peaks, so the reference stays fitted on the training split

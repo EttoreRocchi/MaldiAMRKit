@@ -124,6 +124,17 @@ class PeakSet:
         Ranks by the per-peak :attr:`score` (e.g. persistence or prominence)
         when present, otherwise by intensity. The carried score, if any, is
         sliced alongside the kept peaks so the ranking stays consistent.
+
+        Parameters
+        ----------
+        k : int
+            Number of peaks to keep (non-negative); a set with ``k`` peaks
+            or fewer is returned whole, as a copy.
+
+        Returns
+        -------
+        PeakSet
+            The kept peaks.
         """
         if k < 0:
             raise ValueError(f"k must be non-negative; got {k}.")
@@ -246,6 +257,12 @@ class PeakList:
         The ``.npz`` holds the concatenated peak ``mz`` / ``intensity`` plus
         per-spectrum ``offsets``; the ``.json`` holds the sample index and the
         ``meta`` dict.
+
+        Parameters
+        ----------
+        path : str or Path
+            Base path of the two files; a ``.npz`` or ``.json`` suffix is
+            dropped, and missing parent folders are created.
         """
         base = Path(path)
         if base.suffix in {".npz", ".json"}:

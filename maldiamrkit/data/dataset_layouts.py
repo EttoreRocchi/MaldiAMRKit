@@ -62,6 +62,16 @@ def strip_driams_replicate(sample_id: str) -> str:
     ``"abc123_MALDI2" -> "abc123"``. IDs without the suffix are returned
     unchanged. Use as a group key (one value per biological isolate) for
     group-aware cross-validation.
+
+    Parameters
+    ----------
+    sample_id : str
+        DRIAMS sample ID, possibly ending in ``_MALDI<N>``.
+
+    Returns
+    -------
+    str
+        The ID without the replicate tag.
     """
     return _DRIAMS_REPLICATE_SUFFIX_RE.sub("", str(sample_id))
 
@@ -127,7 +137,23 @@ class DatasetLayout(ABC):
         stage: str | None,
         year: str | int | None,
     ) -> list[Path]:
-        """Return paths to spectrum files for the given stage/year."""
+        """Return paths to spectrum files for the given stage/year.
+
+        Parameters
+        ----------
+        stage : str or None
+            Processing-stage folder to read (for instance ``"raw"``,
+            ``"preprocessed"`` or ``"binned_6000"``); ``None`` uses the
+            stage chosen by :meth:`detect_stage`.
+        year : str, int or None
+            Year to restrict to; ``None`` uses the layout's own year
+            setting, or every year when that is unset.
+
+        Returns
+        -------
+        list of Path
+            Sorted paths to the spectrum files (or Bruker directories).
+        """
 
     @abstractmethod
     def detect_stage(self) -> str:
@@ -146,6 +172,18 @@ class DatasetLayout(ABC):
         :func:`~maldiamrkit.io.read_spectrum` can override this
         to reshape the spectrum.  Called by :class:`DatasetLoader` after
         each file is loaded.
+
+        Parameters
+        ----------
+        spec : MaldiSpectrum
+            Spectrum just loaded from disk.
+        stage : str or None, default=None
+            Processing stage the spectrum was loaded from.
+
+        Returns
+        -------
+        MaldiSpectrum
+            The spectrum, rewritten if the layout needs it.
         """
         return spec
 
@@ -365,7 +403,18 @@ class DRIAMSLayout(DatasetLayout):
         stage: str | None,
         year: str | int | None,
     ) -> list[Path]:
-        """Glob spectrum files from the stage directory."""
+        """Glob spectrum files from the stage directory.
+
+        Parameters
+        ----------
+        stage, year
+            See :meth:`DatasetLayout.collect_spectrum_files`.
+
+        Returns
+        -------
+        list of Path
+            Sorted paths to the spectrum files.
+        """
         stage_name = stage or self.detect_stage()
         stage_dir = self.dataset_dir / stage_name
         if not stage_dir.is_dir():
@@ -438,6 +487,16 @@ class DRIAMSLayout(DatasetLayout):
 
         When ``self.normalize_tic`` is ``True``, the intensities are
         additionally rescaled so that each spectrum sums to 1.
+
+        Parameters
+        ----------
+        spec, stage
+            See :meth:`DatasetLayout.postprocess_spectrum`.
+
+        Returns
+        -------
+        MaldiSpectrum
+            The spectrum, converted to real m/z when needed.
         """
         if stage is None or not _STAGE_PRIORITY.match(stage):
             return spec
@@ -626,7 +685,19 @@ class MARISMaLayout(DatasetLayout):
     ) -> list[Path]:
         """Resolve Bruker directories from metadata Path column.
 
-        The ``stage`` parameter is ignored (only raw Bruker available).
+        Parameters
+        ----------
+        stage : str or None
+            Ignored (only raw Bruker spectra are available).
+        year : str, int or None
+            Year to restrict to (matched against the metadata ``Year``
+            column); ``None`` uses the layout's own year setting, or every
+            year when that is unset.
+
+        Returns
+        -------
+        list of Path
+            Sorted Bruker directories that hold an ``acqus`` file.
         """
         meta = self.discover_metadata()
         yr = str(year) if year is not None else self.year

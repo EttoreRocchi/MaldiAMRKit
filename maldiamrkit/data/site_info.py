@@ -69,6 +69,19 @@ class BuildInfo:
 
     Informational only; readers may inspect it but are not required to
     interpret any field.  All fields are optional.
+
+    Parameters
+    ----------
+    maldiamrkit_version : str or None, default=None
+        MaldiAMRKit version that built the dataset.
+    created_at : str or None, default=None
+        Build time as an ISO 8601 UTC timestamp.
+    source_layout : str or None, default=None
+        Class name of the input layout the spectra were read with.
+    duplicate_strategy : str or None, default=None
+        Strategy used for duplicate sample IDs.
+    n_total_spectra, n_succeeded, n_failed : int or None, default=None
+        Number of spectra processed, written and failed during the build.
     """
 
     maldiamrkit_version: str | None = None

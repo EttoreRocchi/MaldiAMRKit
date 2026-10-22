@@ -33,11 +33,33 @@ class InputLayout(ABC):
 
     @abstractmethod
     def get_id(self, spectrum_path: Path) -> str:
-        """Extract the spectrum identifier from a path."""
+        """Extract the spectrum identifier from a path.
+
+        Parameters
+        ----------
+        spectrum_path : Path
+            Path to a spectrum source found by :meth:`discover_spectra`.
+
+        Returns
+        -------
+        str
+            The spectrum ID.
+        """
 
     @abstractmethod
     def get_year(self, spectrum_id: str) -> str | None:
-        """Return the year for a spectrum, or ``None``."""
+        """Return the year for a spectrum, or ``None``.
+
+        Parameters
+        ----------
+        spectrum_id : str
+            Spectrum ID, as returned by :meth:`get_id`.
+
+        Returns
+        -------
+        str or None
+            The four-digit year, or ``None`` when it is unknown.
+        """
 
 
 def _extract_year(value: object) -> str:
@@ -178,7 +200,18 @@ class FlatLayout(InputLayout):
         return meta
 
     def get_id(self, spectrum_path: Path) -> str:
-        """Filename stem is the spectrum ID."""
+        """Filename stem is the spectrum ID.
+
+        Parameters
+        ----------
+        spectrum_path : Path
+            Path to a spectrum source found by :meth:`discover_spectra`.
+
+        Returns
+        -------
+        str
+            The spectrum ID.
+        """
         return spectrum_path.stem
 
     def get_year(self, spectrum_id: str) -> str | None:
@@ -188,6 +221,16 @@ class FlatLayout(InputLayout):
         set), then an explicit ``year_overrides`` entry, then the year
         inferred from a four-digit input subfolder (see
         :meth:`discover_spectra`); failing all three, ``None`` (flat layout).
+
+        Parameters
+        ----------
+        spectrum_id : str
+            Spectrum ID, as returned by :meth:`get_id`.
+
+        Returns
+        -------
+        str or None
+            The four-digit year, or ``None`` when it is unknown.
         """
         if self._year_map is not None:
             year = self._year_map.get(spectrum_id)
@@ -341,14 +384,36 @@ class BrukerTreeLayout(InputLayout):
         return meta.reset_index(drop=True)
 
     def get_id(self, spectrum_path: Path) -> str:
-        """Look up ID from the path mapping built during discovery."""
+        """Look up ID from the path mapping built during discovery.
+
+        Parameters
+        ----------
+        spectrum_path : Path
+            Path to a spectrum source found by :meth:`discover_spectra`.
+
+        Returns
+        -------
+        str
+            The spectrum ID.
+        """
         for sid, p in self._id_to_path.items():
             if p == spectrum_path:
                 return sid
         return spectrum_path.parent.parent.parent.name
 
     def get_year(self, spectrum_id: str) -> str | None:
-        """Year from the metadata."""
+        """Year from the metadata.
+
+        Parameters
+        ----------
+        spectrum_id : str
+            Spectrum ID, as returned by :meth:`get_id`.
+
+        Returns
+        -------
+        str or None
+            The four-digit year, or ``None`` when it is unknown.
+        """
         return self._year_map.get(spectrum_id)
 
     def _read_raw_metadata(self) -> pd.DataFrame:

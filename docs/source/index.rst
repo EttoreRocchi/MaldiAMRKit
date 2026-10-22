@@ -68,8 +68,9 @@ Key Features
       :link: api/alignment.html
       :link-type: url
 
-      Shift, linear, piecewise, and DTW warping for both binned and
-      raw full-resolution spectra.
+      Shift, linear, quadratic, cubic, piecewise, LOWESS, and DTW warping
+      for binned and raw full-resolution spectra: a global shift first,
+      then a warp kept only when the matched peaks support it.
 
    .. grid-item-card:: AMR Evaluation
       :link: api/evaluation.html

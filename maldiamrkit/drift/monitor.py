@@ -133,8 +133,16 @@ class DriftMonitor:
         baseline is reserved as a reference and excluded from windows to
         avoid a self-reference artefact in the first window.
 
-        Returns a DataFrame with columns ``window_start``,
-        ``window_end``, ``n_spectra``, ``distance_to_reference``.
+        Parameters
+        ----------
+        maldi_set : MaldiSet
+            Dataset exposing ``.X`` and ``.meta`` with ``time_column``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Columns ``window_start``, ``window_end``, ``n_spectra``,
+            ``distance_to_reference``.
         """
         self._check_fitted()
         assert self._reference is not None
@@ -157,9 +165,16 @@ class DriftMonitor:
         Only post-baseline spectra (``timestamp > baseline_end_``) are
         included.
 
-        Returns a DataFrame with columns ``window_start``,
-        ``window_end``, ``centroid_pc1``, ``centroid_pc2``,
-        ``dispersion``, ``n_spectra``.
+        Parameters
+        ----------
+        maldi_set : MaldiSet
+            Dataset exposing ``.X`` and ``.meta`` with ``time_column``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Columns ``window_start``, ``window_end``, ``centroid_pc1``,
+            ``centroid_pc2``, ``dispersion``, ``n_spectra``.
         """
         self._check_fitted()
         X, ts = self._extract_X_and_timestamps(maldi_set)
@@ -188,8 +203,25 @@ class DriftMonitor:
         post-baseline spectra (``timestamp > baseline_end_``) are
         included in the monitored windows.
 
-        Returns a DataFrame with columns ``window_start``,
-        ``stability_score``, ``n_spectra``.
+        Parameters
+        ----------
+        maldi_set : MaldiSet
+            Dataset exposing ``.X`` and ``.meta`` with ``time_column``,
+            with labels for ``antibiotic``.
+        differential_analysis : DifferentialAnalysis
+            Analysis already ``.run()`` whose top ``n_top`` peaks define the
+            baseline peak set.
+        antibiotic : str or None, default=None
+            Antibiotic whose labels split each window into resistant and
+            susceptible spectra (see :meth:`MaldiSet.get_y_single`);
+            ``None`` uses the first antibiotic.
+        n_top : int, default=20
+            Number of top-ranked peaks compared in each window.
+
+        Returns
+        -------
+        pd.DataFrame
+            Columns ``window_start``, ``stability_score``, ``n_spectra``.
         """
         self._check_fitted()
         X, ts = self._extract_X_and_timestamps(maldi_set)
@@ -225,8 +257,24 @@ class DriftMonitor:
         Only post-baseline spectra (``timestamp > baseline_end_``) are
         included.
 
-        Returns a DataFrame with ``window_start`` plus one column per
-        requested peak (the peak's ``mz_bin`` label as a string).
+        Parameters
+        ----------
+        maldi_set : MaldiSet
+            Dataset exposing ``.X`` and ``.meta`` with ``time_column``,
+            with labels for ``antibiotic``.
+        peaks : list of str
+            Peaks to track, as ``mz_bin`` labels of the columns of
+            ``maldi_set.X``.
+        antibiotic : str or None, default=None
+            Antibiotic whose labels define the resistant and susceptible
+            groups (see :meth:`MaldiSet.get_y_single`); ``None`` uses the
+            first antibiotic.
+
+        Returns
+        -------
+        pd.DataFrame
+            ``window_start`` plus one column per requested peak (the
+            peak's ``mz_bin`` label as a string).
         """
         self._check_fitted()
         X, ts = self._extract_X_and_timestamps(maldi_set)

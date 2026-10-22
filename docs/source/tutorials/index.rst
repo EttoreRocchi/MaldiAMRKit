@@ -55,7 +55,7 @@ Basic Classification Pipeline
    # Build pipeline
    pipe = Pipeline([
        ("peaks", MaldiPeakDetector(binary=False, prominence=0.005)),
-       ("warp", Warping(method="piecewise")),
+       ("warp", Warping(method="lowess")),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
    ])
@@ -79,7 +79,7 @@ Raw Spectra Alignment
    X_raw = create_raw_input("spectra/")
 
    # Use raw warping for better alignment
-   warper = RawWarping(method="piecewise", bin_width=3, max_shift_da=10.0)
+   warper = RawWarping(method="lowess", bin_width=3, max_shift_da=10.0)
 
    # Fit and transform
    warper.fit(X_raw)
