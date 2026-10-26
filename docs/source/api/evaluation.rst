@@ -61,6 +61,7 @@ Metrics Example
     report = amr_classification_report(y_true, y_pred)
 
     # Use scorer in cross-validation
+    # (with replicates, use SpeciesDrugStratifiedKFold and groups=data.groups)
     scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
 
 Splitting Utilities
@@ -92,9 +93,11 @@ Splitting Example
         CaseGroupedKFold,
     )
 
-    # Single split preserving species-drug distributions
+    # Single split preserving species-drug distributions, with the
+    # replicates of each isolate on one side
     X_train, X_test, y_train, y_test = stratified_species_drug_split(
-        X, y, species=species_labels, test_size=0.2, random_state=42
+        X, y, species=species_labels, test_size=0.2, random_state=42,
+        groups=data.groups,
     )
 
     # Patient-grouped split
@@ -104,7 +107,7 @@ Splitting Example
 
     # Sklearn-compatible CV splitters
     cv = SpeciesDrugStratifiedKFold(n_splits=5)
-    for train_idx, test_idx in cv.split(X, y, species=species_labels):
+    for train_idx, test_idx in cv.split(X, y, groups=data.groups, species=species_labels):
         pass
 
     cv = CaseGroupedKFold(n_splits=5)

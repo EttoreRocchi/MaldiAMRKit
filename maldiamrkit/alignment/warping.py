@@ -11,6 +11,7 @@ from joblib import Parallel, delayed, effective_n_jobs
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..detection.peak_detector import MaldiPeakDetector
+from ._versioning import _check_supported, _checked_state, _versioned_state
 from .strategies import (
     _ALIGNMENT_REGISTRY,
     _NON_MONOTONIC,
@@ -65,7 +66,8 @@ class Warping(BaseEstimator, TransformerMixin):
         package's 3 Da bins (about 9 Da); a value close to 10 Da divided
         by the bin width is a reasonable choice for other bin widths.
     dtw_radius : int, default=10
-        Radius constraint for DTW to limit warping path search space.
+        Radius constraint for DTW (Sakoe-Chiba band, in bins) limiting the
+        warping path search space.
     smooth_sigma : float, default=2.0
         Gaussian smoothing parameter for piecewise segment shifts.
     lowess_frac : float, default=0.3
@@ -150,6 +152,10 @@ class Warping(BaseEstimator, TransformerMixin):
 
     The output has the same floating dtype as ``X``.
 
+    A pickled aligner records the maldiamrkit version it was saved with; one
+    fitted with maldiamrkit 0.21 or earlier cannot be used and must be
+    refitted.
+
     Examples
     --------
     >>> from maldiamrkit.alignment import Warping
@@ -198,6 +204,12 @@ class Warping(BaseEstimator, TransformerMixin):
         self.prealign = prealign
         self.renormalize = renormalize
 
+    def __getstate__(self):
+        return _versioned_state(super().__getstate__())
+
+    def __setstate__(self, state):
+        super().__setstate__(_checked_state(type(self).__name__, state))
+
     def fit(self, X: pd.DataFrame, y=None):
         """
         Fit the transformer by selecting or computing the reference spectrum.
@@ -216,11 +228,15 @@ class Warping(BaseEstimator, TransformerMixin):
 
         Raises
         ------
+        RuntimeError
+            If the transformer was fitted with maldiamrkit 0.21 or earlier
+            (loaded from an old pickle).
         ValueError
             If the input DataFrame is empty, the reference index is out of
             bounds, the reference specifier is unsupported, the warping
             method is unknown, or parameters are invalid.
         """
+        _check_supported(self)
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
 
@@ -505,7 +521,8 @@ class Warping(BaseEstimator, TransformerMixin):
         Raises
         ------
         RuntimeError
-            If the transformer has not been fitted.
+            If the transformer has not been fitted, or was fitted with
+            maldiamrkit 0.21 or earlier.
         ValueError
             If the number of features in X does not match the reference
             spectrum length.
@@ -518,6 +535,7 @@ class Warping(BaseEstimator, TransformerMixin):
         use beyond the input and the output stays bounded however many
         spectra are transformed.
         """
+        _check_supported(self)
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before transform")
 
@@ -584,8 +602,10 @@ class Warping(BaseEstimator, TransformerMixin):
         Raises
         ------
         RuntimeError
-            If the transformer has not been fitted.
+            If the transformer has not been fitted, or was fitted with
+            maldiamrkit 0.21 or earlier.
         """
+        _check_supported(self)
         if not hasattr(self, "ref_spec_"):
             raise RuntimeError("Warping must be fitted before computing quality")
 

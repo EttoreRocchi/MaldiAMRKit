@@ -222,6 +222,25 @@ class TestMaldiSetFromDirectory:
         loaded_ids = {s.id for s in ds.spectra}
         assert "NONEXISTENT_ID" not in loaded_ids
 
+    def test_from_directory_numeric_and_zero_padded_ids(
+        self, spectra_dir: Path, tmp_path: Path
+    ):
+        """IDs that look like numbers, including zero-padded ones, match."""
+        import shutil
+
+        temp_dir = tmp_path / "numeric"
+        temp_dir.mkdir()
+        for f, name in zip(
+            sorted(spectra_dir.glob("*.txt"))[:3], ["1", "2", "007"], strict=True
+        ):
+            shutil.copy(f, temp_dir / f"{name}.txt")
+        meta = tmp_path / "meta.csv"
+        meta.write_text("ID,Drug\n1,R\n2,S\n007,R\n")
+        X = MaldiSet.from_directory(
+            temp_dir, meta, aggregate_by={"antibiotics": "Drug"}
+        ).X
+        assert sorted(X.index) == ["007", "1", "2"]
+
     def test_from_directory_no_aggregate_by(
         self, spectra_dir: Path, metadata_file: Path
     ):
@@ -1111,3 +1130,189 @@ class TestMaldiSetIsolateGroups:
         with pytest.warns(UserWarning, match="no replicate"):
             groups = ds.isolate_ids()
         assert set(groups) == {"plainid1", "plainid2"}
+
+
+class TestSetGrid:
+    """The feature grid belongs to the MaldiSet, never to other sets."""
+
+    @staticmethod
+    def _spectra(spectra_dir: Path, n: int = 2) -> list[MaldiSpectrum]:
+        return [MaldiSpectrum(f) for f in sorted(spectra_dir.glob("*.txt"))[:n]]
+
+    @staticmethod
+    def _meta(spectra: list[MaldiSpectrum]) -> pd.DataFrame:
+        return pd.DataFrame({"ID": [s.id for s in spectra], "Drug": "R"})
+
+    @staticmethod
+    def _assert_grid(ds: MaldiSet, n_bins: int) -> None:
+        X = ds.X
+        assert X.shape[1] == n_bins
+        labels = ds.bin_metadata["bin_start"].astype(str)
+        assert list(labels) == list(X.columns)
+
+    @pytest.mark.parametrize("first", [3, 6])
+    def test_shared_spectra_keep_each_set_grid(self, spectra_dir, first):
+        specs = self._spectra(spectra_dir)
+        sets = {w: MaldiSet(specs, self._meta(specs), bin_width=w) for w in (3, 6)}
+        for w in (first, 9 - first):
+            self._assert_grid(sets[w], 18000 // w)
+
+    def test_spectra_on_different_grids_raise(self, spectra_dir):
+        from maldiamrkit.preprocessing import register_binning_method
+        from maldiamrkit.preprocessing.binning import _BINNING_REGISTRY
+
+        specs = self._spectra(spectra_dir)
+        peaks = [s.preprocess().preprocessed["intensity"].max() for s in specs]
+        threshold = float(np.mean(peaks))
+
+        def shifted(*, df, mz_min, mz_max, bin_width, **kwargs):
+            offset = 1.0 if df["intensity"].max() > threshold else 0.0
+            return _uniform_edges(mz_min, mz_max, bin_width) + offset
+
+        snapshot = dict(_BINNING_REGISTRY)
+        try:
+            register_binning_method("shifted_grid", shifted)
+            ds = MaldiSet(specs, self._meta(specs), bin_method="shifted_grid")
+            with pytest.raises(ValueError, match="different m/z grid"):
+                _ = ds.X
+        finally:
+            _BINNING_REGISTRY.clear()
+            _BINNING_REGISTRY.update(snapshot)
+
+    def test_adaptive_with_several_spectra_raises(self, spectra_dir):
+        specs = self._spectra(spectra_dir)
+        ds = MaldiSet(specs, self._meta(specs), bin_method="adaptive")
+        with pytest.raises(ValueError, match="adaptive"):
+            _ = ds.X
+
+    def test_adaptive_from_directory_raises(self, spectra_dir, metadata_file):
+        with pytest.raises(ValueError, match="adaptive"):
+            MaldiSet.from_directory(spectra_dir, metadata_file, bin_method="adaptive")
+
+    def test_adaptive_with_one_spectrum_works(self, spectra_dir):
+        specs = self._spectra(spectra_dir, n=1)
+        X = MaldiSet(specs, self._meta(specs), bin_method="adaptive").X
+        assert X.shape[0] == 1
+
+    @staticmethod
+    def _stage_spectrum(sid: str, factor: float) -> MaldiSpectrum:
+        from maldiamrkit.data.dataset_layouts import _convert_bin_index_spectrum
+
+        spec = MaldiSpectrum(
+            pd.DataFrame(
+                {"mass": np.arange(10, dtype=float), "intensity": factor * np.ones(10)}
+            )
+        )
+        spec.id = sid
+        return _convert_bin_index_spectrum(spec, mz_min=2000.0, mz_max=19997.0)
+
+    def test_stage_spectra_with_adaptive_do_not_raise(self):
+        specs = [self._stage_spectrum("a", 1.0), self._stage_spectrum("b", 2.0)]
+        X = MaldiSet(specs, self._meta(specs), bin_method="adaptive").X
+        assert X.shape == (2, 10)
+
+    def test_stage_spectra_are_never_rebinned(self, monkeypatch):
+        specs = [self._stage_spectrum("a", 1.0), self._stage_spectrum("b", 2.0)]
+
+        def fail(*args, **kwargs):
+            raise AssertionError("stage spectra must not be preprocessed")
+
+        monkeypatch.setattr("maldiamrkit.spectrum.preprocess", fail)
+        ds = MaldiSet(specs, self._meta(specs), bin_width=6)
+        X = ds.X
+        np.testing.assert_array_equal(X.loc["b"].to_numpy(), 2.0 * np.ones(10))
+        assert len(ds.bin_metadata) == 10
+
+    def test_stage_and_in_memory_grids_mixed_raise(self, spectra_dir):
+        specs = [self._stage_spectrum("a", 1.0)] + self._spectra(spectra_dir, n=1)
+        ds = MaldiSet(specs, self._meta(specs))
+        with pytest.raises(ValueError, match="different m/z grid"):
+            _ = ds.X
+
+    def test_two_spectra_with_one_id_raise(self, spectra_dir):
+        specs = self._spectra(spectra_dir)
+        for s in specs:
+            s.id = "same"
+        ds = MaldiSet(specs, pd.DataFrame({"ID": ["same"], "Drug": ["R"]}))
+        with pytest.raises(ValueError, match="same"):
+            _ = ds.X
+
+    def test_bin_metadata_before_x_follows_the_method(self, spectra_dir):
+        from maldiamrkit.preprocessing.binning import _proportional_edges
+
+        specs = self._spectra(spectra_dir)
+        ds = MaldiSet(specs, self._meta(specs), bin_method="proportional")
+        expected = get_bin_metadata(_proportional_edges(2000, 20000, 3))
+        pd.testing.assert_frame_equal(ds.bin_metadata, expected)
+
+
+class TestFilterKeepsIsolateSettings:
+    """filter() keeps the isolate grouping of the parent set."""
+
+    def test_filtered_set_keeps_isolate_pattern(self, spectra_dir):
+        import warnings
+
+        specs = [MaldiSpectrum(f) for f in sorted(spectra_dir.glob("*.txt"))[:3]]
+        for s, sid in zip(specs, ["x_rep1", "x_rep2", "y_rep1"], strict=True):
+            s.id = sid
+        meta = pd.DataFrame(
+            {
+                "ID": ["x_rep1", "x_rep2", "y_rep1"],
+                "Species": "Escherichia coli",
+                "Drug": ["R", "S", "R"],
+            }
+        )
+        ds = MaldiSet(
+            specs,
+            meta,
+            aggregate_by={"antibiotics": "Drug"},
+            isolate_pattern=r"_rep\d+$",
+        )
+        child = ds.filter(SpeciesFilter("Escherichia coli"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            assert list(child.groups) == ["x", "x", "y"]
+
+
+class TestDuplicateMetadataIds:
+    """Duplicate metadata IDs are rejected."""
+
+    def test_duplicate_ids_raise(self, spectra_dir):
+        specs = [MaldiSpectrum(f) for f in sorted(spectra_dir.glob("*.txt"))[:2]]
+        ids = [s.id for s in specs]
+        meta = pd.DataFrame({"ID": [ids[0], ids[1], ids[1]], "Drug": ["S", "R", "S"]})
+        with pytest.raises(ValueError, match=ids[1]):
+            MaldiSet(specs, meta)
+
+    def test_duplicates_without_a_spectrum_are_ignored(self, spectra_dir):
+        specs = [MaldiSpectrum(f) for f in sorted(spectra_dir.glob("*.txt"))[:2]]
+        ids = [s.id for s in specs]
+        meta = pd.DataFrame(
+            {"ID": [ids[0], ids[1], "orphan", "orphan"], "Drug": ["S", "R", "R", "R"]}
+        )
+        ds = MaldiSet(specs, meta, aggregate_by=dict(antibiotics="Drug"))
+        assert list(ds.X.index) == ids
+        assert list(ds.get_y_single("Drug")) == ["S", "R"]
+
+    def test_from_directory_ignores_duplicates_without_a_spectrum(
+        self, spectra_dir, tmp_path
+    ):
+        ids = [f.stem for f in sorted(spectra_dir.glob("*.txt"))[:2]]
+        meta_file = tmp_path / "meta.csv"
+        pd.DataFrame(
+            {"ID": [*ids, "orphan", "orphan"], "Drug": ["S", "R", "R", "R"]}
+        ).to_csv(meta_file, index=False)
+        ds = MaldiSet.from_directory(
+            spectra_dir, meta_file, aggregate_by=dict(antibiotics="Drug")
+        )
+        assert list(ds.X.index) == ids
+
+    def test_filter_with_duplicates_without_a_spectrum(self, spectra_dir):
+        specs = [MaldiSpectrum(f) for f in sorted(spectra_dir.glob("*.txt"))[:2]]
+        ids = [s.id for s in specs]
+        meta = pd.DataFrame(
+            {"ID": [ids[0], ids[1], "orphan", "orphan"], "Drug": ["S", "R", "R", "R"]}
+        )
+        ds = MaldiSet(specs, meta, aggregate_by=dict(antibiotics="Drug"))
+        child = ds.filter(MetadataFilter("Drug", lambda v: v == "R"))
+        assert list(child.X.index) == [ids[1]]

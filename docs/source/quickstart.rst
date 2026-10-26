@@ -44,7 +44,7 @@ Load multiple spectra with metadata:
    )
 
    # Access feature matrix and labels
-   X, y = data.X, data.y
+   X, y = data.X, data.get_y_single("Ceftriaxone")
 
    # Visualize as pseudogel
    from maldiamrkit.visualization import plot_pseudogel
@@ -72,7 +72,7 @@ Create scikit-learn compatible pipelines:
        ("clf", RandomForestClassifier(n_estimators=100))
    ])
 
-   # Cross-validation
+   # Cross-validation (with replicates, use StratifiedGroupKFold and groups=data.groups)
    scores = cross_val_score(pipe, X, y, cv=5, scoring="accuracy")
    print(f"Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 
@@ -223,6 +223,7 @@ Compute AMR-specific metrics following EUCAST conventions:
    print(f"VME: {report['vme']:.3f}, ME: {report['me']:.3f}")
 
    # Use VME scorer in cross-validation
+   # (with replicates, use StratifiedGroupKFold and groups=data.groups)
    scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
 
 MIC Regression and Breakpoints
@@ -260,7 +261,8 @@ category labels using a bundled EUCAST breakpoint table:
 Stratified Splitting
 --------------------
 
-Prevent data leakage with species-aware splits:
+Keep the species-drug label proportions in every split, and pass ``groups=``
+so that the replicates of one isolate stay on the same side:
 
 .. code-block:: python
 
@@ -268,12 +270,13 @@ Prevent data leakage with species-aware splits:
 
    # Single split
    X_train, X_test, y_train, y_test = stratified_species_drug_split(
-       X, y, species=species_labels, test_size=0.2, random_state=42
+       X, y, species=species_labels, test_size=0.2, random_state=42,
+       groups=data.groups,
    )
 
    # Cross-validation
    cv = SpeciesDrugStratifiedKFold(n_splits=5)
-   for train_idx, test_idx in cv.split(X, y, species=species_labels):
+   for train_idx, test_idx in cv.split(X, y, species=species_labels, groups=data.groups):
        pass
 
 Group-Aware Cross-Validation
@@ -282,7 +285,9 @@ Group-Aware Cross-Validation
 Technical replicates of one biological isolate share an underlying sample, so
 letting them straddle a train/test split leaks information. ``MaldiSet.groups``
 derives a per-isolate label for every row (DRIAMS ``_MALDI<N>`` replicates are
-stripped by default), ready to pass as ``groups=`` to a group-aware splitter:
+stripped by default, and replicates loaded with ``duplicate_strategy="keep_all"``
+share their isolate's label), ready to pass as ``groups=`` to a group-aware
+splitter:
 
 .. code-block:: python
 
@@ -292,6 +297,27 @@ stripped by default), ready to pass as ``groups=`` to a group-aware splitter:
 
    cv = StratifiedGroupKFold(n_splits=5)
    scores = cross_val_score(pipe, X, y, groups=ds.groups, cv=cv)
+
+A hyperparameter search inside the cross-validation needs the groups in its
+inner splits too. With scikit-learn metadata routing (scikit-learn 1.4 or
+later), ``groups`` given to ``cross_validate`` reaches both the outer and the
+inner splitter (without routing, the inner splits ignore the groups):
+
+.. code-block:: python
+
+   import sklearn
+   from sklearn.model_selection import GridSearchCV, cross_validate
+   from maldiamrkit.evaluation import SpeciesDrugStratifiedKFold
+
+   sklearn.set_config(enable_metadata_routing=True)
+   search = GridSearchCV(
+       pipe, {"clf__n_estimators": [100, 300]},
+       cv=SpeciesDrugStratifiedKFold(n_splits=3),
+   )
+   scores = cross_validate(
+       search, X, y, cv=SpeciesDrugStratifiedKFold(n_splits=5),
+       params={"groups": ds.groups},
+   )
 
 When isolate IDs live in a metadata column rather than the spectrum-ID suffix,
 read them directly (this also overrides the suffix heuristic):
@@ -434,16 +460,9 @@ Batch Effect Correction
 
 For multi-site or multi-instrument data, use
 `combatlearn <https://github.com/EttoreRocchi/combatlearn>`_
-(``pip install maldiamrkit[batch]``):
-
-.. code-block:: python
-
-   from combatlearn import Combat
-
-   combat = Combat(method="fortin")
-   combat.fit(X, y=batch_labels)
-   X_corrected = combat.transform(X, y=batch_labels)
-
+(``pip install maldiamrkit[batch]``), fitted on the training split only (for
+example inside a ``Pipeline``), or
+`MaldiBatchKit <https://github.com/EttoreRocchi/MaldiBatchKit>`_.
 See the `combatlearn documentation <https://combatlearn.readthedocs.io/>`_ for
 full usage and the :doc:`exploration tutorial </tutorials/notebooks/05_exploration>`
 for a worked example.

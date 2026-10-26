@@ -13,7 +13,15 @@ from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from .filters import SpectrumFilter
-from .preprocessing.binning import BinningMethod, _uniform_edges, get_bin_metadata
+from .preprocessing.binning import (
+    _BINNING_REGISTRY,
+    BinningMethod,
+    _adaptive_edge_fn,
+    _custom_edge_fn,
+    _proportional_edge_fn,
+    _uniform_edge_fn,
+    get_bin_metadata,
+)
 from .preprocessing.preprocessing_pipeline import PreprocessingPipeline
 from .spectrum import MaldiSpectrum
 
@@ -41,6 +49,40 @@ def _load_single_spectrum(
     )
 
 
+# Built-in binning methods whose edges do not depend on the spectrum.
+_FIXED_EDGE_FNS = {
+    "uniform": _uniform_edge_fn,
+    "proportional": _proportional_edge_fn,
+    "custom": _custom_edge_fn,
+}
+
+_ADAPTIVE_SEVERAL_SPECTRA = (
+    "bin_method='adaptive' gives each spectrum its own bins, so several "
+    "spectra cannot share one feature matrix. Learn the edges on the "
+    "training spectra and bin every set with bin_method='custom' and "
+    "custom_edges=..., or use RawWarping(bin_method='adaptive') inside a "
+    "Pipeline, which learns them in fit."
+)
+
+
+def _is_stage_binned(spec: MaldiSpectrum) -> bool:
+    """Whether a spectrum was loaded already binned (from a binned stage)."""
+    return spec.is_binned and not spec.is_preprocessed
+
+
+def _edges_of(metadata: pd.DataFrame) -> np.ndarray:
+    """Bin edges described by a bin-metadata frame."""
+    return np.append(
+        metadata["bin_start"].to_numpy(), metadata["bin_end"].to_numpy()[-1:]
+    )
+
+
+def _is_builtin_adaptive(bin_method: str | BinningMethod) -> bool:
+    """Whether ``bin_method`` is the built-in adaptive binning."""
+    method = _BINNING_REGISTRY.resolve_key(bin_method, BinningMethod)
+    return _BINNING_REGISTRY[method] is _adaptive_edge_fn
+
+
 class MaldiSet:
     """
     A collection of MALDI-TOF spectra with metadata.
@@ -66,7 +108,11 @@ class MaldiSet:
     bin_width : int, default=3
         Bin width for spectra.
     bin_method : str, default='uniform'
-        Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
+        Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'
+        (or a registered method). Every spectrum is binned on the same grid,
+        so ``'adaptive'`` (whose bins depend on each spectrum) only works for
+        a single spectrum; use ``'custom'`` with edges learned on training
+        spectra to bin several sets on one adaptive grid.
     bin_kwargs : dict, optional
         Additional keyword arguments for binning (e.g., custom_edges, adaptive_min_width).
     verbose : bool, default=False
@@ -92,6 +138,12 @@ class MaldiSet:
         Species value to filter by.
     meta : pd.DataFrame
         Metadata indexed by ID (all columns retained).
+
+    Raises
+    ------
+    ValueError
+        If two metadata rows share the ID of a spectrum (rows whose ID
+        matches no spectrum are ignored).
 
     Examples
     --------
@@ -133,6 +185,14 @@ class MaldiSet:
         if missing_columns and verbose:
             logger.warning("Columns %s not found in metadata", missing_columns)
 
+        ids = meta["ID"]
+        spectrum_ids = {s.id for s in spectra}
+        duplicated = ids[ids.duplicated() & ids.isin(spectrum_ids)].unique()
+        if len(duplicated):
+            raise ValueError(
+                f"Metadata IDs must be unique; duplicated: {sorted(map(str, duplicated))}. "
+                "Use the duplicate_strategy of the dataset layouts to handle replicates."
+            )
         self.meta = meta.set_index("ID")
         self.meta_cols = self.meta.columns.tolist()
 
@@ -208,7 +268,9 @@ class MaldiSet:
         bin_width : int, default=3
             Bin width for spectra.
         bin_method : str, default='uniform'
-            Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
+            Binning method. One of 'uniform', 'proportional', 'adaptive',
+            'custom' (``'adaptive'`` only for a single spectrum, see
+            :class:`MaldiSet`).
         bin_kwargs : dict, optional
             Additional keyword arguments for binning.
         n_jobs : int, default=-1
@@ -230,12 +292,15 @@ class MaldiSet:
         spectra_dir = Path(spectra_dir)
         _bin_kwargs = bin_kwargs or {}
 
-        meta = pd.read_csv(meta_file)
+        meta = pd.read_csv(meta_file, dtype={"ID": str})
         meta_ids = set(meta["ID"].astype(str))
 
         # Sort file list for reproducibility, filter to metadata IDs
         all_files = sorted(spectra_dir.glob("*.txt"))
         spectrum_files = [f for f in all_files if f.stem in meta_ids]
+
+        if len(spectrum_files) > 1 and _is_builtin_adaptive(bin_method):
+            raise ValueError(_ADAPTIVE_SEVERAL_SPECTRA)
 
         n_skipped = len(all_files) - len(spectrum_files)
         if verbose:
@@ -295,24 +360,39 @@ class MaldiSet:
 
         Notes
         -----
-        If spectra have been binned, returns metadata from the first spectrum.
-        Otherwise, computes metadata based on stored binning parameters.
+        The metadata describe the grid of this set (the columns of
+        :attr:`X`): the grid of spectra loaded from a binned stage, or the
+        edges given by ``bin_method``, ``bin_width`` and ``bin_kwargs``. To
+        bin another set on the same grid, pass these edges as
+        ``custom_edges`` with ``bin_method="custom"``.
         """
-        # Try to get from first spectrum
-        for spec in self.spectra:
-            if spec.has_bin_metadata:
-                return spec.bin_metadata
-
-        # Compute from stored parameters if no spectrum has metadata
         if self._bin_metadata is None:
-            if self.spectra:
-                mz_min, mz_max = self.spectra[0].pipeline.mz_range
-            else:
-                mz_min, mz_max = 2000, 20000
-            edges = _uniform_edges(mz_min, mz_max, self.bin_width)
-            self._bin_metadata = get_bin_metadata(edges)
-
+            self._bin_metadata = self._grid_metadata()
         return self._bin_metadata.copy()
+
+    def _grid_metadata(self) -> pd.DataFrame:
+        """Bin metadata of the set's grid, computed without building X if possible."""
+        members = [s for s in self.spectra if s.id in self.meta.index]
+        stage = [s for s in members if _is_stage_binned(s)]
+        if stage:
+            return stage[0]._bin_metadata.copy()
+        method = _BINNING_REGISTRY.resolve_key(self.bin_method, BinningMethod)
+        if _FIXED_EDGE_FNS.get(method) is _BINNING_REGISTRY[method]:
+            mz_range = members[0].pipeline.mz_range if members else (2000, 20000)
+            return get_bin_metadata(self._expected_edges(method, mz_range))
+        _ = self.X
+        return self._bin_metadata
+
+    def _expected_edges(self, method: str, mz_range: tuple[float, float]) -> np.ndarray:
+        """Edges of a data-independent built-in method for an m/z range."""
+        edges = _BINNING_REGISTRY[method](
+            df=None,
+            mz_min=mz_range[0],
+            mz_max=mz_range[1],
+            bin_width=self.bin_width,
+            **(self.bin_kwargs or {}),
+        )
+        return np.asarray(edges, dtype=float)
 
     @property
     def X(self) -> pd.DataFrame:
@@ -328,8 +408,10 @@ class MaldiSet:
         Raises
         ------
         ValueError
-            If no spectra match metadata IDs, or if no samples remain
-            after filtering by species.
+            If no spectra match metadata IDs, if no samples remain after
+            filtering by species, if several spectra share an ID, if
+            spectra end up on different m/z grids, or if
+            ``bin_method="adaptive"`` is used for several spectra.
         """
         if self._X_cache is not None:
             return self._X_cache.copy()
@@ -342,43 +424,78 @@ class MaldiSet:
         return result.copy()
 
     def _build_feature_dataframe(self) -> pd.DataFrame:
-        """Build raw feature DataFrame from spectra, joined with metadata."""
+        """Build raw feature DataFrame from spectra, joined with metadata.
+
+        Every spectrum is put on the set's grid: spectra loaded from a
+        binned stage are used as they are, a spectrum binned on other edges
+        than the set's is binned again, and rows on different grids raise.
+        """
         bin_kwargs = self.bin_kwargs or {}
-        ids: list[str] = []
-        arrays: list[np.ndarray] = []
-        columns: pd.Index | None = None
+        method = _BINNING_REGISTRY.resolve_key(self.bin_method, BinningMethod)
+        edge_fn = _BINNING_REGISTRY[method]
+        fixed = _FIXED_EDGE_FNS.get(method) is edge_fn
 
-        iterator = self.spectra
-        if self.verbose:
-            iterator = tqdm(self.spectra, desc="Processing spectra", unit="spectrum")
-
-        for s in iterator:
-            sid = s.id
-            if sid not in self.meta.index:
+        members: list[MaldiSpectrum] = []
+        for s in self.spectra:
+            if s.id not in self.meta.index:
                 warnings.warn(
-                    f"Spectrum ID '{sid}' not found in metadata - skipped.",
+                    f"Spectrum ID '{s.id}' not found in metadata - skipped.",
                     UserWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
                 continue
-            binned = (
-                s.binned
-                if s.is_binned
-                else s.bin(self.bin_width, method=self.bin_method, **bin_kwargs).binned
-            )
-            series = binned.set_index("mass")["intensity"]
-            ids.append(sid)
-            arrays.append(series.values)
-            if columns is None:
-                columns = series.index
+            members.append(s)
 
-        if not ids:
+        ids = pd.Index([s.id for s in members])
+        if ids.has_duplicates:
+            raise ValueError(
+                f"Several spectra share the ID(s) "
+                f"{sorted(set(ids[ids.duplicated()]))}; give every spectrum "
+                "of a MaldiSet its own ID."
+            )
+        to_bin = [s for s in members if not _is_stage_binned(s)]
+        if edge_fn is _adaptive_edge_fn and len(to_bin) > 1:
+            raise ValueError(_ADAPTIVE_SEVERAL_SPECTRA)
+
+        iterator = members
+        if self.verbose:
+            iterator = tqdm(members, desc="Processing spectra", unit="spectrum")
+
+        expected: dict[tuple[float, float], np.ndarray] = {}
+        arrays: list[np.ndarray] = []
+        columns: pd.Index | None = None
+        first: MaldiSpectrum | None = None
+        for s in iterator:
+            if not _is_stage_binned(s):
+                reuse = False
+                if fixed and s.is_binned and s._bin_metadata is not None:
+                    key = tuple(s.pipeline.mz_range)
+                    if key not in expected:
+                        expected[key] = self._expected_edges(method, key)
+                    reuse = np.array_equal(_edges_of(s._bin_metadata), expected[key])
+                if not reuse:
+                    s.bin(self.bin_width, method=self.bin_method, **bin_kwargs)
+            labels = pd.Index(s._binned["mass"])
+            if columns is None:
+                columns, first = labels, s
+            elif not labels.equals(columns):
+                raise ValueError(
+                    f"Spectrum {s.id!r} is binned on a different m/z grid "
+                    f"({len(labels)} bins) from spectrum {first.id!r} "
+                    f"({len(columns)} bins). Bin every spectrum of a MaldiSet "
+                    "with the same method and edges."
+                )
+            arrays.append(s._binned["intensity"].to_numpy())
+
+        if not arrays:
             raise ValueError(
                 "No spectra matched metadata IDs. "
                 "Check that spectrum file names match the 'ID' column in metadata."
             )
 
-        df = pd.DataFrame(np.array(arrays), index=ids, columns=columns)
+        if first._bin_metadata is not None:
+            self._bin_metadata = first._bin_metadata.copy()
+        df = pd.DataFrame(np.vstack(arrays), index=list(ids), columns=columns)
         if not self.meta.columns.empty:
             df = df.join(self.meta, how="left")
         return df
@@ -452,8 +569,7 @@ class MaldiSet:
         >>> ds.filter(SpeciesFilter("E. coli") & QualityFilter(min_snr=5.0))
         """
         keep_ids = set()
-        for sid in self.meta.index:
-            row = self.meta.loc[sid]
+        for sid, row in self.meta.iterrows():
             if all(f(row) for f in filters):
                 keep_ids.add(sid)
 
@@ -475,6 +591,8 @@ class MaldiSet:
             bin_method=self.bin_method,
             bin_kwargs=self.bin_kwargs,
             verbose=self.verbose,
+            isolate_pattern=self._isolate_pattern,
+            isolate_column=self._isolate_column,
         )
 
     def get_y_single(self, antibiotic: str | None = None) -> pd.Series:

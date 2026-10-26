@@ -180,11 +180,10 @@ class TestRawWarpingFitTransform:
     def test_transform_dtw(self, synthetic_raw_spectra):
         """Test transform with DTW method."""
         spectra_dir, X = synthetic_raw_spectra
-        # Use fewer samples for DTW (it's slow), on a 3 Da reference grid
-        # (DTW memory grows with the square of the grid length).
+        # Use fewer samples for DTW (it's slow)
         X_small = X.iloc[:3]
 
-        warper = RawWarping(method="dtw", bin_width=3.0, interp_step=3.0)
+        warper = RawWarping(method="dtw", bin_width=3.0)
         result = warper.fit_transform(X_small)
 
         assert isinstance(result, pd.DataFrame)
@@ -235,6 +234,12 @@ class TestRawWarpingAveraging:
         assert len(result) == 2
         assert set(result.index) == {"A", "B"}
         assert "_original_id" not in result.columns
+
+    def test_averaged_rows_keep_the_input_order(self, spectra_with_original_id):
+        X = spectra_with_original_id.copy()
+        X["_original_id"] = ["iso_z", "iso_a", "iso_z", "iso_m"]
+        result = RawWarping(method="shift", bin_width=3.0).fit_transform(X)
+        assert list(result.index) == ["iso_z", "iso_a", "iso_m"]
 
     def test_transform_without_original_id_passthrough(self, tmp_path: Path):
         """Verify no averaging when _original_id is absent."""
@@ -490,11 +495,7 @@ RAW_CONFIGS = [
     pytest.param({"method": "piecewise"}, id="piecewise"),
     pytest.param({"method": "quadratic"}, id="quadratic"),
     pytest.param({"method": "lowess"}, id="lowess", marks=pytest.mark.slow),
-    # DTW memory grows with the square of the reference grid: a 3 Da grid
-    # keeps it within a CI runner.
-    pytest.param(
-        {"method": "dtw", "interp_step": 3.0}, id="dtw", marks=pytest.mark.slow
-    ),
+    pytest.param({"method": "dtw"}, id="dtw", marks=pytest.mark.slow),
 ]
 
 
@@ -631,15 +632,11 @@ class TestRawWarpingRenormalize:
     """Optional division of each output spectrum by its total intensity."""
 
     @pytest.mark.parametrize(
-        "params",
-        [
-            {"method": "lowess"},
-            pytest.param({"method": "dtw", "interp_step": 3.0}, marks=pytest.mark.slow),
-        ],
+        "method", ["lowess", pytest.param("dtw", marks=pytest.mark.slow)]
     )
-    def test_sums_to_one_and_keeps_the_shape(self, raw_input, params):
-        plain = RawWarping(**params).fit(raw_input).transform(raw_input)
-        scaled = RawWarping(renormalize=True, **params).fit(raw_input)
+    def test_sums_to_one_and_keeps_the_shape(self, raw_input, method):
+        plain = RawWarping(method=method).fit(raw_input).transform(raw_input)
+        scaled = RawWarping(method=method, renormalize=True).fit(raw_input)
         scaled = scaled.transform(raw_input)
         np.testing.assert_allclose(scaled.sum(axis=1), 1.0)
         expected = plain.to_numpy() / plain.to_numpy().sum(axis=1, keepdims=True)
@@ -693,3 +690,41 @@ class TestRawWarpingSklearn:
             np.testing.assert_array_equal(
                 estimator.named_steps["warp"].ref_intensity_, alone.ref_intensity_
             )
+
+
+class TestRawWarpingAdaptiveBins:
+    """Adaptive bin edges are learned from the reference in fit."""
+
+    def test_every_spectrum_gets_the_fitted_columns(self, raw_input):
+        warper = RawWarping(bin_method="adaptive").fit(raw_input.iloc[:3])
+        same = warper.transform(raw_input.iloc[:3])
+        other = warper.transform(raw_input.iloc[3:6])
+        assert same.columns.equals(warper.output_columns_)
+        assert other.columns.equals(warper.output_columns_)
+
+    def test_refit_with_uniform_bins_drops_the_adaptive_edges(self, raw_input):
+        warper = RawWarping(bin_method="adaptive").fit(raw_input.iloc[:3])
+        warper.set_params(bin_method="uniform").fit(raw_input.iloc[:3])
+        out = warper.transform(raw_input.iloc[:3])
+        assert out.shape[1] == 6000
+
+
+class TestBinOnEdges:
+    """The binning core gives the same result as bin_spectrum."""
+
+    def test_matches_bin_spectrum(self):
+        from maldiamrkit.preprocessing import PreprocessingPipeline
+        from maldiamrkit.preprocessing.binning import (
+            _bin_on_edges,
+            _uniform_edges,
+            bin_spectrum,
+        )
+        from maldiamrkit.preprocessing.pipeline import preprocess
+
+        for f in sorted(SPECTRA_DIR.glob("*.txt"))[:5]:
+            pre = preprocess(read_spectrum(f), PreprocessingPipeline.default())
+            edges = _uniform_edges(2000, 20000, 3)
+            expected, meta = bin_spectrum(pre, method="custom", custom_edges=edges)
+            got, got_meta = _bin_on_edges(pre, edges)
+            pd.testing.assert_frame_equal(got, expected)
+            pd.testing.assert_frame_equal(got_meta, meta)

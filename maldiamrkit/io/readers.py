@@ -574,7 +574,12 @@ def read_spectrum(
         delim = r"\s+"
 
     df = pd.read_csv(
-        path, sep=delim, comment="#", header=None, names=["mass", "intensity"]
+        path,
+        sep=delim,
+        comment="#",
+        header=None,
+        names=["mass", "intensity"],
+        float_precision="round_trip",
     )
 
     df = _coerce_numeric(df)
@@ -582,7 +587,12 @@ def read_spectrum(
     # If sniffed delimiter produced no valid rows, retry with whitespace regex.
     if df.empty and delim != r"\s+":
         df = pd.read_csv(
-            path, sep=r"\s+", comment="#", header=None, names=["mass", "intensity"]
+            path,
+            sep=r"\s+",
+            comment="#",
+            header=None,
+            names=["mass", "intensity"],
+            float_precision="round_trip",
         )
         df = _coerce_numeric(df)
 
@@ -592,9 +602,26 @@ def read_spectrum(
     return df
 
 
+def _exact_float(column: pd.Series) -> pd.Series:
+    """Parse a text column exactly as float64, with NaN for unparseable values.
+
+    Numeric columns are returned unchanged. Text columns (a header line or
+    a stray token makes pandas read the whole column as text) are converted
+    with ``astype("float64")``, which rounds correctly, unlike
+    ``pd.to_numeric``; ``pd.to_numeric`` only marks the valid values.
+    """
+    if pd.api.types.is_numeric_dtype(column):
+        return column
+    text = column.astype(str).str.strip()
+    valid = pd.to_numeric(text, errors="coerce").notna()
+    values = pd.Series(np.nan, index=column.index, dtype="float64")
+    values[valid] = text[valid].astype("float64")
+    return values
+
+
 def _coerce_numeric(df: pd.DataFrame) -> pd.DataFrame:
     """Coerce mass/intensity to numeric and drop unparseable rows."""
     df = df.copy()
-    df["mass"] = pd.to_numeric(df["mass"], errors="coerce")
-    df["intensity"] = pd.to_numeric(df["intensity"], errors="coerce")
+    df["mass"] = _exact_float(df["mass"])
+    df["intensity"] = _exact_float(df["intensity"])
     return df.dropna(subset=["mass", "intensity"]).reset_index(drop=True)

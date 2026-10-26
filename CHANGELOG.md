@@ -4,6 +4,29 @@ All notable changes to MaldiAMRKit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.1] - 2026-10-26
+
+### Added
+
+- **Group-aware single split**: `stratified_species_drug_split` accepts `groups=`.
+
+### Changed
+
+- **Results that change**: censored MICs and conflicting breakpoints can have no category, the species-drug splitters honour `groups`, and `keep_all`/`average` rename only the duplicated IDs.
+- **New errors**: adaptive binning of several spectra in a `MaldiSet`, repeated spectrum IDs, ambiguous stage folders or metadata rows, and invalid inputs to several encoders, metrics and splitters now raise `ValueError` instead of silently giving unexpected results.
+- **Splitter signature**: `SpeciesDrugStratifiedKFold.split(X, y, groups, *, species=None)` follows scikit-learn's argument order.
+- **numba** is a declared dependency (it was already installed with tslearn).
+
+### Fixed
+
+- **Susceptibility and metrics**: censored MICs, conflicting breakpoints, MICs at a breakpoint, string labels and multi-drug inputs no longer give wrong categories, scores or rows.
+- **Dataset loading**: each metadata row is matched to its own spectrum file, so replicates, duplicates, year folders, numeric IDs and MARISMa specimens load correctly, and preprocessed stages are no longer preprocessed twice.
+- **Feature grid**: every spectrum of a `MaldiSet` is binned on the set's m/z grid, including stages written by `DatasetBuilder`, and `RawWarping` learns its adaptive bins in `fit`.
+- **Leakage**: splits, peak-set caches, drift baselines and the documentation examples no longer let evaluated spectra shape their own features, references or folds.
+- **Alignment**: DTW memory grows linearly with the spectrum length (with the same result), and aligners pickled with 0.21 or earlier raise a clear error asking to refit them.
+- **Precision**: `DatasetBuilder` writes full-precision spectra, text spectra are read back exactly, and MAD noise estimates use the exact Gaussian factor.
+- **Other fixes**: `align_peaks` keeps peak scores, `MaldiPeakDetector.set_params` takes effect, `MaldiSet.filter` keeps the isolate grouping, and `QualityFilter(min_peaks=...)` reads the quality report.
+
 ## [0.22.0] - 2026-10-22
 
 ### Added
@@ -389,6 +412,7 @@ See the [documentation](https://maldiamrkit.readthedocs.io/) for the complete AP
 
 - **First public release**: processing of MALDI-TOF mass spectra and preparation of the dataset for machine-learning analyses.
 
+[0.22.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.19.0...v0.20.0

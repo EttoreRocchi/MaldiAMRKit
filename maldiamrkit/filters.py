@@ -179,9 +179,15 @@ class QualityFilter(SpectrumFilter):
     min_snr : float, optional
         Minimum signal-to-noise ratio (column ``snr``).
     min_peaks : int, optional
-        Minimum number of detected peaks (column ``n_peaks``).
+        Minimum number of detected peaks (column ``peak_count``, as written
+        by :class:`~maldiamrkit.preprocessing.SpectrumQuality` and the
+        ``quality`` command, or ``n_peaks``).
     max_baseline_fraction : float, optional
         Maximum fraction of intensity in the baseline (column ``baseline_fraction``).
+
+    Notes
+    -----
+    A row whose column is missing or NaN fails the corresponding threshold.
     """
 
     def __init__(
@@ -194,19 +200,20 @@ class QualityFilter(SpectrumFilter):
         self.min_peaks = min_peaks
         self.max_baseline_fraction = max_baseline_fraction
 
-    _CHECKS: list[tuple[str, str, str]] = [
-        ("min_snr", "snr", "ge"),
-        ("min_peaks", "n_peaks", "ge"),
-        ("max_baseline_fraction", "baseline_fraction", "le"),
+    _CHECKS: list[tuple[str, tuple[str, ...], str]] = [
+        ("min_snr", ("snr",), "ge"),
+        ("min_peaks", ("peak_count", "n_peaks"), "ge"),
+        ("max_baseline_fraction", ("baseline_fraction",), "le"),
     ]
 
     def __call__(self, meta_row: pd.Series) -> bool:
         """Return True if the row passes all quality thresholds."""
-        for attr, col, op in self._CHECKS:
+        for attr, cols, op in self._CHECKS:
             threshold = getattr(self, attr)
             if threshold is not None:
-                val = meta_row.get(col)
-                if val is None:
+                col = next((c for c in cols if c in meta_row.index), None)
+                val = meta_row.get(col) if col is not None else None
+                if val is None or pd.isna(val):
                     return False
                 if op == "ge" and val < threshold:
                     return False

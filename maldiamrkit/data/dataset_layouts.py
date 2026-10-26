@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -18,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
+from ._metadata import _detect_id_column, _read_metadata_csv
 from .duplicates import DuplicateStrategy, apply_metadata_strategy
 from .site_info import read_site_info
 
@@ -187,6 +189,18 @@ class DatasetLayout(ABC):
         """
         return spec
 
+    def _file_key(self, path: Path) -> tuple[str | None, str]:
+        """Key matched against the ``_file_id`` (and ``_year``) of the rows.
+
+        The year folder holding the file (``None`` outside year folders)
+        and its spectrum ID.
+        """
+        from ..spectrum import _infer_id
+
+        folder = path.parent.name
+        year = folder if folder.isdigit() and len(folder) == 4 else None
+        return year, _infer_id(path)
+
 
 class DRIAMSLayout(DatasetLayout):
     r"""Navigate a DRIAMS-like dataset structure.
@@ -223,7 +237,9 @@ class DRIAMSLayout(DatasetLayout):
         * ``"first"``: keep the first occurrence (default).
         * ``"last"``: keep the last occurrence.
         * ``"drop"``: remove all duplicates.
-        * ``"keep_all"``: keep every replicate with ``_repN`` suffixes.
+        * ``"keep_all"``: keep every replicate, adding ``_repN`` to the
+          duplicated IDs (unique IDs stay unchanged); the replicates of one
+          sample share a group.
         * ``"average"``: tag replicates for downstream averaging.
     id_transform : callable, optional
         Function mapping raw ``ID`` strings to a canonical *sample*
@@ -285,25 +301,25 @@ class DRIAMSLayout(DatasetLayout):
         self,
         dataset_dir: str | Path,
         *,
-        id_column: str | None | _Sentinel = _AUTO,
+        id_column: str | None = _AUTO,
         species_column: str | None = None,
         year: str | int | None = None,
-        metadata_dir: str | _Sentinel = _AUTO,
-        metadata_suffix: str | _Sentinel = _AUTO,
-        spectrum_ext: str | _Sentinel = _AUTO,
+        metadata_dir: str = _AUTO,
+        metadata_suffix: str = _AUTO,
+        spectrum_ext: str = _AUTO,
         duplicate_strategy: str | DuplicateStrategy = DuplicateStrategy.first,
         id_transform: Callable[[str], str] | None = None,
         collapse_replicates: bool = False,
-        mz_min: float | _Sentinel = _AUTO,
-        mz_max: float | _Sentinel = _AUTO,
+        mz_min: float = _AUTO,
+        mz_max: float = _AUTO,
         normalize_tic: bool = False,
     ) -> None:
         """Initialise the layout.
 
-        Several kwargs accept the sentinel ``_AUTO`` as their default.
-        When ``_AUTO``, the value is filled from ``site_info.json`` at the
-        dataset root (if present) and otherwise falls back to the
-        library-level default.  Explicit kwargs always win.  Fields with
+        Several kwargs default to ``<auto>``: when not given, the value is
+        filled from ``site_info.json`` at the dataset root (if present) and
+        otherwise falls back to the library-level default.  Explicit kwargs
+        always win.  Fields with
         per-call semantics (``year``, ``species_column``, ``id_transform``,
         ``duplicate_strategy``, ``normalize_tic``) stay user-controlled
         and are never read from the manifest.
@@ -337,6 +353,9 @@ class DRIAMSLayout(DatasetLayout):
         # `mz_range` is stored as a tuple in the manifest; split into the
         # two scalar kwargs here.
         manifest_mz = site_info.mz_range if site_info is not None else None
+        self._manifest_bin_width = (
+            site_info.bin_width if site_info is not None else None
+        )
         self.mz_min = float(
             _resolve(
                 mz_min, None, manifest_mz[0] if manifest_mz is not None else 2000.0
@@ -371,11 +390,15 @@ class DRIAMSLayout(DatasetLayout):
                 f"in {self.dataset_dir}"
             )
 
-        meta, _ = _discover_driams_metadata(id_dir, self.year, self.metadata_suffix)
+        meta, _ = _discover_driams_metadata(
+            id_dir, self.year, self.metadata_suffix, self.id_column
+        )
         col = self.id_column or _detect_id_column(meta)
         if col != "ID":
             meta = meta.rename(columns={col: "ID"})
         meta["ID"] = meta["ID"].astype(str)
+        # The file name of each row, kept before duplicate IDs are renamed.
+        meta["_file_id"] = meta["ID"]
 
         if self.id_transform is not None:
             # Deduplicate on the canonical identifier so technical
@@ -391,6 +414,9 @@ class DRIAMSLayout(DatasetLayout):
         else:
             _warn_on_likely_replicates(meta["ID"])
             meta = apply_metadata_strategy(meta, self.duplicate_strategy)
+        # Only rows renamed by the strategy keep their file name; the others
+        # are matched by their ID (which a subclass may still rewrite).
+        meta["_file_id"] = meta["_file_id"].where(meta["ID"] != meta["_file_id"])
 
         species_col = self.species_column or _detect_species_column(meta)
         if species_col is not None and species_col != "Species":
@@ -444,11 +470,28 @@ class DRIAMSLayout(DatasetLayout):
         return sorted(stage_dir.glob(ext_glob))
 
     def detect_stage(self) -> str:
-        """Auto-detect: binned_* > preprocessed > raw."""
+        """Auto-detect: binned_* > preprocessed > raw.
+
+        With several ``binned_*`` folders, the one written for the
+        ``bin_width`` of ``site_info.json`` is chosen; without such a
+        folder the choice is ambiguous and ``stage=`` must be given.
+        """
         subdirs = {d.name for d in self.dataset_dir.iterdir() if d.is_dir()}
         binned = sorted(d for d in subdirs if _STAGE_PRIORITY.match(d))
-        if binned:
+        if len(binned) == 1:
             return binned[0]
+        if binned:
+            bin_width = getattr(self, "_manifest_bin_width", None)
+            if bin_width is not None:
+                from ..preprocessing.binning import _uniform_edges
+
+                n_bins = len(_uniform_edges(self.mz_min, self.mz_max, bin_width)) - 1
+                if f"binned_{n_bins}" in binned:
+                    return f"binned_{n_bins}"
+            raise ValueError(
+                f"Several binned stages in {self.dataset_dir}: {binned}. "
+                "Pass stage= to choose one."
+            )
         if "preprocessed" in subdirs:
             return "preprocessed"
         if "raw" in subdirs:
@@ -477,10 +520,15 @@ class DRIAMSLayout(DatasetLayout):
         ``mass`` column looks like contiguous integers ``0..N-1``, the
         spectrum is rewritten:
 
-        - ``mass`` becomes ``mz_min + i * (mz_max - mz_min) / (N - 1)``,
-        - the spectrum is marked as pre-binned (``_binned`` populated),
-          so ``MaldiSet`` does not re-bin already-binned data,
-        - ``_bin_metadata`` is filled in consistently.
+        - for a stage written by :class:`~maldiamrkit.data.DatasetBuilder`
+          (``site_info.json`` with ``mz_range`` and ``bin_width``), ``mass``
+          becomes the start of each of the builder's bins, and the binned
+          data carry the same labels as
+          :func:`~maldiamrkit.preprocessing.bin_spectrum` (so the columns
+          of ``MaldiSet.X`` match those of spectra binned in memory);
+          otherwise ``mass`` becomes ``mz_min + i * (mz_max - mz_min) / (N - 1)``;
+        - the spectrum is marked as binned, with matching bin metadata, so
+          ``MaldiSet`` does not re-bin already-binned data.
 
         Idempotent: a second call on already-converted data is a no-op
         (mass is no longer integer 0..N-1).
@@ -500,10 +548,39 @@ class DRIAMSLayout(DatasetLayout):
         """
         if stage is None or not _STAGE_PRIORITY.match(stage):
             return spec
-        spec = _convert_bin_index_spectrum(spec, mz_min=self.mz_min, mz_max=self.mz_max)
+        spec = _convert_bin_index_spectrum(
+            spec,
+            mz_min=self.mz_min,
+            mz_max=self.mz_max,
+            bin_width=getattr(self, "_manifest_bin_width", None),
+        )
         if self.normalize_tic:
             spec = _apply_tic_normalization(spec)
         return spec
+
+
+def _builder_edges(
+    mz_min: float, mz_max: float, n: int, bin_width: float
+) -> np.ndarray | None:
+    """Edges of the uniform bins a builder stage of ``n`` bins was written on.
+
+    ``bin_width`` (the manifest's default width) is tried first, then the
+    width implied by ``n`` when it is a short decimal that reproduces the
+    m/z span (extra binned folders, e.g. 6 Da). Returns None when neither
+    gives ``n`` bins.
+    """
+    from ..preprocessing.binning import _uniform_edges
+
+    span = mz_max - mz_min
+    widths = [float(bin_width)]
+    implied = round(span / n, 3)
+    if abs(implied * n - span) < 1e-9:
+        widths.append(implied)
+    for width in widths:
+        edges = _uniform_edges(mz_min, mz_max, width)
+        if len(edges) - 1 == n:
+            return edges
+    return None
 
 
 def _convert_bin_index_spectrum(
@@ -511,8 +588,15 @@ def _convert_bin_index_spectrum(
     *,
     mz_min: float,
     mz_max: float,
+    bin_width: float | None = None,
 ) -> MaldiSpectrum:
     """Convert a spectrum whose ``mass`` column is 0..N-1 bin indices.
+
+    With ``bin_width`` (from the stage's ``site_info.json``), the bins get
+    the builder's own edges: the numeric bin starts as ``mass`` and the
+    labels :func:`~maldiamrkit.preprocessing.bin_spectrum` gives them in
+    the binned data. Otherwise (or when ``bin_width`` does not match the
+    stage) ``mass`` is spread evenly from ``mz_min`` to ``mz_max``.
 
     See :meth:`DRIAMSLayout.postprocess_spectrum`.  Separate module-level
     function for ease of testing.
@@ -534,6 +618,30 @@ def _convert_bin_index_spectrum(
     # Must look like 0, 1, 2, ..., N-1.
     if not np.allclose(mass, np.arange(n, dtype=float)):
         return spec
+
+    if bin_width is not None:
+        edges = _builder_edges(mz_min, mz_max, n, bin_width)
+        if edges is not None:
+            intensity = raw["intensity"].to_numpy(dtype=float)
+            bin_meta = get_bin_metadata(edges)
+            spec._raw = pd.DataFrame({"mass": edges[:-1], "intensity": intensity})
+            spec._binned = pd.DataFrame(
+                {
+                    "mass": bin_meta["bin_start"].astype(str).to_numpy(),
+                    "intensity": intensity,
+                }
+            )
+            spec._bin_width = float(edges[1] - edges[0])
+            spec._bin_method = "uniform"
+            spec._bin_metadata = bin_meta
+            return spec
+        warnings.warn(
+            f"A binned stage of {n} bins does not match the bin width "
+            f"{bin_width} of site_info.json; its m/z values are spread evenly "
+            f"from {mz_min} to {mz_max}.",
+            UserWarning,
+            stacklevel=4,
+        )
 
     step = (mz_max - mz_min) / (n - 1)
     mz = mz_min + mass * step
@@ -566,11 +674,9 @@ def _apply_tic_normalization(spec: MaldiSpectrum) -> MaldiSpectrum:
     if not np.isfinite(total) or total <= 0.0:
         return spec
     normalized = intensity / total
-    spec._raw = pd.DataFrame(
-        {"mass": raw["mass"].to_numpy(dtype=float), "intensity": normalized}
-    )
+    spec._raw = raw.assign(intensity=normalized)
     if getattr(spec, "_binned", None) is not None:
-        spec._binned = spec._raw.copy()
+        spec._binned = spec._binned.assign(intensity=normalized)
     return spec
 
 
@@ -601,8 +707,9 @@ class MARISMaLayout(DatasetLayout):
         * ``"last"``: keep the last occurrence.
         * ``"drop"``: remove all duplicates.
         * ``"keep_all"``: keep every replicate, appending the
-          target-position value to the ID
-          (``{identifier}_{target_position}``).
+          target-position value to the duplicated IDs
+          (``{identifier}_{target_position}``; an identifier measured
+          once keeps its ID); the replicates of one specimen share a group.
         * ``"average"``: tag replicates for downstream averaging
           (adds ``_original_id`` column).
     id_transform : callable, optional
@@ -645,7 +752,7 @@ class MARISMaLayout(DatasetLayout):
         # low_memory=False: the MARISMa AMR.csv has ~160 antibiotic columns
         # mixing "R"/"S"/"I" strings with MIC values like "<=8" / ">16" and
         # bare numbers, which pandas' chunked type inference flags as mixed.
-        meta = pd.read_csv(self.metadata_csv, low_memory=False)
+        meta = _read_metadata_csv(self.metadata_csv, self.id_column, low_memory=False)
         if self.id_column not in meta.columns:
             raise ValueError(
                 f"ID column '{self.id_column}' not in metadata. "
@@ -675,8 +782,15 @@ class MARISMaLayout(DatasetLayout):
 
         if self.year is not None and "Year" in meta.columns:
             meta = meta[meta["Year"].astype(str) == self.year]
-
-        return meta.reset_index(drop=True)
+        meta = meta.reset_index(drop=True)
+        if self.path_column in meta.columns:
+            # The Bruker directory of each row, which its spectrum is
+            # matched by (IDs may be renamed by the duplicate strategy).
+            meta["_file_id"] = [
+                str(_resolve_metadata_path(self.root_dir, str(p)))
+                for p in meta[self.path_column]
+            ]
+        return meta
 
     def collect_spectrum_files(
         self,
@@ -706,17 +820,16 @@ class MARISMaLayout(DatasetLayout):
             meta = meta[meta["Year"].astype(str) == yr]
 
         paths: list[Path] = []
-        for _, row in meta.iterrows():
-            bruker_dir = _resolve_metadata_path(
-                self.root_dir, str(row[self.path_column])
-            )
-            if bruker_dir is None or not bruker_dir.is_dir():
-                continue
-            acqus = _find_bruker_acqus(bruker_dir)
-            if acqus is not None:
+        for file_id in dict.fromkeys(meta.get("_file_id", [])):
+            bruker_dir = Path(file_id)
+            if bruker_dir.is_dir() and _find_bruker_acqus(bruker_dir) is not None:
                 paths.append(bruker_dir)
 
         return sorted(paths)
+
+    def _file_key(self, path: Path) -> tuple[str | None, str]:
+        """Key of a Bruker directory: its resolved path."""
+        return None, str(path)
 
     def detect_stage(self) -> str:
         """Return ``'raw'`` as the only available stage."""
@@ -747,14 +860,6 @@ def _resolve_metadata_path(root_dir: Path, raw_path: str) -> Path | None:
     return root_dir / rel
 
 
-def _detect_id_column(meta: pd.DataFrame) -> str:
-    """Auto-detect the ID column: ``'code'`` > ``'ID'`` > first column."""
-    for candidate in ("code", "ID"):
-        if candidate in meta.columns:
-            return candidate
-    return meta.columns[0]
-
-
 def _detect_species_column(meta: pd.DataFrame) -> str | None:
     """Auto-detect a species column via case-insensitive match."""
     if "Species" in meta.columns:
@@ -769,13 +874,17 @@ def _discover_driams_metadata(
     id_dir: Path,
     year: str | None,
     metadata_suffix: str = "_clean.csv",
+    id_column: str | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Load and merge metadata CSV(s) from a metadata directory."""
+    """Load and merge metadata CSV(s) from a metadata directory.
+
+    The ID column (``id_column``, or the detected one) is read as text.
+    """
     if year is not None:
         csv_path = id_dir / year / f"{year}{metadata_suffix}"
         if not csv_path.exists():
             raise FileNotFoundError(f"Metadata file not found: {csv_path}")
-        return pd.read_csv(csv_path, low_memory=False), [year]
+        return _read_metadata_csv(csv_path, id_column, low_memory=False), [year]
 
     year_dirs = sorted(
         d
@@ -784,13 +893,13 @@ def _discover_driams_metadata(
     )
 
     if year_dirs:
-        return _load_year_metadata(id_dir, year_dirs, metadata_suffix)
+        return _load_year_metadata(id_dir, year_dirs, metadata_suffix, id_column)
 
-    return _load_flat_metadata(id_dir, metadata_suffix)
+    return _load_flat_metadata(id_dir, metadata_suffix, id_column)
 
 
 def _load_year_metadata(
-    id_dir: Path, year_dirs: list[Path], suffix: str
+    id_dir: Path, year_dirs: list[Path], suffix: str, id_column: str | None = None
 ) -> tuple[pd.DataFrame, list[str]]:
     """Load metadata from year-based subdirectories."""
     frames = []
@@ -798,7 +907,11 @@ def _load_year_metadata(
     for yd in year_dirs:
         csv_path = yd / f"{yd.name}{suffix}"
         if csv_path.exists():
-            frames.append(pd.read_csv(csv_path, low_memory=False))
+            frame = _read_metadata_csv(csv_path, id_column, low_memory=False)
+            # Year of each row, so that the loader can pick the file of
+            # the same year when an ID appears in several years.
+            frame["_year"] = yd.name
+            frames.append(frame)
             years.append(yd.name)
     if not frames:
         raise FileNotFoundError(
@@ -807,14 +920,16 @@ def _load_year_metadata(
     return pd.concat(frames, ignore_index=True), years
 
 
-def _load_flat_metadata(id_dir: Path, suffix: str) -> tuple[pd.DataFrame, list[str]]:
+def _load_flat_metadata(
+    id_dir: Path, suffix: str, id_column: str | None = None
+) -> tuple[pd.DataFrame, list[str]]:
     """Load metadata from flat CSV files (no year structure)."""
     csv_files = sorted(id_dir.glob(f"*{suffix}"))
     if csv_files:
-        return pd.read_csv(csv_files[0], low_memory=False), []
+        return _read_metadata_csv(csv_files[0], id_column, low_memory=False), []
 
     csv_files = sorted(id_dir.glob("*.csv"))
     if csv_files:
-        return pd.read_csv(csv_files[0], low_memory=False), []
+        return _read_metadata_csv(csv_files[0], id_column, low_memory=False), []
 
     raise FileNotFoundError(f"No metadata CSV files found in {id_dir}")

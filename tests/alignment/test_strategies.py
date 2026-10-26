@@ -21,6 +21,7 @@ from maldiamrkit.alignment.strategies import (
     _mutual_pairs,
     _nearest_ref_indices,
     _pearson_by_lag,
+    _robust_linear_fit,
     _shift_row,
 )
 
@@ -573,3 +574,20 @@ class TestGates:
     def test_invalid_estimator(self):
         with pytest.raises(ValueError, match="estimator"):
             ShiftStrategy(max_shift=3, estimator="nope")
+
+
+class TestRobustLinearFitCutoff:
+    """The outlier cutoff of the linear fit uses the MAD divided by Phi^-1(3/4)."""
+
+    def test_pair_between_the_two_cutoffs_is_kept(self):
+        rng = np.random.default_rng(2)
+        sample = np.sort(rng.uniform(2000, 20000, 30))
+        ref = 1.001 * sample + 2 + rng.normal(0, 1, 30)
+        A = np.vstack([sample, np.ones_like(sample)]).T
+        expected = np.linalg.lstsq(A, ref, rcond=1e-10)[0]
+        residuals = ref - (expected[0] * sample + expected[1])
+        dev = np.abs(residuals - np.median(residuals))
+        mad = np.median(dev)
+        threshold = dev.max() / (mad * np.sqrt(1.4826 / 0.6744897501960817))
+        a, b = _robust_linear_fit(sample, ref, residual_threshold=threshold)
+        assert (a, b) == (expected[0], expected[1])

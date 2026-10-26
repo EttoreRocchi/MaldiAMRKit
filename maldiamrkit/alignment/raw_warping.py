@@ -13,9 +13,20 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from ..data.duplicates import DuplicateStrategy, apply_index_strategy
 from ..detection.peak_detector import MaldiPeakDetector
 from ..io.readers import read_spectrum
-from ..preprocessing.binning import BinningMethod, bin_spectrum
+from ..preprocessing.binning import (
+    _BINNING_REGISTRY,
+    BinningMethod,
+    _bin_on_edges,
+    bin_spectrum,
+)
 from ..preprocessing.pipeline import preprocess
 from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
+from ._versioning import (
+    _PARAMS_SINCE_0_22,
+    _check_supported,
+    _checked_state,
+    _versioned_state,
+)
 from .strategies import (
     _ALIGNMENT_REGISTRY,
     _SHIFT_ESTIMATORS,
@@ -56,10 +67,15 @@ def create_raw_input(
         * ``"first"``: keep the first occurrence (default).
         * ``"last"``: keep the last occurrence.
         * ``"drop"``: remove all duplicates.
-        * ``"keep_all"``: keep every replicate with ``_repN`` suffixes.
+        * ``"keep_all"``: keep every replicate, adding ``_repN`` to the
+          duplicated IDs (unique IDs stay unchanged).
         * ``"average"``: keep all replicates and add an
           ``_original_id`` column so that
-          :meth:`RawWarping.transform` can group and average them.
+          :meth:`RawWarping.transform` can group and average them (the
+          output then has one row per sample, so it cannot be used inside
+          ``Pipeline.fit``, which needs one row per input row; when
+          splitting rows, keep the replicates of a sample together with
+          ``groups=``).
 
     Returns
     -------
@@ -136,6 +152,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Width of output bins in Daltons.
     bin_method : str, default="uniform"
         Binning method. One of 'uniform', 'proportional', 'adaptive', 'custom'.
+        With 'adaptive', the edges are learned from the reference spectrum in
+        :meth:`fit` and used for every transformed spectrum.
     bin_kwargs : dict, optional
         Additional keyword arguments for binning.
     max_shift_da : float, default=10.0
@@ -145,10 +163,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
     n_segments : int, default=5
         Number of segments for piecewise warping.
     dtw_radius : int, default=10
-        Radius constraint for DTW. DTW memory grows with the square of the
-        number of reference points (about 10 GB per spectrum for a 0.5 Da
-        grid over 2-20 kDa), so a coarser ``interp_step`` is needed to run
-        it on full-resolution spectra.
+        Radius constraint for DTW (Sakoe-Chiba band, in points of the
+        reference grid).
     smooth_sigma : float, default=2.0
         Gaussian smoothing for piecewise transitions.
     lowess_frac : float, default=0.3
@@ -263,6 +279,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
     aligns each spectrum on its own (replicates of one sample are averaged
     after alignment), so its result does not depend on the other spectra
     transformed with it.
+
+    A pickled aligner records the maldiamrkit version it was saved with; one
+    fitted with maldiamrkit 0.21 or earlier cannot be used and must be
+    refitted.
     """
 
     def __init__(
@@ -407,6 +427,32 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         return ref_mz, ref_intensity, ref_peaks_mz
 
+    def __getstate__(self):
+        return _versioned_state(super().__getstate__())
+
+    def __setstate__(self, state):
+        super().__setstate__(_checked_state(type(self).__name__, state))
+        # Aligners pickled with 0.22.0 binned adaptively spectrum by spectrum:
+        # learn the edges from their reference, as fit does now.
+        if (
+            "_adaptive_edges_" not in self.__dict__
+            and hasattr(self, "ref_mz_")
+            and all(param in self.__dict__ for param in _PARAMS_SINCE_0_22)
+        ):
+            self._adaptive_edges_ = self._learn_adaptive_edges()
+            if self._adaptive_edges_ is not None and not self._output_columns().equals(
+                self.output_columns_
+            ):
+                self._adaptive_edges_ = None
+                self._stale_bins_ = True
+                warnings.warn(
+                    "This RawWarping was pickled with maldiamrkit 0.22.0 and its "
+                    "adaptive bins cannot be rebuilt exactly from its reference: "
+                    "refit it before transforming.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
     def fit(self, X: pd.DataFrame, y=None):
         """
         Fit by computing the reference spectrum from raw data.
@@ -427,10 +473,14 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         Raises
         ------
+        RuntimeError
+            If the transformer was fitted with maldiamrkit 0.21 or earlier
+            (loaded from an old pickle).
         ValueError
             If the input DataFrame is empty, lacks a 'path' column,
             or uses an unknown warping method.
         """
+        _check_supported(self)
         if X.empty:
             raise ValueError("Input DataFrame X is empty")
 
@@ -454,6 +504,8 @@ class RawWarping(BaseEstimator, TransformerMixin):
 
         # Store preprocessing config
         self.pipeline_ = self.pipeline or PreprocessingPipeline.default()
+        self._adaptive_edges_ = None
+        self.__dict__.pop("_stale_bins_", None)
 
         # Get paths from DataFrame
         paths = X["path"].tolist()
@@ -484,11 +536,49 @@ class RawWarping(BaseEstimator, TransformerMixin):
                 stacklevel=2,
             )
 
+        # Adaptive bins are learned once, from the reference, so that every
+        # transformed spectrum gets the same columns.
+        self._adaptive_edges_ = self._learn_adaptive_edges()
+
         # Determine output columns by binning a sample spectrum
-        sample_binned = self._bin_warped(self.ref_mz_, self.ref_intensity_)
-        self.output_columns_ = sample_binned.set_index("mass").index.astype(str)
+        self.output_columns_ = self._output_columns()
 
         return self
+
+    def _learn_adaptive_edges(self) -> np.ndarray | None:
+        """Adaptive bin edges of the reference, or None for other methods.
+
+        The reference is binned with :func:`bin_spectrum`, which also checks
+        ``bin_kwargs``.
+        """
+        if _BINNING_REGISTRY.resolve_key(self.bin_method, BinningMethod) != "adaptive":
+            return None
+        mz_min, mz_max = self.pipeline_.mz_range
+        _, metadata = bin_spectrum(
+            pd.DataFrame({"mass": self.ref_mz_, "intensity": self.ref_intensity_}),
+            mz_min=mz_min,
+            mz_max=mz_max,
+            bin_width=self.bin_width,
+            method=self.bin_method,
+            **(self.bin_kwargs or {}),
+        )
+        return np.append(
+            metadata["bin_start"].to_numpy(dtype=float),
+            float(metadata["bin_end"].iloc[-1]),
+        )
+
+    def _output_columns(self) -> pd.Index:
+        """Column labels of the binned output, from the reference."""
+        binned = self._bin_warped(self.ref_mz_, self.ref_intensity_)
+        return binned.set_index("mass").index.astype(str)
+
+    def _check_bins(self) -> None:
+        """Raise when the adaptive bins of a 0.22.0 pickle could not be rebuilt."""
+        if getattr(self, "_stale_bins_", False):
+            raise RuntimeError(
+                "This RawWarping was pickled with maldiamrkit 0.22.0 and its "
+                "adaptive bins cannot be rebuilt exactly: refit it."
+            )
 
     def _get_strategy(self):
         """Build strategy instance from current parameters."""
@@ -554,6 +644,10 @@ class RawWarping(BaseEstimator, TransformerMixin):
     def _bin_warped(self, mz: np.ndarray, intensity: np.ndarray) -> pd.DataFrame:
         """Bin warped raw spectrum to output grid."""
         warped_df = pd.DataFrame({"mass": mz, "intensity": intensity})
+        adaptive_edges = getattr(self, "_adaptive_edges_", None)
+        if adaptive_edges is not None:
+            binned, _ = _bin_on_edges(warped_df, adaptive_edges)
+            return binned
         bin_kwargs = self.bin_kwargs or {}
         mz_min, mz_max = self.pipeline_.mz_range
         binned, _ = bin_spectrum(
@@ -612,15 +706,21 @@ class RawWarping(BaseEstimator, TransformerMixin):
         -------
         X_aligned : pd.DataFrame
             Aligned and binned spectra with sample IDs as index and
-            m/z bin centers as columns.
+            m/z bin centers as columns. With an ``_original_id`` column
+            (see :func:`create_raw_input`), replicates are averaged into
+            one row per sample, in order of first appearance.
 
         Raises
         ------
         RuntimeError
-            If the transformer has not been fitted.
+            If the transformer has not been fitted, was fitted with
+            maldiamrkit 0.21 or earlier, or was pickled with 0.22.0 with
+            adaptive bins that cannot be rebuilt.
         ValueError
             If the input DataFrame lacks a 'path' column.
         """
+        _check_supported(self)
+        self._check_bins()
         if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted before transform")
 
@@ -648,7 +748,7 @@ class RawWarping(BaseEstimator, TransformerMixin):
         if "_original_id" in X.columns:
             original_ids = X["_original_id"]
             result["_original_id"] = original_ids.values
-            averaged = result.groupby("_original_id").mean()
+            averaged = result.groupby("_original_id", sort=False).mean()
             averaged.index.name = None
             result = averaged
 
@@ -678,8 +778,12 @@ class RawWarping(BaseEstimator, TransformerMixin):
         Raises
         ------
         RuntimeError
-            If the transformer has not been fitted.
+            If the transformer has not been fitted, was fitted with
+            maldiamrkit 0.21 or earlier, or was pickled with 0.22.0 with
+            adaptive bins that cannot be rebuilt.
         """
+        _check_supported(self)
+        self._check_bins()
         if not hasattr(self, "ref_mz_"):
             raise RuntimeError("RawWarping must be fitted first")
 

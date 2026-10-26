@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from enum import Enum
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,9 @@ class DuplicateStrategy(str, Enum):
         Remove **all** rows whose ID appears more than once.
     keep_all : str
         Retain every replicate, disambiguating IDs with a suffix
-        (e.g. ``_rep1``, ``_rep2`` or the target-position value).
+        (e.g. ``_rep1``, ``_rep2`` or the target-position value). The ID
+        before the suffix is kept, so that the replicates of one isolate
+        share a group.
     average : str
         Keep all replicates for downstream averaging.  Adds an
         ``_original_id`` column so that loaders / transformers can
@@ -92,6 +95,8 @@ def apply_metadata_strategy(
         return df.drop_duplicates(subset=id_col, keep=False)
 
     if strategy is DuplicateStrategy.keep_all:
+        isolates = df.get("_isolate", pd.Series(np.nan, index=df.index))
+        df = df.assign(_isolate=isolates.fillna(df[id_col]))
         return _suffix_duplicates(df, id_col, suffix_col)
 
     # strategy is DuplicateStrategy.average
@@ -105,27 +110,37 @@ def _suffix_duplicates(
     id_col: str,
     suffix_col: str | None,
 ) -> pd.DataFrame:
-    """Append disambiguating suffixes to duplicate IDs.
+    """Append disambiguating suffixes to the duplicated IDs only.
 
     If *suffix_col* is provided and present in the DataFrame, the
     suffix is ``_{value}``; otherwise a sequential ``_rep{N}`` suffix
-    is used.  A final ``drop_duplicates`` removes any residual clashes.
+    (counted per ID) is used. Unique IDs stay unchanged.
+
+    Raises
+    ------
+    ValueError
+        If a suffixed ID clashes with another ID.
     """
     df = df.copy()
-
+    ids = df[id_col].astype(str)
     if suffix_col is not None and suffix_col in df.columns:
-        df[id_col] = df[id_col] + "_" + df[suffix_col].astype(str)
+        suffixed = ids + "_" + df[suffix_col].astype(str)
     else:
-        counts: dict[str, int] = {}
-        new_ids: list[str] = []
-        for val in df[id_col]:
-            counts[val] = counts.get(val, 0) + 1
-            new_ids.append(f"{val}_rep{counts[val]}")
-        df[id_col] = new_ids
-
-    # Guard against suffix collisions
-    df = df.drop_duplicates(subset=id_col, keep="first")
+        suffixed = ids + "_rep" + (ids.groupby(ids).cumcount() + 1).astype(str)
+    duplicated = df.duplicated(subset=id_col, keep=False)
+    df[id_col] = df[id_col].where(~duplicated, suffixed)
+    _check_no_clash(df[id_col])
     return df
+
+
+def _check_no_clash(ids: pd.Series | pd.Index) -> None:
+    """Raise when suffixing produced an ID that appears twice."""
+    clash = pd.Index(ids).duplicated(keep=False)
+    if clash.any():
+        raise ValueError(
+            "Suffixing duplicate IDs produced IDs that clash with others: "
+            f"{sorted(set(pd.Index(ids)[clash]))}. Rename them in the metadata."
+        )
 
 
 def apply_index_strategy(
@@ -181,12 +196,11 @@ def apply_index_strategy(
 
 
 def _suffix_index_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    """Append ``_repN`` suffixes to duplicate index entries."""
+    """Append ``_repN`` suffixes to the duplicated index entries only."""
     df = df.copy()
-    counts: dict[str, int] = {}
-    new_index: list[str] = []
-    for val in df.index:
-        counts[val] = counts.get(val, 0) + 1
-        new_index.append(f"{val}_rep{counts[val]}")
-    df.index = pd.Index(new_index)
+    ids = pd.Series(df.index.astype(str), index=df.index)
+    suffixed = ids + "_rep" + (ids.groupby(ids).cumcount() + 1).astype(str)
+    duplicated = df.index.duplicated(keep=False)
+    df.index = pd.Index(np.where(duplicated, suffixed.to_numpy(), ids.to_numpy()))
+    _check_no_clash(df.index)
     return df

@@ -82,7 +82,7 @@ pip install -e .[dev]
 - **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra. Spectra are first shifted and then aligned to the reference of the shifted spectra, a non-rigid warp is kept only when the matched peaks support it, and resampling preserves the total intensity; spectra of several species are best aligned one species at a time
 - **Peak Detection**: Local maxima and persistent homology methods
 - **Peak Sets**: `PeakSet` / `PeakList` represent each spectrum as a variable-length `(m/z, intensity)` set for peak-set models, via `MaldiPeakDetector.transform_peaklist()` on binned spectra or `create_peakset_input()` at full m/z resolution; extraction is stateless per spectrum, so results are cacheable without leakage
-- **Fit-Free Peak Alignment**: `align_peaks()` warps a peak set onto caller-supplied reference peaks, so the reference stays fitted on the training split
+- **Fit-Free Peak Alignment**: `align_peaks()` warps a peak set onto caller-supplied reference peaks, which the caller estimates on the training split (for example `RawWarping(...).fit(X_train).ref_peaks_mz_`; a reference built with test spectra leaks)
 
 ### Extensibility
 - **Component Registries**: Plug your own components into the name-dispatched machinery - `register_spectral_metric()` for distance metrics (usable in `spectral_distance`, `pairwise_distances`, and `DriftMonitor`), `register_transformer()` to make `PreprocessingPipeline` configs holding custom transformers round-trip through JSON/YAML, and `register_binning_method()` for custom bin edges
@@ -101,7 +101,7 @@ pip install -e .[dev]
 
 ### Differential Analysis
 - **`DifferentialAnalysis`**: Per-bin statistical testing (Mann-Whitney U, Welch's t-test) between resistant and susceptible groups, with multiple-testing correction, log2 fold change, and Cohen's d effect size
-- **Peak Selection**: `top_peaks()` by adjusted p-value, `significant_peaks()` with fold-change and p-value thresholds, `compare_drugs()` for multi-drug boolean significance matrices
+- **Peak Ranking**: `top_peaks()` by adjusted p-value, `significant_peaks()` with fold-change and p-value thresholds, `compare_drugs()` for multi-drug boolean significance matrices (to select features for a classifier, rank peaks inside each training fold)
 - **AMR-Aware Plots**: `plot_volcano()`, `plot_manhattan()` along the m/z axis, and `plot_drug_comparison()` with binary heatmap or UpSet-style intersection view
 
 ### Drift Monitoring
@@ -185,7 +185,7 @@ pipe = Pipeline([
     ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
 ])
 
-# Cross-validation
+# Cross-validation (with replicates, use StratifiedGroupKFold and groups=data.groups)
 scores = cross_val_score(pipe, X, y, cv=5, scoring="accuracy")
 print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 ```

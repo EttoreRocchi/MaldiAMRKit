@@ -8,6 +8,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+from scipy.stats import median_abs_deviation
 
 from maldiamrkit._registry import _ComponentRegistry
 
@@ -208,11 +209,9 @@ def _adaptive_edges(
 
     # Detect peaks to identify regions of interest
     if peak_prominence is None:
-        # MAD-based prominence: robust to outliers
-        mad = np.median(np.abs(intensity - np.median(intensity)))
-        # 1.4826 converts MAD to sigma under Gaussian assumption
-        # (Rousseeuw & Croux 1993); * 3 gives 3-sigma equivalent.
-        peak_prominence = 1.4826 * mad * 3
+        # Three MAD-based standard deviations (Rousseeuw & Croux 1993),
+        # robust to the peaks themselves.
+        peak_prominence = 3 * median_abs_deviation(intensity, scale="normal")
     peaks, _ = find_peaks(intensity, prominence=peak_prominence)
 
     if len(peaks) == 0:
@@ -608,10 +607,19 @@ def bin_spectrum(
         adaptive_kde_bandwidth=adaptive_kde_bandwidth,
     )
 
-    # Generate bin metadata
-    metadata = get_bin_metadata(edges)
+    return _bin_on_edges(df, edges)
 
-    # Perform binning
+
+def _bin_on_edges(
+    df: pd.DataFrame, edges: np.ndarray
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Sum the intensities of ``df`` into the bins delimited by ``edges``.
+
+    The core of :func:`bin_spectrum`, for edges that are already known
+    (they are used as given, without validation). Returns the binned
+    spectrum (bin starts as string labels) and the bin metadata.
+    """
+    metadata = get_bin_metadata(edges)
     labels = metadata["bin_start"].astype(str).values
     binned = (
         df.assign(bins=pd.cut(df.mass, edges, labels=labels, include_lowest=True))
@@ -621,5 +629,4 @@ def bin_spectrum(
         .reset_index()
         .rename(columns={"bins": "mass"})
     )
-
     return binned, metadata

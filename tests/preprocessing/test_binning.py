@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from maldiamrkit.preprocessing import bin_spectrum, preprocess
+from maldiamrkit.preprocessing.binning import _adaptive_edges, _uniform_edges
 
 
 class TestBinSpectrum:
@@ -218,3 +219,17 @@ class TestBinningReproducibility:
         )
 
         pd.testing.assert_frame_equal(result1, result2)
+
+
+class TestAdaptiveProminenceIsGaussian:
+    """The default adaptive prominence is 3 MAD-based standard deviations."""
+
+    def test_peaks_just_below_three_sigma_are_not_detected(self):
+        intensity = np.tile([0.0, 2.0], 500)
+        intensity[[201, 501, 801]] = 4.447803
+        df = pd.DataFrame(
+            {"mass": np.linspace(2000, 20000, 1000), "intensity": intensity}
+        )
+        np.testing.assert_array_equal(
+            _adaptive_edges(df, 2000, 20000), _uniform_edges(2000, 20000, 10.0)
+        )

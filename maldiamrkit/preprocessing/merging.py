@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from scipy.stats import median_abs_deviation
 
 
 class MergingMethod(str, Enum):
@@ -147,16 +148,18 @@ def detect_outlier_replicates(
 
     Computes the Pearson correlation of each replicate against the
     element-wise median spectrum.  Replicates whose correlation falls
-    below ``median(corrs) - threshold * MAD(corrs)`` are flagged as
-    outliers.
+    below ``median(corrs) - threshold * sigma`` are flagged as outliers,
+    where ``sigma`` is the MAD of the correlations divided by
+    ``Phi^{-1}(3/4)`` (``scale="normal"`` in
+    :func:`scipy.stats.median_abs_deviation`).
 
     Parameters
     ----------
     spectra : list of MaldiSpectrum
         Replicate spectra.
     threshold : float, default=3.0
-        Number of MAD units below the median correlation to flag a
-        replicate as an outlier.
+        Number of MAD-based standard deviations below the median
+        correlation to flag a replicate as an outlier.
 
     Returns
     -------
@@ -182,15 +185,15 @@ def detect_outlier_replicates(
     corrs = np.array([np.corrcoef(row, median_spectrum)[0, 1] for row in matrix])
 
     med_corr = np.median(corrs)
-    mad_corr = np.median(np.abs(corrs - med_corr))
+    sigma_corr = median_abs_deviation(corrs, scale="normal")
 
-    if mad_corr == 0:
+    if sigma_corr == 0:
         # All correlations identical - no outliers
         return np.ones(len(spectra), dtype=bool)
 
-    # The 1.4826 MAD-to-sigma factor assumes normally distributed
+    # The MAD-based standard deviation assumes normally distributed
     # correlations (Rousseeuw & Croux 1993).  Pearson correlations are
     # bounded in [-1, 1], so clamp the cutoff to avoid an unreachable
     # threshold that would mask all outliers.
-    cutoff = max(med_corr - threshold * 1.4826 * mad_corr, -1.0)
+    cutoff = max(med_corr - threshold * sigma_corr, -1.0)
     return corrs >= cutoff

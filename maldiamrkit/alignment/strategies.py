@@ -6,6 +6,7 @@ binned (index-based) or raw (m/z-based) coordinate systems.
 
 from __future__ import annotations
 
+import numbers
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -13,6 +14,7 @@ from enum import Enum
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import peak_prominences
+from scipy.stats import median_abs_deviation
 
 
 class AlignmentMethod(str, Enum):
@@ -465,8 +467,9 @@ def _robust_linear_fit(
 ) -> tuple[float, float]:
     """Fit mz' = a*mz + b with MAD-based outlier rejection.
 
-    Performs a least-squares fit, then rejects peak pairs whose
-    residual exceeds ``residual_threshold * 1.4826 * MAD`` and refits.
+    Performs a least-squares fit, then rejects peak pairs whose residual
+    is more than ``residual_threshold`` MAD-based standard deviations (the
+    MAD divided by ``Phi^{-1}(3/4)``) from the median residual, and refits.
 
     Parameters
     ----------
@@ -485,9 +488,9 @@ def _robust_linear_fit(
 
     if len(sample) > 2:
         residuals = ref - (a * sample + b)
-        mad = np.median(np.abs(residuals - np.median(residuals)))
-        if mad > 0:
-            cutoff = residual_threshold * 1.4826 * mad
+        sigma = median_abs_deviation(residuals, scale="normal")
+        if sigma > 0:
+            cutoff = residual_threshold * sigma
             inlier_mask = np.abs(residuals - np.median(residuals)) <= cutoff
             if inlier_mask.sum() >= 2:
                 A_inlier = A[inlier_mask]
@@ -701,13 +704,36 @@ class PiecewiseStrategy(_PeakFitStrategy):
             axis, seg_x, seg_shift, left=seg_shift[0], right=seg_shift[-1]
         )
         if raw:
-            spacing = np.median(np.diff(axis))
-            sigma = min(int(self.smooth_sigma / spacing), len(axis) // 4)
-            if sigma > 1:
-                shift = gaussian_filter1d(shift, sigma=sigma, mode="nearest")
+            if len(axis) > 1:
+                spacing = np.median(np.diff(axis))
+                sigma = min(int(self.smooth_sigma / spacing), len(axis) // 4)
+                if sigma > 1:
+                    shift = gaussian_filter1d(shift, sigma=sigma, mode="nearest")
         elif self.smooth_sigma > 0:
             shift = gaussian_filter1d(shift, sigma=self.smooth_sigma, mode="nearest")
         return axis + shift
+
+
+def _use_banded_dtw(query: np.ndarray, reference: np.ndarray, radius) -> bool:
+    """Whether the banded DTW kernel applies (otherwise tslearn is used).
+
+    It needs two finite 1-D series of the same length and a non-negative
+    integer radius whose band (``2 * radius + 1``) is narrower than the
+    series; tslearn handles every other case as before.
+    """
+    if isinstance(radius, bool) or not isinstance(radius, numbers.Integral):
+        return False
+    n = len(reference)
+    return (
+        query.ndim == 1
+        and reference.ndim == 1
+        and len(query) == n
+        and n >= 1
+        and 0 <= radius
+        and 2 * radius + 1 <= n
+        and bool(np.isfinite(query).all())
+        and bool(np.isfinite(reference).all())
+    )
 
 
 class DTWStrategy(AlignmentStrategy):
@@ -742,23 +768,30 @@ class DTWStrategy(AlignmentStrategy):
 
     def _dtw_align(self, query: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Core DTW alignment returning aligned intensity."""
-        # Lazy import for tslearn
-        from tslearn.metrics import dtw_path
+        query = np.asarray(query)
+        reference = np.asarray(reference)
+        if _use_banded_dtw(query, reference, self.dtw_radius):
+            # Lazy import: the kernel compiles with numba on first use.
+            from ._dtw import _dtw_path
 
-        path, _ = dtw_path(
-            query,
-            reference,
-            global_constraint="sakoe_chiba",
-            sakoe_chiba_radius=self.dtw_radius,
-        )
+            path_i, path_j = _dtw_path(query, reference, self.dtw_radius)
+        else:
+            from tslearn.metrics import dtw_path
+
+            path, _ = dtw_path(
+                query,
+                reference,
+                global_constraint="sakoe_chiba",
+                sakoe_chiba_radius=self.dtw_radius,
+            )
+            path = np.asarray(path, dtype=np.int64).reshape(-1, 2)
+            path_i, path_j = path[:, 0], path[:, 1]
 
         aligned_sum = np.zeros_like(reference)
         aligned_count = np.zeros_like(reference)
-
-        for i, j in path:
-            if 0 <= j < len(aligned_sum):
-                aligned_sum[j] += query[i]
-                aligned_count[j] += 1
+        # Unbuffered, in path order: the same sums as a loop over the path.
+        np.add.at(aligned_sum, path_j, query[path_i])
+        np.add.at(aligned_count, path_j, 1)
 
         aligned = np.zeros_like(reference)
         mask = aligned_count > 0

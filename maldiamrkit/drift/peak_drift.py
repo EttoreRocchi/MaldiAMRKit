@@ -35,11 +35,15 @@ def _peak_stability_timeseries(
     test: str = "mann_whitney",
     correction: str = "fdr_bh",
     min_samples: int = 5,
+    *,
+    mz_ranges=None,
+    peak_detector=None,
 ) -> tuple[pd.DataFrame, int]:
     """Jaccard stability of top-k peaks per window vs. baseline peaks.
 
     For each window we instantiate :class:`DifferentialAnalysis` on the
-    window rows and take its top-``n_top`` peaks by adjusted p-value.
+    window rows, run it with ``test``, ``correction``, ``mz_ranges`` and
+    ``peak_detector``, and take its top-``n_top`` peaks by adjusted p-value.
     Stability = Jaccard similarity with ``baseline_peaks``.
 
     Windows with fewer than ``min_samples`` in either class are skipped.
@@ -70,7 +74,10 @@ def _peak_stability_timeseries(
             continue
         X_window = group.drop(columns=ts_col)
         analysis = DifferentialAnalysis(X_window, y_window).run(
-            test=test, correction=correction
+            test=test,
+            correction=correction,
+            mz_ranges=mz_ranges,
+            peak_detector=peak_detector,
         )
         window_peaks = _top_peaks_set(analysis, n_top=n_top)
         score = _jaccard(window_peaks, baseline_peaks)

@@ -292,6 +292,24 @@ class TestMaldiSpectrumSave:
         )
         np.testing.assert_array_equal(back.raw["intensity"], spec.binned["intensity"])
 
+    @pytest.mark.parametrize("fmt", ["txt", "csv"])
+    def test_save_round_trip_exact(self, tmp_path: Path, fmt: str):
+        """Text files written by save are read back exactly."""
+        rng = np.random.default_rng(3)
+        df = pd.DataFrame(
+            {
+                "mass": np.sort(rng.uniform(2000, 20000, 5000)),
+                "intensity": rng.random(5000) * 1e-4,
+            }
+        )
+        out = tmp_path / f"spec.{fmt}"
+        MaldiSpectrum(df).save(out, stage="raw", fmt=fmt)
+        back = MaldiSpectrum(out).raw
+        np.testing.assert_array_equal(back["mass"].to_numpy(), df["mass"].to_numpy())
+        np.testing.assert_array_equal(
+            back["intensity"].to_numpy(), df["intensity"].to_numpy()
+        )
+
     def test_save_invalid_fmt(self, synthetic_spectrum: pd.DataFrame, tmp_path: Path):
         """Test that invalid format raises ValueError."""
         spec = MaldiSpectrum(synthetic_spectrum)

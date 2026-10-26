@@ -4,12 +4,15 @@
 a MALDI-TOF spectrum (or a collection of spectra) as a variable-length set of
 ``(m/z, intensity)`` peaks.
 
-Peak extraction is a pure per-spectrum function (no dataset-fitted state), so a
-:class:`PeakList` precomputed over a whole dataset is byte-identical to one
-computed inside a single cross-validation fold - caching it cannot leak. Any
-fitted/aggregating step (warp reference, standardization) belongs to the
-consumer's ``fit`` and is never produced or cached here; ``meta["warped"]`` is
-``False`` for every list this module builds.
+Peak extraction is a per-spectrum function, so a :class:`PeakList` precomputed
+over a whole dataset is identical to one computed inside a single
+cross-validation fold, as long as every preprocessing step works on one
+spectrum at a time (a step holding state learned from data, such as the
+reference of a ``PQNNormalizer``, must come from the training spectra; it is
+part of the cache key). Any fitted step (warp reference, standardization)
+belongs to the consumer's ``fit`` and is never produced here;
+``meta["warped"]`` is ``False`` for every list this module builds (it
+describes this call, not where the input came from).
 """
 
 from __future__ import annotations
@@ -222,8 +225,10 @@ class PeakList:
         ----------
         max_peaks : int, optional
             Padded width ``P``. Defaults to the largest per-spectrum peak
-            count. Spectra with more peaks than ``P`` keep their ``P`` most
-            intense peaks.
+            count of this list, so train and test lists can get different
+            widths; pass the same value to both (for example
+            ``peaklist.meta["top_k"]``). Spectra with more peaks than ``P``
+            keep their ``P`` most intense peaks.
 
         Returns
         -------
@@ -388,11 +393,13 @@ def create_peakset_input(
     m/z resolution, and keeps the ``top_k`` peaks. This is the faithful,
     binning-free path.
 
-    Every step is a pure per-spectrum function, so the result is **un-warped**
-    (``meta["warped"]=False``) and safe to cache globally: a precompute over the
-    full dataset is identical to per-fold computation and cannot leak. Apply any
-    fitted alignment (see :func:`maldiamrkit.alignment.align_peaks`) downstream,
-    in the consumer's fold.
+    Every step works on one spectrum at a time, so the result is **un-warped**
+    (``meta["warped"]=False``) and a precompute over the full dataset is
+    identical to per-fold computation, provided that no preprocessing step
+    holds state learned from the evaluation spectra (such as a
+    ``PQNNormalizer`` reference computed on all of them). Apply any fitted
+    alignment (see :func:`maldiamrkit.alignment.align_peaks`) downstream, in
+    the consumer's fold.
 
     Parameters
     ----------
@@ -404,7 +411,9 @@ def create_peakset_input(
         Spectrum file extension.
     duplicate_strategy : str, default="first"
         How to handle duplicate sample IDs; see
-        :func:`maldiamrkit.alignment.create_raw_input`.
+        :func:`maldiamrkit.alignment.create_raw_input` (``"average"`` is not
+        supported for peak sets: use ``"keep_all"`` and keep the replicates
+        of a sample together with ``groups=`` when splitting).
     top_k : int, default=200
         Maximum number of peaks kept per spectrum.
     rank_by : {"intensity", "persistence", "prominence"}, default="intensity"
@@ -416,12 +425,19 @@ def create_peakset_input(
         ``PreprocessingPipeline.default()``.
     cache_dir : str or Path, optional
         If given, cache the resulting :class:`PeakList` keyed by a content +
-        config hash and reuse it on subsequent calls.
+        config hash and reuse it on subsequent calls. A pipeline with a step
+        that cannot be described (no ``to_dict``, no ``repr`` of its own,
+        and not hashable by :func:`joblib.hash`) is not cached.
 
     Returns
     -------
     PeakList
         One :class:`PeakSet` per discovered spectrum.
+
+    Raises
+    ------
+    ValueError
+        If ``rank_by`` is unknown or ``duplicate_strategy="average"``.
     """
     from ..alignment.raw_warping import create_raw_input
     from ..preprocessing.preprocessing_pipeline import PreprocessingPipeline
@@ -429,6 +445,12 @@ def create_peakset_input(
 
     if rank_by not in _RANK_BY:
         raise ValueError(f"Unknown rank_by={rank_by!r}; expected one of {_RANK_BY}.")
+    if str(getattr(duplicate_strategy, "value", duplicate_strategy)) == "average":
+        raise ValueError(
+            "duplicate_strategy='average' is not supported for peak sets (peaks "
+            "are not averaged). Use 'first', 'last', 'drop', or 'keep_all' "
+            "(with groups= when splitting replicates)."
+        )
     if detector is None:
         detector = MaldiPeakDetector()
     pipe = pipeline or PreprocessingPipeline.default()
@@ -441,20 +463,25 @@ def create_peakset_input(
     )
     paths = paths_df["path"].tolist()
 
+    pipeline_key = _pipeline_key(pipe)
     config = {
         "source": "create_peakset_input",
         "top_k": int(top_k),
         "rank_by": rank_by,
         "detector": detector.get_params(),
-        "detector_kwargs": dict(detector.kwargs),
-        "pipeline": repr(pipe),
+        "detector_kwargs": detector._find_peaks_kwargs(),
+        "pipeline": pipeline_key,
+        "duplicate_strategy": str(
+            getattr(duplicate_strategy, "value", duplicate_strategy)
+        ),
     }
     config_hash = _config_hash(config)
     content_hash = _paths_hash(paths)
 
-    cache = _PeakCache(cache_dir)
+    cache = _PeakCache(cache_dir if pipeline_key is not None else None)
     cached = cache.get(content_hash, config_hash)
     if cached is not None:
+        cached.index = pd.Index(paths_df.index)
         return cached
 
     n_jobs = int(getattr(detector, "n_jobs", 1))
@@ -484,3 +511,32 @@ def create_peakset_input(
     )
     cache.put(content_hash, config_hash, peaklist)
     return peaklist
+
+
+def _pipeline_key(pipe: Any) -> list:
+    """Cache-key description of a pipeline, including the steps' learned state.
+
+    Each step is described by its class, its ``to_dict()`` (which holds, for
+    example, the reference of a ``PQNNormalizer``; ``None`` when it cannot
+    be serialised) and its ``repr`` when the class defines one, so that
+    subclasses with parameters of their own are told apart. A step with
+    neither is described by :func:`joblib.hash` of its state; when that
+    fails too, None is returned and the pipeline is not cached.
+    """
+    import joblib
+
+    key = []
+    for name, step in getattr(pipe, "steps", []):
+        cls = type(step)
+        try:
+            params = step.to_dict()
+        except Exception:
+            params = None
+        custom_repr = repr(step) if cls.__repr__ is not object.__repr__ else None
+        if params is None and custom_repr is None:
+            try:
+                params = joblib.hash(step)
+            except Exception:
+                return None
+        key.append([name, f"{cls.__module__}.{cls.__qualname__}", params, custom_repr])
+    return key or [repr(pipe)]

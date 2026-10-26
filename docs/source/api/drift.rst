@@ -31,6 +31,8 @@ Example
 
 .. code-block:: python
 
+    import pandas as pd
+
     from maldiamrkit import MaldiSet
     from maldiamrkit.differential import DifferentialAnalysis
     from maldiamrkit.drift import (
@@ -58,9 +60,12 @@ Example
     plot_reference_drift(ref_df, title="Cosine distance to baseline median")
     plot_pca_drift(pca_df, title="Centroid trajectory")
 
-    # Peak-selection stability + per-peak effect size drift
-    baseline_analysis = DifferentialAnalysis.from_maldi_set(
-        data, antibiotic="Ceftriaxone"
+    # Peak-selection stability + per-peak effect size drift, from an
+    # analysis of the baseline spectra only
+    dates = pd.to_datetime(data.meta.loc[data.X.index, "acquisition_date"])
+    baseline = data.X.index[dates <= monitor.baseline_end_]
+    baseline_analysis = DifferentialAnalysis(
+        data.X.loc[baseline], data.get_y_single("Ceftriaxone").loc[baseline]
     ).run()
     stability_df = monitor.monitor_peak_stability(
         data, baseline_analysis, antibiotic="Ceftriaxone", n_top=20,

@@ -128,6 +128,12 @@ class DifferentialAnalysis:
         ``mean_s``, ``fold_change``, ``p_value``, ``adjusted_p_value``,
         ``effect_size``.
 
+    Notes
+    -----
+    The results describe the rows passed in. To use the top peaks as
+    features of a classifier, rank them inside each cross-validation
+    training fold, so the evaluation rows do not choose their own features.
+
     Examples
     --------
     >>> analysis = DifferentialAnalysis(X, y).run()
@@ -302,6 +308,14 @@ class DifferentialAnalysis:
                 "effect_size": effect_sizes,
             }
         )
+        # Kept so that analyses of other rows (drift windows) can be run
+        # the same way.
+        self._run_params = {
+            "test": test,
+            "correction": correction,
+            "mz_ranges": mz_ranges,
+            "peak_detector": peak_detector,
+        }
         return self
 
     def _build_feature_mask(

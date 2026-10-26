@@ -150,3 +150,70 @@ class TestMonitor:
         assert (df_pca["window_end"] > monitor.baseline_end_).all()
         # No window should contain a baseline sample.
         assert df["n_spectra"].sum() <= len(post_baseline_ts)
+
+
+def _baseline_rows(monitor, ds):
+    ts = pd.to_datetime(ds.meta.loc[ds.X.index, "acquisition_date"])
+    return ds.X.index[ts <= monitor.baseline_end_]
+
+
+class TestPeakStabilityUsesTheBaselineSettings:
+    """Each window is analysed like the baseline analysis."""
+
+    def test_windows_reuse_test_correction_and_ranges(
+        self, drift_set_with_peaks, monkeypatch
+    ):
+        ds = drift_set_with_peaks
+        monitor = DriftMonitor(
+            time_column="acquisition_date", window="45D", min_samples=5
+        ).fit(ds)
+        rows = _baseline_rows(monitor, ds)
+        y = ds.meta.loc[rows, "Drug"].astype(int)
+        baseline = DifferentialAnalysis(ds.X.loc[rows], y).run(
+            test="t_test", correction="bonferroni", mz_ranges=(2000, 2060)
+        )
+        calls = []
+        original = DifferentialAnalysis.run
+
+        def spy(self, *args, **kwargs):
+            calls.append(kwargs)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(DifferentialAnalysis, "run", spy)
+        monitor.monitor_peak_stability(ds, baseline, antibiotic="Drug", n_top=5)
+        assert calls
+        for kwargs in calls:
+            assert kwargs["test"] == "t_test"
+            assert kwargs["correction"] == "bonferroni"
+            assert kwargs["mz_ranges"] == (2000, 2060)
+
+
+class TestBaselineAnalysisOnBaselineRows:
+    """A baseline analysis that includes monitored spectra is flagged."""
+
+    def test_analysis_on_all_rows_warns(self, drift_set_with_peaks):
+        ds = drift_set_with_peaks
+        monitor = DriftMonitor(
+            time_column="acquisition_date", window="45D", min_samples=5
+        ).fit(ds)
+        y = ds.meta["Drug"].astype(int).loc[ds.X.index]
+        everything = DifferentialAnalysis(ds.X, y).run()
+        with pytest.warns(UserWarning, match="baseline_end_"):
+            monitor.monitor_peak_stability(ds, everything, antibiotic="Drug", n_top=5)
+
+    def test_analysis_on_baseline_rows_does_not_warn(self, drift_set_with_peaks):
+        import warnings
+
+        ds = drift_set_with_peaks
+        monitor = DriftMonitor(
+            time_column="acquisition_date", window="45D", min_samples=5
+        ).fit(ds)
+        rows = _baseline_rows(monitor, ds)
+        y = ds.meta.loc[rows, "Drug"].astype(int)
+        baseline = DifferentialAnalysis(ds.X.loc[rows], y).run()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            warnings.filterwarnings(
+                "ignore", message="DriftMonitor.monitor_peak_stability: skipped"
+            )
+            monitor.monitor_peak_stability(ds, baseline, antibiotic="Drug", n_top=5)

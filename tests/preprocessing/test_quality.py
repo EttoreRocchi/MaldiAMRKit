@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import median_abs_deviation
 
 from maldiamrkit import MaldiSpectrum
 from maldiamrkit.preprocessing import (
@@ -316,3 +317,66 @@ class TestSpectrumQualityReproducibility:
         assert report1.baseline_fraction == report2.baseline_fraction
         assert report1.noise_level == report2.noise_level
         assert report1.dynamic_range == report2.dynamic_range
+
+
+class TestNoiseScaling:
+    """Both MAD noise estimates use the same scale factor."""
+
+    def test_noise_level_equals_mad_noise(self):
+        from maldiamrkit import MaldiSpectrum
+        from tests.conftest import SPECTRA_DIR
+
+        spec = MaldiSpectrum(sorted(SPECTRA_DIR.glob("*.txt"))[0]).preprocess()
+        qc = SpectrumQuality()
+        assert qc.estimate_noise_level(spec) == qc.estimate_mad_noise(spec)
+
+
+class TestGaussianMad:
+    """Noise estimates are the MAD divided by Phi^-1(3/4), as in scipy."""
+
+    @pytest.fixture
+    def spectrum_and_noise(self):
+        from tests.conftest import SPECTRA_DIR
+
+        spec = MaldiSpectrum(sorted(SPECTRA_DIR.glob("*.txt"))[0]).preprocess()
+        df = spec.preprocessed
+        noise = df.loc[df["mass"].between(19500, 20000), "intensity"].to_numpy()
+        return spec, noise
+
+    def test_noise_estimates_match_scipy(self, spectrum_and_noise):
+        spec, noise = spectrum_and_noise
+        expected = median_abs_deviation(noise, scale="normal")
+        qc = SpectrumQuality()
+        assert qc.estimate_noise_level(spec) == expected
+        assert qc.estimate_mad_noise(spec) == expected
+
+    def test_snr_uses_the_same_noise(self, spectrum_and_noise):
+        spec, noise = spectrum_and_noise
+        signal = spec.preprocessed["intensity"].max()
+        expected = signal / median_abs_deviation(noise, scale="normal")
+        assert estimate_snr(spec) == min(expected, 1e6)
+
+    def test_float_constant_scales_the_raw_mad(self, spectrum_and_noise):
+        spec, noise = spectrum_and_noise
+        qc = SpectrumQuality()
+        assert qc.estimate_mad_noise(spec, constant=1.0) == median_abs_deviation(noise)
+
+
+class TestNoiseIgnoresNaN:
+    """A NaN in the noise region is ignored, as by estimate_mad_noise."""
+
+    def test_nan_intensity_is_ignored(self):
+        rng = np.random.default_rng(0)
+        mass = np.linspace(19000, 20000, 500)
+        intensity = rng.random(500)
+        without = MaldiSpectrum(
+            pd.DataFrame(
+                {"mass": np.delete(mass, 400), "intensity": np.delete(intensity, 400)}
+            )
+        )
+        intensity[400] = np.nan
+        with_nan = MaldiSpectrum(pd.DataFrame({"mass": mass, "intensity": intensity}))
+        qc = SpectrumQuality()
+        assert qc.estimate_noise_level(with_nan) == qc.estimate_noise_level(without)
+        assert qc.estimate_mad_noise(with_nan) == qc.estimate_mad_noise(without)
+        assert estimate_snr(with_nan) == estimate_snr(without)

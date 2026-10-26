@@ -60,7 +60,7 @@ Basic Classification Pipeline
        ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
    ])
 
-   # Cross-validation
+   # Cross-validation (with replicates, use StratifiedGroupKFold and groups=data.groups)
    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
    scores = cross_val_score(
        pipe, data.X, data.get_y_single(),

@@ -332,3 +332,122 @@ class TestCreatePeaksetInput:
         _write_spectrum(tmp_path / "s0.txt", seed=0)
         with pytest.raises(ValueError, match="Unknown rank_by"):
             create_peakset_input(tmp_path, rank_by="bogus")
+
+
+class TestCacheKeys:
+    """Caches tell apart learned references and keep the current sample IDs."""
+
+    @staticmethod
+    def _spectra(tmp_path):
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        rng = np.random.default_rng(0)
+        mz = np.linspace(2000, 20000, 2000)
+        for i in range(2):
+            intensity = 1.0 + np.exp(-0.5 * ((mz - 5000 - 100 * i) / 20.0) ** 2)
+            intensity += rng.random(2000) * 0.01
+            np.savetxt(tmp_path / f"s{i}.txt", np.column_stack([mz, intensity]))
+        return tmp_path
+
+    def test_pqn_reference_is_part_of_the_key(self, tmp_path):
+        from maldiamrkit.detection.peaklist import create_peakset_input
+        from maldiamrkit.preprocessing import PreprocessingPipeline
+        from maldiamrkit.preprocessing.transformers import PQNNormalizer
+
+        spectra = self._spectra(tmp_path / "spectra")
+        cache = tmp_path / "cache"
+
+        def run(reference):
+            pipe = PreprocessingPipeline([("pqn", PQNNormalizer(reference))])
+            return create_peakset_input(spectra, pipeline=pipe, cache_dir=cache)
+
+        first = run(np.ones(2000))
+        second = run(np.full(2000, 4.0))
+        fresh = create_peakset_input(
+            spectra,
+            pipeline=PreprocessingPipeline(
+                [("pqn", PQNNormalizer(np.full(2000, 4.0)))]
+            ),
+        )
+        assert first.meta["config_hash"] != second.meta["config_hash"]
+        np.testing.assert_array_equal(second[0].intensity, fresh[0].intensity)
+
+    def test_average_strategy_is_rejected(self, tmp_path):
+        from maldiamrkit.detection.peaklist import create_peakset_input
+
+        spectra = self._spectra(tmp_path / "spectra")
+        with pytest.raises(ValueError, match="average"):
+            create_peakset_input(spectra, duplicate_strategy="average")
+
+    def test_detector_cache_returns_the_current_index(self, tmp_path):
+        from maldiamrkit.detection import MaldiPeakDetector
+
+        rng = np.random.default_rng(1)
+        values = rng.random((3, 50))
+        columns = [str(2000 + 3 * i) for i in range(50)]
+        detector = MaldiPeakDetector(prominence=0.1)
+        first = pd.DataFrame(values, index=list("abc"), columns=columns)
+        second = pd.DataFrame(values, index=list("xyz"), columns=columns)
+        detector.transform_peaklist(first, cache_dir=tmp_path)
+        out = detector.transform_peaklist(second, cache_dir=tmp_path)
+        assert list(out.index) == ["x", "y", "z"]
+
+    def test_custom_steps_are_told_apart(self, tmp_path):
+        from maldiamrkit.detection.peaklist import create_peakset_input
+        from maldiamrkit.preprocessing import PreprocessingPipeline
+        from maldiamrkit.preprocessing.transformers import TICNormalizer
+
+        class Powered(TICNormalizer):
+            def __init__(self, k=1.0):
+                super().__init__()
+                self.k = k
+
+            def __call__(self, df):
+                df = super().__call__(df)
+                df["intensity"] = df["intensity"] ** self.k
+                return df
+
+            def __repr__(self):
+                return f"Powered(k={self.k})"
+
+        class Unserialisable(Powered):
+            def to_dict(self):
+                raise NotImplementedError
+
+        spectra = self._spectra(tmp_path / "spectra")
+        cache = tmp_path / "cache"
+
+        def run(step, cache_dir=cache):
+            pipe = PreprocessingPipeline([("step", step)])
+            return create_peakset_input(
+                spectra, pipeline=pipe, cache_dir=cache_dir, rank_by="intensity"
+            )
+
+        first = run(Powered(1.0))
+        second = run(Powered(0.5))
+        assert first.meta["config_hash"] != second.meta["config_hash"]
+        np.testing.assert_array_equal(
+            second[0].intensity, run(Powered(0.5), cache_dir=None)[0].intensity
+        )
+        run(Unserialisable(0.5))
+
+    def test_steps_without_description_never_serve_stale_peaks(self, tmp_path):
+        from maldiamrkit.detection.peaklist import create_peakset_input
+        from maldiamrkit.preprocessing import PreprocessingPipeline
+
+        class Cut:
+            def __init__(self, cut):
+                self.cut = cut
+
+            def __call__(self, df):
+                return df[df["mass"] > self.cut].reset_index(drop=True)
+
+        spectra = self._spectra(tmp_path / "spectra")
+        cache = tmp_path / "cache"
+
+        def run(cut, cache_dir=cache):
+            pipe = PreprocessingPipeline([("cut", Cut(cut))])
+            return create_peakset_input(spectra, pipeline=pipe, cache_dir=cache_dir)
+
+        run(2000)
+        later = run(15000)
+        np.testing.assert_array_equal(later[0].mz, run(15000, cache_dir=None)[0].mz)

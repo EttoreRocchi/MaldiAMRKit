@@ -22,6 +22,8 @@ from .peaklist import (
     _PeakCache,
 )
 
+_FIND_PEAKS_PARAMS = ("prominence", "height", "distance", "width")
+
 
 class PeakMethod(str, Enum):
     """Supported peak detection methods.
@@ -120,12 +122,22 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         self.height = height
         self.distance = distance
         self.width = width
-        # Build kwargs from explicit params + extra kwargs
-        self.kwargs = dict(kwargs)
-        for param in ("prominence", "height", "distance", "width"):
-            val = getattr(self, param)
-            if val is not None:
-                self.kwargs.setdefault(param, val)
+        # Extra find_peaks arguments; the named ones are read at detection
+        # time, so that set_params (and grid searches) take effect.
+        self.kwargs = {k: v for k, v in kwargs.items() if k not in _FIND_PEAKS_PARAMS}
+
+    def _find_peaks_kwargs(self) -> dict:
+        """Arguments passed to :func:`scipy.signal.find_peaks`.
+
+        The current named parameters win over ``kwargs`` (which also holds
+        them in detectors pickled by maldiamrkit 0.22.0).
+        """
+        kwargs = {k: v for k, v in self.kwargs.items() if k not in _FIND_PEAKS_PARAMS}
+        for param in _FIND_PEAKS_PARAMS:
+            value = getattr(self, param)
+            if value is not None:
+                kwargs[param] = value
+        return kwargs
 
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -169,7 +181,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         peaks : np.ndarray
             Array of peak indices.
         """
-        peaks, _ = find_peaks(row, **self.kwargs)
+        peaks, _ = find_peaks(row, **self._find_peaks_kwargs())
         return peaks
 
     def _detect_peaks_ph(self, row: np.ndarray) -> np.ndarray:
@@ -585,7 +597,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
             "top_k": None if top_k is None else int(top_k),
             "rank_by": rank_by,
             "detector": self.get_params(),
-            "detector_kwargs": dict(self.kwargs),
+            "detector_kwargs": self._find_peaks_kwargs(),
             "mz_axis": _array_hash(mz_axis),
         }
         config_hash = _config_hash(config)
@@ -594,6 +606,7 @@ class MaldiPeakDetector(BaseEstimator, TransformerMixin):
         cache = _PeakCache(cache_dir)
         cached = cache.get(content_hash, config_hash)
         if cached is not None:
+            cached.index = pd.Index(index)
             return cached
 
         rows = [values[i] for i in range(values.shape[0])]

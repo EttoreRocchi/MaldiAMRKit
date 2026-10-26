@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
+from ._metadata import _read_metadata_csv
 from .duplicates import DuplicateStrategy, apply_metadata_strategy
 
 logger = logging.getLogger(__name__)
@@ -175,7 +176,7 @@ class FlatLayout(InputLayout):
 
     def discover_metadata(self) -> pd.DataFrame:
         """Read metadata CSV and normalise the ID column."""
-        meta = pd.read_csv(self.metadata_csv)
+        meta = _read_metadata_csv(self.metadata_csv, self.id_column)
         if self.id_column not in meta.columns:
             raise ValueError(
                 f"ID column '{self.id_column}' not found in metadata. "
@@ -274,8 +275,9 @@ class BrukerTreeLayout(InputLayout):
         * ``"last"``: keep the last occurrence.
         * ``"drop"``: remove all duplicates.
         * ``"keep_all"``: keep every replicate, appending the
-          target-position value to the ID
-          (``{identifier}_{target_position}``).
+          target-position value to the duplicated IDs
+          (``{identifier}_{target_position}``; an identifier measured
+          once keeps its ID); the replicates of one specimen share a group once the built dataset is loaded.
         * ``"average"``: tag replicates for downstream averaging
           (adds ``_original_id`` column).
     validate : bool, default=True
@@ -418,7 +420,7 @@ class BrukerTreeLayout(InputLayout):
 
     def _read_raw_metadata(self) -> pd.DataFrame:
         """Read and normalise the raw metadata CSV."""
-        meta = pd.read_csv(self.metadata_csv)
+        meta = _read_metadata_csv(self.metadata_csv, self.id_column)
         if self.id_column not in meta.columns:
             raise ValueError(
                 f"ID column '{self.id_column}' not in metadata. "

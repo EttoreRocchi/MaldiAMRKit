@@ -136,7 +136,7 @@ def _save_spectrum(df: pd.DataFrame, path: Path) -> None:
         df[["mass", "intensity"]].values.astype(float),
         header="mass intensity",
         comments="# ",
-        fmt="%.6f",
+        fmt="%.17g",
     )
 
 

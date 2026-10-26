@@ -82,7 +82,13 @@ def preprocess(
         int, typer.Option("-b", "--bin-width", help="Bin width in Daltons.")
     ] = 3,
     method: Annotated[
-        BinningMethod, typer.Option(help="Binning method.")
+        BinningMethod,
+        typer.Option(
+            help=(
+                "Binning method (one grid for all files: adaptive only with a "
+                "single file, custom is not available here)."
+            )
+        ),
     ] = BinningMethod.uniform,
     pipeline: Annotated[
         Optional[Path],
@@ -99,6 +105,15 @@ def preprocess(
     spectrum_files = sorted(input_dir.glob("*.txt"))
     if not spectrum_files:
         console.print(f"[red]Error:[/red] No .txt spectrum files found in {input_dir}")
+        raise typer.Exit(code=1)
+    if method is BinningMethod.custom or (
+        method is BinningMethod.adaptive and len(spectrum_files) > 1
+    ):
+        console.print(
+            f"[red]Error:[/red] --method {method.value} cannot build one feature "
+            "matrix for these files (adaptive bins depend on each spectrum, and "
+            "custom edges cannot be passed here). Use uniform or proportional."
+        )
         raise typer.Exit(code=1)
 
     if save_spectra_dir is not None:
@@ -150,6 +165,9 @@ def preprocess(
         console.print("[red]Error:[/red] No spectra were successfully processed.")
         raise typer.Exit(code=1)
 
+    if any(not row.index.equals(rows[0].index) for row in rows[1:]):
+        console.print("[red]Error:[/red] Spectra were binned on different m/z grids.")
+        raise typer.Exit(code=1)
     feature_matrix = pd.concat(rows, axis=1).T
     feature_matrix.index.name = "ID"
     feature_matrix.to_csv(output)

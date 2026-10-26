@@ -526,15 +526,17 @@ class PQNNormalizer:
     """Probabilistic Quotient Normalization.
 
     First normalizes by TIC, then divides by the median of the quotient
-    spectrum (sample / reference). If no reference is provided, the
-    reference is the median spectrum across the dataset.
+    spectrum (sample / reference). The reference is given at construction
+    (for example the median of the training spectra on the same m/z grid);
+    without one, only the TIC normalization is applied.
 
     Parameters
     ----------
     reference : np.ndarray, list, or None, default=None
-        Reference intensity vector. If None, uses TIC normalization only
-        (the full PQN requires a reference from the dataset). Lists are
-        converted to arrays internally.
+        Reference intensity vector, computed on the training spectra only
+        so that test spectra do not shape their own normalization. If None,
+        uses TIC normalization only. Lists are converted to arrays
+        internally.
     """
 
     def __init__(self, reference: np.ndarray | list | None = None):

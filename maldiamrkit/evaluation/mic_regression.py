@@ -61,6 +61,10 @@ def mic_regression_report(
     "Essential agreement" is the standard clinical benchmark for MIC
     prediction accuracy: a prediction is essential-agreement-correct if
     it is within one log2 dilution of the true value.
+
+    The true values are compared as point values: censored MICs (such as
+    ``>16``) should be removed first, or categorised with
+    :class:`~maldiamrkit.susceptibility.MICEncoder`.
     """
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -126,15 +130,11 @@ def _categorical_block(
     log2_pred: np.ndarray,
     mask: np.ndarray,
 ) -> dict[str, float | int]:
-    mic_true = np.power(2.0, log2_true)
-    mic_pred = np.power(2.0, log2_pred)
+    mic_true = _dilution_value(np.power(2.0, log2_true))
+    mic_pred = _dilution_value(np.power(2.0, log2_pred))
     cat_true = breakpoints.apply_batch(species, drug, mic_true)["category"].to_numpy()
     cat_pred = breakpoints.apply_batch(species, drug, mic_pred)["category"].to_numpy()
-    both = (
-        mask
-        & np.array([t is not None for t in cat_true])
-        & np.array([p is not None for p in cat_pred])
-    )
+    both = mask & pd.notna(cat_true) & pd.notna(cat_pred)
     n_cat = int(both.sum())
     if n_cat == 0:
         return {
@@ -166,3 +166,14 @@ def _categorical_block(
         "n_resistant_true": int(resistant_mask.sum()),
         "n_susceptible_true": int(susceptible_mask.sum()),
     }
+
+
+def _dilution_value(mic: np.ndarray) -> np.ndarray:
+    """Round re-exponentiated MICs to 10 significant digits.
+
+    ``2 ** log2(x)`` can land just above ``x`` (for example 0.03 or 0.06
+    mg/L), which would move a MIC at a breakpoint into the next category.
+    """
+    return np.array(
+        [float(f"{v:.10g}") if np.isfinite(v) else v for v in mic], dtype=float
+    )

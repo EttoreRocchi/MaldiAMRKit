@@ -438,3 +438,47 @@ class TestPeakDetectorEdgeCases:
         detector.method = "invalid"
         with pytest.raises(ValueError, match="Unknown method"):
             detector.get_peak_statistics(binned_dataset.iloc[:1])
+
+
+class TestDetectorParametersAfterSetParams:
+    """Detection uses the current parameters, also after set_params."""
+
+    def test_set_params_matches_a_fresh_detector(self, binned_dataset):
+        detector = MaldiPeakDetector(prominence=1e-6).set_params(prominence=0.05)
+        fresh = MaldiPeakDetector(prominence=0.05)
+        pd.testing.assert_frame_equal(
+            detector.transform(binned_dataset), fresh.transform(binned_dataset)
+        )
+
+    def test_grid_search_over_prominence(self, binned_dataset):
+        from sklearn.dummy import DummyClassifier
+        from sklearn.model_selection import GridSearchCV
+        from sklearn.pipeline import Pipeline
+
+        def n_peaks(estimator, X, y):
+            return float(estimator.named_steps["peaks"].transform(X).to_numpy().sum())
+
+        y = np.arange(len(binned_dataset)) % 2
+        pipe = Pipeline([("peaks", MaldiPeakDetector()), ("clf", DummyClassifier())])
+        search = GridSearchCV(
+            pipe, {"peaks__prominence": [1e-6, 10.0]}, cv=2, scoring=n_peaks
+        ).fit(binned_dataset, y)
+        scores = search.cv_results_["mean_test_score"]
+        assert scores[0] > 0
+        assert scores[1] == 0
+
+    def test_nested_set_params_in_warping(self, binned_dataset):
+        from maldiamrkit.alignment import Warping
+
+        warper = Warping().set_params(peak_detector__prominence=10.0)
+        assert warper.peak_detector.transform(binned_dataset).to_numpy().sum() == 0
+
+    def test_state_pickled_by_0_22_0(self, binned_dataset):
+        detector = MaldiPeakDetector(prominence=1e-5)
+        detector.kwargs = {"prominence": 1e-5}
+        fresh = MaldiPeakDetector(prominence=1e-5)
+        pd.testing.assert_frame_equal(
+            detector.transform(binned_dataset), fresh.transform(binned_dataset)
+        )
+        detector.set_params(prominence=10.0)
+        assert detector.transform(binned_dataset).to_numpy().sum() == 0

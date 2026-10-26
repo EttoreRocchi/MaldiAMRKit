@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -102,6 +103,51 @@ class TestReadSpectrum:
         df = read_spectrum(f)
         assert df["mass"].iloc[0] == pytest.approx(2000.5)
         assert df["intensity"].iloc[1] == pytest.approx(200.456)
+
+
+def _random_spectrum(n: int = 2000, seed: int = 0) -> pd.DataFrame:
+    """Full-precision float64 masses and intensities."""
+    rng = np.random.default_rng(seed)
+    return pd.DataFrame(
+        {
+            "mass": np.sort(rng.uniform(2000, 20000, n)),
+            "intensity": rng.random(n) * 1e-4,
+        }
+    )
+
+
+def _assert_exact(df: pd.DataFrame, expected: pd.DataFrame) -> None:
+    np.testing.assert_array_equal(df["mass"].to_numpy(), expected["mass"].to_numpy())
+    np.testing.assert_array_equal(
+        df["intensity"].to_numpy(), expected["intensity"].to_numpy()
+    )
+
+
+class TestExactTextReload:
+    """Text spectra written at full precision are read back exactly."""
+
+    def test_commented_header(self, tmp_path):
+        expected = _random_spectrum()
+        f = tmp_path / "spec.txt"
+        np.savetxt(
+            f, expected.values, header="mass intensity", comments="# ", fmt="%.17g"
+        )
+        _assert_exact(read_spectrum(f), expected)
+
+    @pytest.mark.parametrize("sep, name", [("\t", "spec.txt"), (",", "spec.csv")])
+    def test_uncommented_header(self, tmp_path, sep, name):
+        expected = _random_spectrum()
+        f = tmp_path / name
+        expected.to_csv(f, sep=sep, index=False)
+        _assert_exact(read_spectrum(f), expected)
+
+    def test_invalid_line_dropped(self, tmp_path):
+        expected = _random_spectrum(n=10)
+        lines = [f"{float(m)!r} {float(i)!r}" for m, i in expected.to_numpy()]
+        lines.insert(5, "abc 1.0")
+        f = tmp_path / "spec.txt"
+        f.write_text("\n".join(lines) + "\n")
+        _assert_exact(read_spectrum(f), expected)
 
 
 class TestBrukerReaderErrors:

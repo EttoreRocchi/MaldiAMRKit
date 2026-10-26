@@ -144,6 +144,34 @@ class TestPreprocessSynthetic:
         txt_files = list(save_dir.glob("*.txt"))
         assert len(txt_files) == 3
 
+    def test_saved_spectra_reload_exactly(self, tmp_path: Path):
+        """Spectra saved by --save-spectra-dir are read back exactly."""
+        from maldiamrkit.io import read_spectrum
+        from maldiamrkit.preprocessing.pipeline import preprocess
+
+        spectra_dir = _write_synthetic_spectra(tmp_path, n=1)
+        save_dir = tmp_path / "preprocessed"
+        result = runner.invoke(
+            app,
+            [
+                "preprocess",
+                "-i",
+                str(spectra_dir),
+                "-o",
+                str(tmp_path / "matrix.csv"),
+                "--save-spectra-dir",
+                str(save_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        expected = preprocess(
+            read_spectrum(spectra_dir / "s0.txt"), PreprocessingPipeline.default()
+        )
+        saved = read_spectrum(save_dir / "s0.txt")
+        np.testing.assert_array_equal(
+            saved.to_numpy(), expected[["mass", "intensity"]].to_numpy()
+        )
+
     def test_corrupt_file_counted_as_failed(self, tmp_path: Path):
         """Verify that a corrupt file is silently skipped."""
         spectra_dir = _write_synthetic_spectra(tmp_path, n=2)
@@ -294,3 +322,36 @@ class TestLoadExtraHandlers:
         config_path.write_text(json.dumps(config))
         handlers = _load_extra_handlers(config_path)
         assert handlers[0].pipeline is not None
+
+
+class TestPreprocessGrid:
+    """The preprocess command writes one feature grid for all files."""
+
+    @pytest.mark.parametrize("method", ["adaptive", "custom"])
+    def test_data_dependent_or_edgeless_methods_rejected(self, tmp_path, method):
+        spectra_dir = _write_synthetic_spectra(tmp_path, n=2)
+        output = tmp_path / "matrix.csv"
+        result = runner.invoke(
+            app,
+            [
+                "preprocess",
+                "-i",
+                str(spectra_dir),
+                "-o",
+                str(output),
+                "--method",
+                method,
+            ],
+        )
+        assert result.exit_code == 1
+        assert method in result.output
+        assert not output.exists()
+
+    def test_uniform_matrix_has_no_missing_values(self, tmp_path):
+        spectra_dir = _write_synthetic_spectra(tmp_path, n=2)
+        output = tmp_path / "matrix.csv"
+        result = runner.invoke(
+            app, ["preprocess", "-i", str(spectra_dir), "-o", str(output)]
+        )
+        assert result.exit_code == 0, result.output
+        assert not pd.read_csv(output, index_col=0).isna().any().any()

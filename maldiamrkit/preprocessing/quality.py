@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
-from scipy.stats import median_abs_deviation, norm
+from scipy.stats import median_abs_deviation
 
 
 class SignalMethod(str, Enum):
@@ -120,6 +120,11 @@ class SpectrumQuality:
         """
         Estimate noise level using MAD in noise region.
 
+        The MAD of the intensities in ``noise_region`` is divided by
+        ``Phi^{-1}(3/4)`` (about 0.6745, ``scale="normal"`` in
+        :func:`scipy.stats.median_abs_deviation`), which gives the standard
+        deviation of Gaussian noise. NaN intensities are ignored.
+
         Parameters
         ----------
         spectrum : MaldiSpectrum
@@ -139,25 +144,23 @@ class SpectrumQuality:
         if len(noise) == 0:
             return 0.0
 
-        mad = np.median(np.abs(noise - np.median(noise)))
-        # 1/Phi^{-1}(3/4), exact for Gaussian noise
-        return mad / norm.ppf(0.75)
+        return float(median_abs_deviation(noise, scale="normal", nan_policy="omit"))
 
     def estimate_mad_noise(
         self,
         spectrum: MaldiSpectrum,
         mz_region: tuple[float, float] | None = None,
-        constant: float = 1.4826,
+        constant: float | None = None,
     ) -> float:
         """
         Estimate noise level via median absolute deviation (MAD).
 
         Uses :func:`scipy.stats.median_abs_deviation` on the intensities
-        in the selected m/z region and multiplies the raw MAD by
-        ``constant``. The default ``constant = 1.4826 = 1 / Phi^{-1}(3/4)``
-        rescales MAD to match the standard deviation of a Gaussian
-        (Rousseeuw & Croux 1993), matching the convention used by
-        :meth:`estimate_noise_level`.
+        in the selected m/z region, ignoring NaN. By default the raw MAD is
+        divided by ``Phi^{-1}(3/4)`` (``scale="normal"`` in scipy), which
+        gives the standard deviation of Gaussian noise (Rousseeuw & Croux
+        1993) and the same value as :meth:`estimate_noise_level`; a float
+        ``constant`` multiplies the raw MAD instead.
 
         Parameters
         ----------
@@ -167,10 +170,10 @@ class SpectrumQuality:
         mz_region : tuple of (float, float), optional
             m/z range to use for noise estimation. When ``None`` (the
             default) falls back to ``self.noise_region``.
-        constant : float, default=1.4826
-            Scale factor applied to the raw MAD. Use ``1.4826`` for a
-            standard-normal-scaled estimator (equivalent to
-            ``scale='normal'`` in scipy).
+        constant : float or None, default=None
+            Scale factor applied to the raw MAD (``1.0`` gives the raw MAD).
+            ``None`` divides it by ``Phi^{-1}(3/4)``, the exact factor for
+            Gaussian noise.
 
         Returns
         -------
@@ -185,6 +188,8 @@ class SpectrumQuality:
         if len(noise) == 0:
             return 0.0
 
+        if constant is None:
+            return float(median_abs_deviation(noise, scale="normal", nan_policy="omit"))
         mad = median_abs_deviation(noise, scale=1.0, nan_policy="omit")
         return float(constant * mad)
 
@@ -361,8 +366,10 @@ def estimate_snr(
 
     Notes
     -----
-    The MAD-to-standard-deviation conversion factor (1.4826) assumes
-    normally distributed noise.
+    The noise standard deviation is the MAD of the noise region divided by
+    ``Phi^{-1}(3/4)`` (``scale="normal"`` in
+    :func:`scipy.stats.median_abs_deviation`), which assumes normally
+    distributed noise. NaN intensities are ignored.
 
     Examples
     --------
@@ -391,10 +398,7 @@ def estimate_snr(
         )
         return _MAX_SNR
 
-    mad = np.median(np.abs(noise - np.median(noise)))
-    # MAD-to-std conversion factor 1.4826 assumes normally distributed
-    # noise (exact for Gaussian; see Rousseeuw & Croux 1993).
-    noise_std = 1.4826 * mad
+    noise_std = median_abs_deviation(noise, scale="normal", nan_policy="omit")
 
     if signal_method == "max":
         signal = df["intensity"].max()

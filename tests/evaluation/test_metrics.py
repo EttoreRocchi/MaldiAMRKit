@@ -351,3 +351,69 @@ class TestAmrMultilabelReport:
         y_pred = pd.DataFrame({"B": [1, 0]})
         with pytest.raises(ValueError, match="No common columns"):
             amr_multilabel_report(y_true, y_pred)
+
+
+class TestResistantLabelChecks:
+    """String labels with a wrong resistant_label raise instead of hiding errors."""
+
+    def test_report_raises_for_absent_resistant_label(self):
+        with pytest.raises(ValueError, match="resistant_label"):
+            amr_classification_report(["R", "R", "S", "S"], ["S", "S", "R", "R"])
+
+    def test_report_with_the_right_label(self):
+        report = amr_classification_report(
+            ["R", "R", "S", "S"], ["S", "S", "R", "R"], resistant_label="R"
+        )
+        assert report["vme"] == 1.0
+        assert report["me"] == 1.0
+        assert report["specificity"] == 0.0
+        assert type(report["vme"]) is float
+        assert type(report["categorical_agreement"]) is float
+
+    def test_single_label_of_another_kind_raises(self):
+        with pytest.raises(ValueError, match="resistant_label"):
+            very_major_error_rate(["R", "R"], ["R", "R"])
+
+    def test_vme_me_curve_raises_for_absent_resistant_label(self):
+        with pytest.raises(ValueError, match="resistant_label"):
+            vme_me_curve(["R", "R", "S", "S"], [0.9, 0.8, 0.1, 0.2])
+
+    def test_vme_me_curve_with_the_right_label(self):
+        y_true = np.array(["R", "R", "S", "S"])
+        y_score = np.array([0.9, 0.8, 0.1, 0.2])
+        vme, me, thresholds = vme_me_curve(y_true, y_score, resistant_label="R")
+        resistant = y_true == "R"
+        for t, v, m in zip(thresholds, vme, me, strict=True):
+            pred_r = y_score >= t
+            assert v == np.mean(~pred_r[resistant])
+            assert m == np.mean(pred_r[~resistant])
+
+    def test_vme_me_curve_fold_without_resistant_isolates(self):
+        vme, me, thresholds = vme_me_curve([0, 0, 0], [0.1, 0.5, 0.9])
+        assert len(thresholds) == 3
+
+
+class TestMultilabelAlignment:
+    """amr_multilabel_report pairs predictions with labels by sample ID."""
+
+    @pytest.fixture()
+    def y_true(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {"CIP": [1, 0, 1, 0], "MEM": [0, 0, 1, 1]}, index=list("abcd")
+        )
+
+    def test_reordered_predictions(self, y_true):
+        report = amr_multilabel_report(y_true, y_true.iloc[::-1])
+        assert report["CIP"]["vme"] == 0.0
+        assert report["CIP"]["me"] == 0.0
+        assert report["CIP"]["categorical_agreement"] == 1.0
+
+    def test_predictions_without_the_sample_ids_raise(self, y_true):
+        with pytest.raises(ValueError, match="index"):
+            amr_multilabel_report(y_true, y_true.reset_index(drop=True))
+
+    def test_duplicated_ids_raise(self, y_true):
+        dup = y_true.copy()
+        dup.index = list("abca")
+        with pytest.raises(ValueError, match="index"):
+            amr_multilabel_report(dup, dup)

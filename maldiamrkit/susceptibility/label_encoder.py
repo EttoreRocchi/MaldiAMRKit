@@ -61,7 +61,8 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
           avoids false resistance calls.
         - ``"resistant"``: treat I as resistant (1) - stricter, avoids
           missing resistance.
-        - ``"drop"``: remove samples with I labels entirely.
+        - ``"drop"``: remove samples with I labels entirely (one drug at
+          a time: several columns raise ``ValueError``).
           Note: this changes the output array length (samples with I
           labels are excluded) and is not compatible with sklearn
           pipelines that expect consistent sample counts.
@@ -123,7 +124,20 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
             Binary encoded labels. Returns a DataFrame when the input is
             a DataFrame (or a 2-D ndarray), preserving column names and
             index. Returns a 1-D ndarray for 1-D input.
+
+        Raises
+        ------
+        ValueError
+            If ``intermediate="drop"`` and ``y`` has several columns (each
+            drug would drop different samples); use ``intermediate="nan"``
+            and drop the rows yourself.
         """
+        if self.intermediate == "drop" and np.ndim(y) == 2:
+            raise ValueError(
+                "intermediate='drop' cannot encode several drugs at once: each "
+                "column would drop different samples. Use intermediate='nan' "
+                "and drop the rows with missing labels yourself."
+            )
         if isinstance(y, pd.DataFrame):
             return y.apply(self._encode_column)
         arr = np.asarray(y)

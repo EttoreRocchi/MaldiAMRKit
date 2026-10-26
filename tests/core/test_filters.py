@@ -102,6 +102,23 @@ class TestQualityFilter:
         assert "min_snr=5.0" in r
         assert "min_peaks=10" in r
 
+    def test_reads_the_quality_report_columns(self):
+        from dataclasses import asdict
+
+        from maldiamrkit import MaldiSpectrum
+        from maldiamrkit.preprocessing import SpectrumQuality
+        from tests.conftest import SPECTRA_DIR
+
+        spec = MaldiSpectrum(sorted(SPECTRA_DIR.glob("*.txt"))[0])
+        row = pd.Series(asdict(SpectrumQuality().assess(spec)))
+        assert row["peak_count"] >= 1
+        assert QualityFilter(min_peaks=1)(row)
+
+    def test_nan_counts_as_missing(self):
+        row = pd.Series({"snr": float("nan"), "peak_count": 50})
+        assert not QualityFilter(min_snr=5.0)(row)
+        assert QualityFilter(min_peaks=10)(row)
+
 
 class TestMetadataFilter:
     """Tests for MetadataFilter."""

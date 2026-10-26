@@ -133,3 +133,63 @@ class TestMICEncoderErrors:
         enc = MICEncoder(mic_col="MIC")
         with pytest.raises(KeyError, match="MIC"):
             enc.fit(df)
+
+
+class TestCensoredMICs:
+    """A censored MIC gets S or R only when its bound decides the category."""
+
+    TABLE = [
+        ("Ceftriaxone", "<=1", "S", False),
+        ("Ceftriaxone", "<1", "S", False),
+        ("Ceftriaxone", "<=2", None, False),
+        ("Ceftriaxone", "<2", None, False),
+        ("Ceftriaxone", ">2", "R", False),
+        ("Ceftriaxone", ">1", None, False),
+        ("Ceftriaxone", ">=2", None, False),
+        ("Ceftriaxone", ">=4", "R", False),
+        ("Piperacillin-tazobactam", ">8", "R", False),
+        ("Piperacillin-tazobactam", "<=16", None, False),
+        ("Piperacillin-tazobactam", "<=8", "S", False),
+        ("Piperacillin-tazobactam", ">=8", None, False),
+        ("Piperacillin-tazobactam", ">=16", "R", False),
+        ("Piperacillin-tazobactam", "8", "S", False),
+        ("Meropenem", "<=4", None, False),
+        ("Meropenem", ">4", None, False),
+        ("Meropenem", ">8", "R", False),
+        ("Meropenem", "4", "I", True),
+    ]
+
+    @pytest.mark.parametrize("drug, mic, category, atu", TABLE)
+    def test_truth_table(self, bp, drug, mic, category, atu):
+        df = pd.DataFrame({"MIC": [mic], "Drug": [drug]})
+        enc = MICEncoder(
+            breakpoints=bp,
+            mic_col="MIC",
+            species="Klebsiella pneumoniae",
+            drug_col="Drug",
+        )
+        out = enc.fit_transform(df).iloc[0]
+        if category is None:
+            assert pd.isna(out["category"])
+            assert out["source"] == bp.source
+        else:
+            assert out["category"] == category
+        assert bool(out["atu"]) is atu
+
+    def test_subclass_apply_batch_is_used(self, bp):
+        calls = []
+
+        class Spy(BreakpointTable):
+            def apply_batch(self, species, drug, mic):
+                calls.append(np.asarray(mic, dtype=float))
+                return super().apply_batch(species, drug, mic)
+
+        spy = Spy(bp.rows, guideline=bp.guideline, version=bp.version)
+        df = pd.DataFrame({"MIC": [">8", "<=8"]})
+        out = MICEncoder(
+            breakpoints=spy,
+            species="Klebsiella pneumoniae",
+            drug="Piperacillin-tazobactam",
+        ).fit_transform(df)
+        assert calls
+        assert list(out["category"]) == ["R", "S"]

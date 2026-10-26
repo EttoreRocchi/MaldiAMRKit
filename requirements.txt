@@ -15,6 +15,9 @@ gudhi>=3.5.0
 # Dynamic time warping
 tslearn>=0.6.0
 
+# JIT kernels (banded DTW)
+numba>=0.55
+
 # YAML serialization
 pyyaml>=6.0
 

@@ -101,3 +101,30 @@ class TestMicRegressionReportCategorical:
     def test_requires_species_and_drug(self, bp):
         with pytest.raises(ValueError, match="species and drug"):
             mic_regression_report([0.0], [0.0], breakpoints=bp)
+
+
+class TestBreakpointValuesKeepTheirCategory:
+    """MICs exactly at a breakpoint keep their category after log2."""
+
+    def test_every_unambiguous_v16_row(self):
+        import pandas as pd
+
+        bp = BreakpointTable.from_version("16.0")
+        rows = bp.rows
+        key = rows["species"].str.strip().str.lower() + "|" + rows["drug"].str.lower()
+        n_thresholds = rows.groupby(key)[
+            ["s_le", "r_gt", "atu_low", "atu_high"]
+        ].nunique(dropna=False)
+        conflicting = set(n_thresholds.index[(n_thresholds > 1).any(axis=1)])
+        clear = ~key.isin(conflicting)
+        assert int((~clear).sum()) == 46
+
+        y = np.log2(rows["s_le"].to_numpy())
+        report = mic_regression_report(
+            y, y, breakpoints=bp, species=rows["species"], drug=rows["drug"]
+        )
+        assert report["n_categorical"] == int(clear.sum())
+        assert report["n_susceptible_true"] == int(clear.sum())
+        assert report["categorical_agreement"] == 1.0
+        assert report["major_error_rate"] == 0.0
+        assert isinstance(rows, pd.DataFrame)

@@ -198,8 +198,10 @@ class DriftMonitor:
     ) -> pd.DataFrame:
         """Peak-selection stability (Jaccard) timeseries.
 
-        ``differential_analysis`` must already have been ``.run()``; its
-        top-``n_top`` peaks define the baseline peak set.  Only
+        ``differential_analysis`` must already have been ``.run()`` on the
+        baseline spectra only (``timestamp <= baseline_end_``); its
+        top-``n_top`` peaks define the baseline peak set, and each window
+        is analysed with the same test, correction and filters. Only
         post-baseline spectra (``timestamp > baseline_end_``) are
         included in the monitored windows.
 
@@ -209,8 +211,8 @@ class DriftMonitor:
             Dataset exposing ``.X`` and ``.meta`` with ``time_column``,
             with labels for ``antibiotic``.
         differential_analysis : DifferentialAnalysis
-            Analysis already ``.run()`` whose top ``n_top`` peaks define the
-            baseline peak set.
+            Analysis already ``.run()`` on the baseline spectra, whose top
+            ``n_top`` peaks define the baseline peak set.
         antibiotic : str or None, default=None
             Antibiotic whose labels split each window into resistant and
             susceptible spectra (see :meth:`MaldiSet.get_y_single`);
@@ -222,10 +224,27 @@ class DriftMonitor:
         -------
         pd.DataFrame
             Columns ``window_start``, ``stability_score``, ``n_spectra``.
+
+        Warns
+        -----
+        UserWarning
+            If ``differential_analysis`` was run on monitored (post-baseline)
+            spectra, which then help define their own reference.
         """
         self._check_fitted()
         X, ts = self._extract_X_and_timestamps(maldi_set)
         X, ts = self._drop_baseline(X, ts)
+        analysed = getattr(differential_analysis, "X", None)
+        overlap = analysed.index.intersection(X.index) if analysed is not None else []
+        if len(overlap):
+            warnings.warn(
+                f"DriftMonitor.monitor_peak_stability: the baseline analysis "
+                f"includes {len(overlap)} monitored spectra (timestamp > "
+                "baseline_end_), which then shape their own reference; run it "
+                "on the baseline spectra only.",
+                UserWarning,
+                stacklevel=2,
+            )
         y = maldi_set.get_y_single(antibiotic)
         y_numeric = pd.to_numeric(y, errors="coerce")
         valid = y_numeric.notna()
@@ -242,6 +261,7 @@ class DriftMonitor:
             window=self.window,
             n_top=n_top,
             min_samples=self.min_samples,
+            **getattr(differential_analysis, "_run_params", {}),
         )
         self._warn_skipped(n_skipped, "monitor_peak_stability")
         return df
@@ -264,7 +284,9 @@ class DriftMonitor:
             with labels for ``antibiotic``.
         peaks : list of str
             Peaks to track, as ``mz_bin`` labels of the columns of
-            ``maldi_set.X``.
+            ``maldi_set.X``. Choose them on the baseline spectra only (for
+            example the top peaks of a :class:`DifferentialAnalysis` of
+            the baseline), not on the monitored windows.
         antibiotic : str or None, default=None
             Antibiotic whose labels define the resistant and susceptible
             groups (see :meth:`MaldiSet.get_y_single`); ``None`` uses the

@@ -54,6 +54,13 @@ class MICEncoder(BaseEstimator, TransformerMixin):
     downstream code (e.g. censoring-aware loss functions) can choose how
     to use them.
 
+    With breakpoints, a censored MIC is categorised only when its bound
+    decides the category: ``<=x`` and ``<x`` are S when ``x`` is at most
+    the S breakpoint, ``>=x`` is R when ``x`` is above the R breakpoint and
+    ``>x`` when ``x`` is at least the R breakpoint; otherwise the category
+    is missing (the true MIC could fall on either side). A censored MIC is
+    never flagged as ATU.
+
     See Also
     --------
     BreakpointTable : Clinical breakpoint lookup consumed by this encoder.
@@ -152,15 +159,23 @@ class MICEncoder(BaseEstimator, TransformerMixin):
 
         species_arr = self._resolve_array(X, self.species, self.species_col)
         drug_arr = self._resolve_array(X, self.drug, self.drug_col)
-        batch = self.breakpoints.apply_batch(species_arr, drug_arr, values)
+        upper = np.isin(qualifiers, ("<", "<="))
+        lower = np.isin(qualifiers, (">", ">="))
+        # A ">x" MIC lies above x: categorise it at the smallest value it can
+        # take. The other bounds are values the MIC can take.
+        values = values.astype(float)
+        bound = np.where(qualifiers == ">", np.nextafter(values, np.inf), values)
+        batch = self.breakpoints.apply_batch(species_arr, drug_arr, bound)
+        category = batch["category"].to_numpy(dtype=object)
+        undecided = (upper & (category != "S")) | (lower & (category != "R"))
+        category[undecided] = pd.NA
+        atu = batch["atu"].to_numpy(dtype=bool) & ~(upper | lower)
         out["category"] = pd.array(
-            [c if c is not None else pd.NA for c in batch["category"]],
-            dtype="object",
+            [pd.NA if pd.isna(c) else c for c in category], dtype="object"
         )
-        out["atu"] = pd.array(batch["atu"].tolist(), dtype="boolean")
+        out["atu"] = pd.array(atu.tolist(), dtype="boolean")
         out["source"] = pd.array(
-            [s if s is not None else pd.NA for s in batch["source"]],
-            dtype="object",
+            [pd.NA if pd.isna(s) else s for s in batch["source"]], dtype="object"
         )
         return out
 

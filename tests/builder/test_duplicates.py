@@ -169,7 +169,7 @@ class TestApplyIndexStrategy:
         assert len(result) == 5
         assert "A_rep1" in result.index
         assert "A_rep2" in result.index
-        assert "B_rep1" in result.index
+        assert "B" in result.index
 
     def test_average(self, df_with_dups):
         result = apply_index_strategy(df_with_dups, DuplicateStrategy.average)
@@ -181,3 +181,36 @@ class TestApplyIndexStrategy:
         with caplog.at_level(logging.WARNING, logger="maldiamrkit.data.duplicates"):
             apply_index_strategy(df_with_dups, DuplicateStrategy.first)
         assert "duplicate" in caplog.text.lower()
+
+
+class TestSuffixOnlyDuplicatedIds:
+    """keep_all/average suffix only the duplicated IDs."""
+
+    @pytest.fixture()
+    def df(self) -> pd.DataFrame:
+        return pd.DataFrame({"ID": ["x", "y", "y"], "pos": ["p1", "p1", "p2"]})
+
+    @pytest.mark.parametrize("strategy", ["keep_all", "average"])
+    def test_unique_ids_unchanged(self, df, strategy):
+        out = apply_metadata_strategy(df, strategy)
+        assert out["ID"].tolist() == ["x", "y_rep1", "y_rep2"]
+        out = apply_metadata_strategy(df, strategy, suffix_col="pos")
+        assert out["ID"].tolist() == ["x", "y_p1", "y_p2"]
+
+    def test_average_tags_every_row(self, df):
+        out = apply_metadata_strategy(df, "average")
+        assert out["_original_id"].tolist() == ["x", "y", "y"]
+
+    def test_keep_all_writes_no_original_id(self, df):
+        assert "_original_id" not in apply_metadata_strategy(df, "keep_all").columns
+
+    def test_suffix_collision_raises(self):
+        df = pd.DataFrame({"ID": ["y_rep1", "y", "y"]})
+        with pytest.raises(ValueError, match="y_rep1"):
+            apply_metadata_strategy(df, "keep_all")
+
+    def test_index_keep_all_keeps_unique_ids(self):
+        df = pd.DataFrame({"path": ["/x", "/y1", "/y2"]}, index=["x", "y", "y"])
+        out = apply_index_strategy(df, "keep_all")
+        assert list(out.index) == ["x", "y_rep1", "y_rep2"]
+        assert "_original_id" not in out.columns

@@ -62,7 +62,10 @@ def align_peaks(
     peaks : PeakSet
         Peak set to align.
     ref_peaks_mz : array-like
-        Reference peak m/z positions to align to.
+        Reference peak m/z positions to align to. Estimate them on the
+        training spectra only (for example ``RawWarping(...).fit(X_train)``
+        and its ``ref_peaks_mz_``), so that test peak sets do not shape
+        their own reference.
     method : {"shift", "linear", "piecewise", "quadratic", "cubic", "lowess"}, default="shift"
         Warping strategy. ``"dtw"`` is unsupported for peak sets because it
         resamples onto a dense grid and would destroy the set structure.
@@ -82,7 +85,8 @@ def align_peaks(
     Returns
     -------
     PeakSet
-        A new peak set with warped m/z and unchanged intensities.
+        A new peak set with warped m/z and unchanged intensities and
+        scores.
 
     Raises
     ------
@@ -110,9 +114,10 @@ def align_peaks(
             "'cubic', or 'lowess'."
         )
 
+    score = None if peaks.score is None else peaks.score.copy()
     ref_peaks_mz = np.asarray(ref_peaks_mz, dtype=float).ravel()
     if peaks.n_peaks == 0 or ref_peaks_mz.size == 0:
-        return PeakSet(peaks.mz.copy(), peaks.intensity.copy())
+        return PeakSet(peaks.mz.copy(), peaks.intensity.copy(), score=score)
 
     strategy = _build_strategy(
         method, max_shift_da, n_segments, smooth_sigma, lowess_frac, lowess_it
@@ -125,4 +130,4 @@ def align_peaks(
         ref_peaks_mz,
         np.ones_like(ref_peaks_mz),
     )
-    return PeakSet(np.asarray(new_mz, dtype=float), peaks.intensity.copy())
+    return PeakSet(np.asarray(new_mz, dtype=float), peaks.intensity.copy(), score=score)

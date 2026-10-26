@@ -189,3 +189,35 @@ class TestRegistryConstructors:
             pytest.skip("vendored EUCAST data is present; cannot exercise empty path")
         with pytest.raises(FileNotFoundError, match="No bundled EUCAST"):
             BreakpointTable.from_latest()
+
+
+class TestAmbiguousKeys:
+    """Conflicting rows for one species-drug pair give no category."""
+
+    @staticmethod
+    def _table(rows):
+        return BreakpointTable(pd.DataFrame(rows), guideline="T", version="1")
+
+    def test_conflicting_rows_give_na(self):
+        bp = self._table(
+            [
+                {"species": "Bug", "drug": "Drug", "s_le": 0.5, "r_gt": 1.0},
+                {"species": " bug ", "drug": "DRUG", "s_le": 0.25, "r_gt": 0.5},
+            ]
+        )
+        for mic in (0.1, 0.5, 4.0):
+            result = bp.apply("Bug", "Drug", mic)
+            assert result.category is None
+            assert result.source == bp.source
+        assert bp.apply_batch("Bug", "Drug", [0.1, 4.0])["category"].isna().all()
+        assert len(bp) == 2
+
+    def test_identical_duplicates_collapse(self):
+        row = {"species": "Bug", "drug": "Drug", "s_le": 0.5, "r_gt": 1.0}
+        bp = self._table([row, dict(row)])
+        assert bp.apply("Bug", "Drug", 0.25).category == "S"
+        assert bp.apply("Bug", "Drug", 4.0).category == "R"
+
+    def test_bundled_anaerobe_conflict_is_na(self):
+        bp = BreakpointTable.from_version("16.0")
+        assert bp.apply("Anaerobic bacteria", "Amoxicillin", 0.5).category is None

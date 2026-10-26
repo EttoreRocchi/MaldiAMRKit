@@ -136,3 +136,23 @@ class TestDetectOutlierReplicates:
         specs = [_make_spectrum(common_mz, np.ones(len(common_mz)))] * 2
         with pytest.raises(ValueError, match="at least 3"):
             detect_outlier_replicates(specs)
+
+
+class TestOutlierCutoffIsGaussian:
+    """The outlier cutoff uses the MAD divided by Phi^-1(3/4)."""
+
+    def test_replicate_between_the_two_cutoffs_is_kept(self, common_mz):
+        rng = np.random.default_rng(1)
+        base = rng.random(len(common_mz))
+        specs = [
+            _make_spectrum(common_mz, base + rng.normal(0, s, len(common_mz)))
+            for s in (0.05, 0.1, 0.15, 0.2, 0.6)
+        ]
+        matrix = np.array([s.raw["intensity"].to_numpy() for s in specs])
+        median = np.median(matrix, axis=0)
+        corrs = np.array([np.corrcoef(row, median)[0, 1] for row in matrix])
+        mad = np.median(np.abs(corrs - np.median(corrs)))
+        threshold = (np.median(corrs) - corrs.min()) / (
+            mad * np.sqrt(1.4826 / 0.6744897501960817)
+        )
+        assert detect_outlier_replicates(specs, threshold=threshold).all()

@@ -39,17 +39,17 @@ def _get_confusion_values(
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     labels = sorted(set(y_true) | set(y_pred))
+    _check_resistant_label(labels, resistant_label)
 
     if len(labels) < 2:
         # Single-class edge case
         if labels[0] == resistant_label:
-            tp = np.sum(y_pred == resistant_label)
-            fn = np.sum(y_pred != resistant_label)
+            tp = int(np.sum(y_pred == resistant_label))
+            fn = int(np.sum(y_pred != resistant_label))
             return tp, 0, 0, fn
-        else:
-            tn = np.sum(y_pred != resistant_label)
-            fp = np.sum(y_pred == resistant_label)
-            return 0, tn, fp, 0
+        tn = int(np.sum(y_pred != resistant_label))
+        fp = int(np.sum(y_pred == resistant_label))
+        return 0, tn, fp, 0
 
     if len(labels) > 2:
         raise ValueError(
@@ -57,23 +57,42 @@ def _get_confusion_values(
             f"Encode labels to binary before using AMR metrics."
         )
 
-    if resistant_label not in labels:
-        # resistant_label never appears - treat as all-susceptible
-        tn = len(y_true)
-        return 0, tn, 0, 0
-
     cm = confusion_matrix(y_true, y_pred, labels=labels)
 
     # Find index of resistant label
     r_idx = labels.index(resistant_label)
     s_idx = 1 - r_idx
 
-    tp = cm[r_idx, r_idx]
-    fn = cm[r_idx, s_idx]
-    fp = cm[s_idx, r_idx]
-    tn = cm[s_idx, s_idx]
+    tp = int(cm[r_idx, r_idx])
+    fn = int(cm[r_idx, s_idx])
+    fp = int(cm[s_idx, r_idx])
+    tn = int(cm[s_idx, s_idx])
 
     return tp, tn, fp, fn
+
+
+def _check_resistant_label(labels: list, resistant_label) -> None:
+    """Raise when ``resistant_label`` cannot mark the resistant class of ``labels``.
+
+    With two labels it must be one of them; with a single label it must be
+    of the same kind (text or not), so a fold without resistant isolates
+    stays valid.
+    """
+    absent = len(labels) == 2 and resistant_label not in labels
+    other_kind = len(labels) == 1 and (
+        isinstance(labels[0], str) != isinstance(resistant_label, str)
+    )
+    if absent or other_kind:
+        raise ValueError(
+            f"resistant_label={resistant_label!r} is not one of the labels "
+            f"{labels}; pass the label that marks resistant isolates, for "
+            "example resistant_label='R'."
+        )
+
+
+def _rate(numerator: int, denominator: int) -> float:
+    """``numerator / denominator`` as a float, 0.0 for an empty denominator."""
+    return float(numerator / denominator) if denominator > 0 else 0.0
 
 
 def very_major_error_rate(
@@ -100,14 +119,19 @@ def very_major_error_rate(
     float
         VME rate in [0, 1]. Returns 0.0 if no resistant samples exist.
 
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
+
     Examples
     --------
     >>> very_major_error_rate([1, 1, 0, 0], [0, 1, 0, 0])
     0.5
     """
     tp, _, _, fn = _get_confusion_values(y_true, y_pred, resistant_label)
-    denom = fn + tp
-    return fn / denom if denom > 0 else 0.0
+    return _rate(fn, fn + tp)
 
 
 def major_error_rate(
@@ -133,14 +157,19 @@ def major_error_rate(
     float
         ME rate in [0, 1]. Returns 0.0 if no susceptible samples exist.
 
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
+
     Examples
     --------
     >>> major_error_rate([1, 1, 0, 0], [1, 1, 1, 0])
     0.5
     """
     _, tn, fp, _ = _get_confusion_values(y_true, y_pred, resistant_label)
-    denom = fp + tn
-    return fp / denom if denom > 0 else 0.0
+    return _rate(fp, fp + tn)
 
 
 def sensitivity_score(
@@ -165,10 +194,15 @@ def sensitivity_score(
     -------
     float
         Sensitivity in [0, 1]. Returns 0.0 if no resistant samples exist.
+
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
     """
     tp, _, _, fn = _get_confusion_values(y_true, y_pred, resistant_label)
-    denom = tp + fn
-    return tp / denom if denom > 0 else 0.0
+    return _rate(tp, tp + fn)
 
 
 def specificity_score(
@@ -193,10 +227,15 @@ def specificity_score(
     -------
     float
         Specificity in [0, 1]. Returns 0.0 if no susceptible samples exist.
+
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
     """
     _, tn, fp, _ = _get_confusion_values(y_true, y_pred, resistant_label)
-    denom = tn + fp
-    return tn / denom if denom > 0 else 0.0
+    return _rate(tn, tn + fp)
 
 
 def categorical_agreement(
@@ -223,7 +262,7 @@ def categorical_agreement(
     y_pred = np.asarray(y_pred)
     if len(y_true) == 0:
         return 0.0
-    return np.mean(y_true == y_pred)
+    return float(np.mean(y_true == y_pred))
 
 
 def vme_me_curve(
@@ -252,9 +291,18 @@ def vme_me_curve(
         ME rates at each threshold.
     thresholds : np.ndarray
         Decision thresholds (sorted ascending).
+
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
     """
     y_true = np.asarray(y_true)
     y_score = np.asarray(y_score, dtype=float)
+    labels = sorted(set(y_true))
+    if labels:
+        _check_resistant_label(labels, resistant_label)
 
     y_binary = (y_true == resistant_label).astype(np.int64)
     total_pos = int(y_binary.sum())
@@ -309,6 +357,12 @@ def amr_classification_report(
         Dictionary with keys: vme, me, sensitivity, specificity, categorical_agreement,
         n_resistant, n_susceptible, n_total.
 
+    Raises
+    ------
+    ValueError
+        If ``resistant_label`` is not one of the two labels, or the only
+        label is of another kind (text or number) than ``resistant_label``.
+
     Examples
     --------
     >>> report = amr_classification_report([1, 1, 0, 0], [1, 0, 0, 1])
@@ -319,10 +373,10 @@ def amr_classification_report(
     tp, tn, fp, fn = _get_confusion_values(y_true, y_pred, resistant_label)
 
     return {
-        "vme": very_major_error_rate(y_true, y_pred, resistant_label),
-        "me": major_error_rate(y_true, y_pred, resistant_label),
-        "sensitivity": sensitivity_score(y_true, y_pred, resistant_label),
-        "specificity": specificity_score(y_true, y_pred, resistant_label),
+        "vme": _rate(fn, fn + tp),
+        "me": _rate(fp, fp + tn),
+        "sensitivity": _rate(tp, tp + fn),
+        "specificity": _rate(tn, tn + fp),
         "categorical_agreement": categorical_agreement(y_true, y_pred),
         "n_resistant": int(tp + fn),
         "n_susceptible": int(tn + fp),
@@ -347,7 +401,8 @@ def amr_multilabel_report(
     y_true : pd.DataFrame
         True binary labels with one column per antibiotic.
     y_pred : pd.DataFrame
-        Predicted binary labels with matching columns.
+        Predicted binary labels with matching columns and the same index
+        (sample IDs) as ``y_true``; rows are matched by ID.
     resistant_label : int, default=1
         Label value representing the resistant class.
     as_dataframe : bool, default=False
@@ -361,6 +416,13 @@ def amr_multilabel_report(
         *as_dataframe* is ``True``, rows are drugs + ``"macro_avg"`` and
         columns are metric names.
 
+    Raises
+    ------
+    ValueError
+        If the two frames share no column, or do not have the same index
+        labels (sample IDs) without duplicates, or for a ``resistant_label``
+        that does not match the labels.
+
     Examples
     --------
     >>> report = amr_multilabel_report(y_true, y_pred, as_dataframe=True)
@@ -370,6 +432,18 @@ def amr_multilabel_report(
     drugs = [c for c in y_true.columns if c in y_pred.columns]
     if not drugs:
         raise ValueError("No common columns between y_true and y_pred.")
+    same_ids = (
+        y_true.index.is_unique
+        and y_pred.index.is_unique
+        and y_true.index.difference(y_pred.index).empty
+        and y_pred.index.difference(y_true.index).empty
+    )
+    if not same_ids:
+        raise ValueError(
+            "y_true and y_pred must have the same index labels (sample IDs), "
+            "without duplicates; build the predictions with index=y_true.index."
+        )
+    y_pred = y_pred.loc[y_true.index]
 
     reports: dict[str, dict] = {}
     for drug in drugs:

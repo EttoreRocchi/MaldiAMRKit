@@ -15,7 +15,10 @@ from maldiamrkit.data import (
     ProcessingHandler,
 )
 from maldiamrkit.data.input_layouts import _extract_year
+from maldiamrkit.io import read_spectrum
 from maldiamrkit.preprocessing import PreprocessingPipeline
+from maldiamrkit.preprocessing.binning import bin_spectrum
+from maldiamrkit.preprocessing.pipeline import preprocess
 from maldiamrkit.preprocessing.transformers import (
     ClipNegatives,
     MzTrimmer,
@@ -634,3 +637,83 @@ class TestBuilderEdgeCases:
         builder = DatasetBuilder(layout, tmp_path / "out", on_error="raise")
         with pytest.raises(RuntimeError, match="failed"):
             builder.build()
+
+
+class TestFullPrecisionOutput:
+    """Builder outputs keep full float64 precision and reload exactly."""
+
+    @pytest.fixture()
+    def precise_build(self, tmp_path):
+        src = tmp_path / "precise"
+        src.mkdir()
+        rng = np.random.default_rng(7)
+        for i in range(2):
+            df = pd.DataFrame(
+                {
+                    "mass": np.sort(rng.uniform(2000, 20000, 18000)),
+                    "intensity": rng.random(18000) * 1000,
+                }
+            )
+            np.savetxt(
+                src / f"p{i}.txt",
+                df.values,
+                header="mass intensity",
+                comments="# ",
+                fmt="%.17g",
+            )
+        meta = tmp_path / "pmeta.csv"
+        pd.DataFrame(
+            {"ID": ["p0", "p1"], "Species": "Escherichia coli", "Drug": ["S", "R"]}
+        ).to_csv(meta, index=False)
+        out = tmp_path / "out"
+        DatasetBuilder(FlatLayout(src, meta), out, n_jobs=1).build()
+        return src, out
+
+    def test_raw_and_preprocessed_reload_exactly(self, precise_build):
+        src, out = precise_build
+        for sid in ("p0", "p1"):
+            source = read_spectrum(src / f"{sid}.txt")
+            raw = read_spectrum(out / "raw" / f"{sid}.txt")
+            np.testing.assert_array_equal(raw.to_numpy(), source.to_numpy())
+            expected = preprocess(source, PreprocessingPipeline.default())
+            pre = read_spectrum(out / "preprocessed" / f"{sid}.txt")
+            np.testing.assert_array_equal(
+                pre.to_numpy(), expected[["mass", "intensity"]].to_numpy()
+            )
+
+    def test_binned_stage_reloads_exactly(self, precise_build):
+        src, out = precise_build
+        source = read_spectrum(src / "p0.txt")
+        expected, _ = bin_spectrum(
+            preprocess(source, PreprocessingPipeline.default()),
+            mz_min=2000,
+            mz_max=20000,
+            bin_width=3,
+        )
+        binned = read_spectrum(out / "binned_6000" / "p0.txt")
+        np.testing.assert_array_equal(
+            binned["intensity"].to_numpy(), expected["intensity"].to_numpy()
+        )
+
+
+class TestZeroPaddedIds:
+    """Zero-padded metadata IDs survive a build."""
+
+    def test_flat_layout_keeps_zero_padded_ids(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        for name, seed in (("007", 1), ("12", 2)):
+            df = _generate_synthetic_spectrum(random_state=seed)
+            np.savetxt(
+                src / f"{name}.txt",
+                df[["mass", "intensity"]].values,
+                header="mass intensity",
+                comments="# ",
+                fmt="%.6f",
+            )
+        meta = tmp_path / "meta.csv"
+        meta.write_text("ID,Drug\n007,R\n12,S\n")
+        out = tmp_path / "out"
+        report = DatasetBuilder(FlatLayout(src, meta), out, n_jobs=1).build()
+        assert report.succeeded == 2
+        assert (out / "preprocessed" / "007.txt").exists()

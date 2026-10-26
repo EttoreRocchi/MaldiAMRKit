@@ -40,7 +40,7 @@ class BreakpointResult:
         Clinical category. ``"S"`` (Susceptible, standard dosing),
         ``"I"`` (Susceptible, increased exposure), or ``"R"`` (Resistant).
         ``None`` when the lookup failed (no row for this
-        ``(species, drug)``, or MIC is NaN).
+        ``(species, drug)``, conflicting rows for it, or MIC is NaN).
     atu : bool
         True when the MIC value falls in the species/drug ATU range.
         Orthogonal to ``category``: not a third clinical category.
@@ -87,6 +87,10 @@ class BreakpointTable:
     EUCAST's literal table format is preserved: ``s_le`` is the largest MIC
     classified as ``S`` and ``r_gt`` is the largest MIC *not* classified as
     ``R``. When ``s_le == r_gt`` there is no ``I`` zone.
+
+    Rows repeating a species-drug pair (compared without case or surrounding
+    spaces) with the same thresholds count once; when their thresholds
+    differ, the pair is ambiguous and every MIC gets no category.
     """
 
     def __init__(
@@ -103,10 +107,13 @@ class BreakpointTable:
         self.version = version
         self.year = year
         self.source = source or self._default_source()
-        self._lookup: dict[tuple[str, str], int] = {
-            (str(r.species).strip().lower(), str(r.drug).strip().lower()): idx
-            for idx, r in self._rows.iterrows()
-        }
+        self._lookup: dict[tuple[str, str], int] = {}
+        self._ambiguous: set[tuple[str, str]] = set()
+        for idx, r in self._rows.iterrows():
+            key = (str(r.species).strip().lower(), str(r.drug).strip().lower())
+            first = self._lookup.setdefault(key, idx)
+            if first != idx and not _same_thresholds(self._rows.loc[first], r):
+                self._ambiguous.add(key)
 
     def __repr__(self) -> str:
         n = len(self._rows)
@@ -154,7 +161,7 @@ class BreakpointTable:
         idx = self._lookup.get(key)
         if idx is None:
             return BreakpointResult(category=None, atu=False, source=None)
-        if mic is None or (isinstance(mic, float) and np.isnan(mic)):
+        if key in self._ambiguous or mic is None or pd.isna(mic):
             return BreakpointResult(category=None, atu=False, source=self.source)
         row = self._rows.loc[idx]
         return BreakpointResult(
@@ -372,3 +379,12 @@ def _version_tuple(version: str) -> tuple[int, ...]:
 
 
 _BUNDLED_EUCAST_DIR = resources.files("maldiamrkit") / "data" / "breakpoints" / "eucast"
+
+
+def _same_thresholds(a: pd.Series, b: pd.Series) -> bool:
+    """Whether two breakpoint rows have the same thresholds (NaN equals NaN)."""
+    for field in ("s_le", "r_gt", *_OPTIONAL_ROW_FIELDS):
+        x, y = a[field], b[field]
+        if not (x == y or (pd.isna(x) and pd.isna(y))):
+            return False
+    return True

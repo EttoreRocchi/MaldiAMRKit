@@ -48,3 +48,30 @@ class TestAlignPeaks:
         aligned = align_peaks(sample, ref, method="shift")
         # m/z-sorted order preserved, intensities follow their peaks
         np.testing.assert_array_equal(aligned.intensity, [0.5, 0.3, 0.2])
+
+
+class TestAlignPeaksKeepsScores:
+    """align_peaks keeps the peak scores and handles a single peak."""
+
+    def test_score_is_kept_and_ranks_top_k(self):
+        ps = PeakSet(
+            np.array([3000.0, 5000.0, 7000.0]),
+            np.array([1.0, 2.0, 3.0]),
+            score=np.array([9.0, 1.0, 5.0]),
+        )
+        out = align_peaks(ps, np.array([3002.0, 5002.0, 7002.0]), method="shift")
+        np.testing.assert_array_equal(out.score, [9.0, 1.0, 5.0])
+        np.testing.assert_allclose(out.top_k(2).mz, [3002.0, 7002.0])
+
+    def test_score_is_kept_without_reference(self):
+        ps = PeakSet(np.array([3000.0]), np.array([1.0]), score=np.array([4.0]))
+        out = align_peaks(ps, np.array([]), method="shift")
+        np.testing.assert_array_equal(out.score, [4.0])
+
+    def test_piecewise_on_a_single_peak(self):
+        out = align_peaks(
+            PeakSet(np.array([5000.0]), np.array([1.0])),
+            np.array([5003.0]),
+            method="piecewise",
+        )
+        np.testing.assert_allclose(out.mz, [5003.0])

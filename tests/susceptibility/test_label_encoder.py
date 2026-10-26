@@ -119,3 +119,27 @@ class TestLabelEncoder:
         result = enc.fit_transform(["R", "S"])
         assert isinstance(result, np.ndarray)
         assert result.ndim == 1
+
+
+class TestDropOnSeveralDrugs:
+    """intermediate="drop" refuses 2-D input instead of mixing samples."""
+
+    def test_dataframe_raises(self):
+        y = pd.DataFrame(
+            {"CIP": ["R", "I", "S", "R"], "MEM": ["S", "S", "I", "R"]},
+            index=list("wxyz"),
+        )
+        with pytest.raises(ValueError, match="nan"):
+            LabelEncoder(intermediate="drop").fit_transform(y)
+
+    def test_2d_array_raises(self):
+        y = np.array([["R", "S"], ["I", "S"]])
+        with pytest.raises(ValueError, match="nan"):
+            LabelEncoder(intermediate="drop").fit_transform(y)
+
+    def test_series_still_drops(self):
+        with pytest.warns(UserWarning, match="removed 1"):
+            out = LabelEncoder(intermediate="drop").fit_transform(
+                pd.Series(["R", "I", "S"])
+            )
+        assert list(out) == [1, 0]
