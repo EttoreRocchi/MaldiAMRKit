@@ -17,6 +17,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/preprocessing_pipeline.svg" alt="Animated MaldiAMRKit pipeline: a raw MALDI-TOF spectrum is smoothed, baseline-corrected, peak-detected and binned into a feature vector that predicts antimicrobial resistance (R/S)" width="720"/>
+</p>
+
+<p align="center">
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
