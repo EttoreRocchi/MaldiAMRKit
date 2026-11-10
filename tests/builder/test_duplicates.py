@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 
 import pandas as pd
 import pytest
@@ -90,6 +91,12 @@ class TestApplyMetadataStrategy:
         assert len(result) == 5
         assert "A_rep1" in result["ID"].values
         assert "A_rep2" in result["ID"].values
+
+    def test_keep_all_isolate_from_string_ids_without_warning(self, df_with_dups):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            result = apply_metadata_strategy(df_with_dups, DuplicateStrategy.keep_all)
+        assert list(result["_isolate"]) == ["A", "A", "B", "C", "C"]
 
     def test_average_keeps_all_rows_and_adds_original_id(self, df_with_dups):
         result = apply_metadata_strategy(

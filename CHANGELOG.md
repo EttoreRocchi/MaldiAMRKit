@@ -4,6 +4,24 @@ All notable changes to MaldiAMRKit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.2] - 2026-11-10
+
+### Changed
+
+- **Docs**: shared MaldiSuite theme and links to the other MaldiSuite packages.
+- **Docs**: the `[batch]` extra is described as UMAP plus `combatlearn`, since MaldiAMRKit has no batch corrector of its own.
+
+### Fixed
+
+- **`MICEncoder`**: with pandas 3 and `breakpoints`, rows without a matching breakpoint no longer raise `ValueError: assignment destination is read-only`; their `category` and `source` are `pd.NA`, as with pandas 2.
+- **`BrukerTreeLayout`**: metadata without the year or path column raises a `ValueError` naming it (was a `KeyError`), so `maldiamrkit build -l bruker` reports it instead of a traceback.
+- **`read_spectrum`**: text spectra no longer trigger the pandas 3.1 deprecation warning of `float_precision`; floats are still read exactly with pandas 2, 3.0 and 3.1.
+- **`duplicate_strategy="keep_all"`**: the dataset layouts no longer trigger the pandas 3.1 `fillna` deprecation warning, which pandas 4 will turn into an error.
+- **Docs**: the `--pipeline` and `--extra-handlers` examples of the CLI page use the formats the CLI reads.
+- **Docs**: `MICEncoder` examples use species and drug names of the bundled EUCAST tables, which must match exactly.
+- **Docs**: differential analysis, drift, VME scorer and multi-drug examples encode R/S labels as 0/1 first.
+- **Docs**: peak-detection examples use a `prominence` that finds peaks on sum-normalised spectra.
+
 ## [0.22.1] - 2026-10-26
 
 ### Added
@@ -412,6 +430,7 @@ See the [documentation](https://maldiamrkit.readthedocs.io/) for the complete AP
 
 - **First public release**: processing of MALDI-TOF mass spectra and preparation of the dataset for machine-learning analyses.
 
+[0.22.2]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/EttoreRocchi/MaldiAMRKit/compare/v0.20.0...v0.21.0

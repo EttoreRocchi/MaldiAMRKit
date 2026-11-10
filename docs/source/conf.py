@@ -132,24 +132,36 @@ nitpick_ignore_regex = [
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "pydata_sphinx_theme"
+html_title = f"MaldiAMRKit {release}"
 html_static_path = ["_static"]
-html_css_files = ["css/custom.css"]
-html_logo = "_static/maldiamrkit.png"
+templates_path = ["_templates"]
+# Shared MaldiSuite theme, then the package colour
+html_css_files = ["css/maldisuite.css", "css/custom.css"]
+html_logo = "_static/maldiamrkit_lockup.svg"
+html_favicon = "_static/favicon.svg"
 
 html_theme_options = {
     # Logo configuration
     "logo": {
-        "text": "MaldiAMRKit",
-        "image_light": "_static/maldiamrkit.png",
-        "image_dark": "_static/maldiamrkit.png",
+        "image_light": "_static/maldiamrkit_lockup.svg",
+        "image_dark": "_static/maldiamrkit_lockup_dark.svg",
+        "alt_text": "MaldiAMRKit home",
     },
     # Top navigation bar layout
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_persistent": ["search-button"],
+    "navbar_align": "left",
     "header_links_before_dropdown": 4,
-    # Icon links (GitHub, PyPI)
+    # Icon links (MaldiSuite, GitHub, PyPI)
     "icon_links": [
+        {
+            "name": "MaldiSuite",
+            "url": "https://ettorerocchi.github.io/MaldiSuite/",
+            "icon": "_static/maldisuite.svg",
+            "type": "local",
+        },
         {
             "name": "GitHub",
             "url": "https://github.com/EttoreRocchi/MaldiAMRKit",
@@ -170,6 +182,7 @@ html_theme_options = {
     "collapse_navigation": True,
     # Footer
     "footer_start": ["copyright"],
+    "footer_center": ["maldisuite-footer"],
     "footer_end": ["last-updated"],
     # Syntax highlighting
     "pygments_light_style": "default",

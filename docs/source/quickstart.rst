@@ -1,10 +1,10 @@
-Quickstart Guide
+Quickstart guide
 ================
 
 This guide will help you get started with MaldiAMRKit for MALDI-TOF
 mass spectrometry preprocessing.
 
-Loading a Single Spectrum
+Loading a single spectrum
 -------------------------
 
 Load and preprocess a single spectrum:
@@ -23,7 +23,7 @@ Load and preprocess a single spectrum:
    from maldiamrkit.visualization import plot_spectrum
    plot_spectrum(spec)
 
-Loading a Dataset
+Loading a dataset
 -----------------
 
 Load multiple spectra with metadata:
@@ -50,7 +50,7 @@ Load multiple spectra with metadata:
    from maldiamrkit.visualization import plot_pseudogel
    plot_pseudogel(data, antibiotic="Ceftriaxone")
 
-Building ML Pipelines
+Building ML pipelines
 ---------------------
 
 Create scikit-learn compatible pipelines:
@@ -66,7 +66,7 @@ Create scikit-learn compatible pipelines:
 
    # Define pipeline (with parallel processing)
    pipe = Pipeline([
-       ("peaks", MaldiPeakDetector(method="local", prominence=0.01, n_jobs=-1)),
+       ("peaks", MaldiPeakDetector(method="local", prominence=1e-4, n_jobs=-1)),
        ("warp", Warping(method="shift", n_jobs=-1)),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier(n_estimators=100))
@@ -76,7 +76,7 @@ Create scikit-learn compatible pipelines:
    scores = cross_val_score(pipe, X, y, cv=5, scoring="accuracy")
    print(f"Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 
-Using Raw Spectra Warping
+Using raw spectra warping
 -------------------------
 
 For higher precision alignment, use RawWarping with ``create_raw_input()``:
@@ -100,7 +100,7 @@ For higher precision alignment, use RawWarping with ``create_raw_input()``:
 
    pipe.fit(X_raw, y)
 
-Replicate Merging
+Replicate merging
 -----------------
 
 Merge multiple spectral replicates into a single consensus spectrum:
@@ -116,7 +116,7 @@ Merge multiple spectral replicates into a single consensus spectrum:
    clean = [s for s, k in zip(spectra, keep) if k]
    merged = merge_replicates(clean, method="mean")
 
-Quality Assessment
+Quality assessment
 ------------------
 
 Evaluate preprocessing quality with comprehensive QC metrics:
@@ -149,10 +149,10 @@ Evaluate preprocessing quality with comprehensive QC metrics:
    quality = warper.get_alignment_quality(X, X_aligned)
    print(quality.mean())
 
-Custom Preprocessing Pipeline
+Custom preprocessing pipeline
 ------------------------------
 
-Build and serialize custom preprocessing pipelines:
+Build and serialise custom preprocessing pipelines:
 
 .. code-block:: python
 
@@ -180,7 +180,7 @@ Build and serialize custom preprocessing pipelines:
    # Save for reproducibility
    pipe.to_json("my_pipeline.json")
 
-Using Composable Filters
+Using composable filters
 -------------------------
 
 Select subsets of a dataset using composable filter predicates:
@@ -203,7 +203,7 @@ Select subsets of a dataset using composable filter predicates:
    f = SpeciesFilter("Escherichia coli") & DrugFilter("Ceftriaxone", status="R")
    resistant_ecoli = data.filter(f)
 
-Evaluation Metrics
+Evaluation metrics
 ------------------
 
 Compute AMR-specific metrics following EUCAST conventions:
@@ -212,25 +212,30 @@ Compute AMR-specific metrics following EUCAST conventions:
 
    from maldiamrkit.evaluation import amr_classification_report, vme_scorer
    from maldiamrkit.susceptibility import LabelEncoder
-   from sklearn.model_selection import cross_val_score
+   from sklearn.model_selection import cross_val_predict, cross_val_score
 
-   # Encode labels
-   enc = LabelEncoder()
-   y_binary = enc.fit_transform(y_raw)
+   # AMR metrics need binary labels (R=1, S=0)
+   y_binary = LabelEncoder().fit_transform(y)
 
    # Full classification report
-   report = amr_classification_report(y_true, y_pred)
+   y_pred = cross_val_predict(pipe, X, y_binary, cv=5)
+   report = amr_classification_report(y_binary, y_pred)
    print(f"VME: {report['vme']:.3f}, ME: {report['me']:.3f}")
 
-   # Use VME scorer in cross-validation
+   # Use VME scorer in cross-validation; its scores are negated, so higher is better
    # (with replicates, use StratifiedGroupKFold and groups=data.groups)
-   scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
+   scores = cross_val_score(pipe, X, y_binary, cv=5, scoring=vme_scorer)
+   print(f"VME: {-scores.mean():.3f}")
 
-MIC Regression and Breakpoints
+MIC regression and breakpoints
 ------------------------------
 
 Encode raw MIC strings into ``log2(MIC)`` regression targets and S/I/R
-category labels using a bundled EUCAST breakpoint table:
+category labels using a bundled EUCAST breakpoint table. Species and drug
+must match the names in the table exactly: bundled tables use EUCAST entries
+such as ``Enterobacterales`` and
+``Ceftriaxone (indications other than meningitis)``, not ``Escherichia coli``
+or ``Ceftriaxone``. ``bp.species()`` and ``bp.drugs()`` list them:
 
 .. code-block:: python
 
@@ -239,26 +244,28 @@ category labels using a bundled EUCAST breakpoint table:
 
    # Load the latest bundled EUCAST table (or BreakpointTable.from_version("16.0"))
    bp = BreakpointTable.from_latest()
+   drug = "Ceftriaxone (indications other than meningitis)"
 
+   # meta: DataFrame with a MIC column and a Species column of EUCAST names
    enc = MICEncoder(
        breakpoints=bp,
        species_col="Species",
-       drug="Ceftriaxone",
+       drug=drug,
    )
    targets = enc.fit_transform(meta)
    # Columns: log2_mic, censored, category, atu, source
 
-   # Evaluate regression predictions
+   # Evaluate regression predictions (y_pred_log2: your model's predictions)
    report = mic_regression_report(
        y_true=targets["log2_mic"],
        y_pred=y_pred_log2,
        breakpoints=bp,
-       species="Klebsiella pneumoniae",
-       drug="Ceftriaxone",
+       species="Enterobacterales",
+       drug=drug,
    )
    print(report["rmse_log2"], report["essential_agreement"])
 
-Stratified Splitting
+Stratified splitting
 --------------------
 
 Keep the species-drug label proportions in every split, and pass ``groups=``
@@ -268,6 +275,7 @@ so that the replicates of one isolate stay on the same side:
 
    from maldiamrkit.evaluation import stratified_species_drug_split, SpeciesDrugStratifiedKFold
 
+   # species_labels: the species of each row of X
    # Single split
    X_train, X_test, y_train, y_test = stratified_species_drug_split(
        X, y, species=species_labels, test_size=0.2, random_state=42,
@@ -279,7 +287,7 @@ so that the replicates of one isolate stay on the same side:
    for train_idx, test_idx in cv.split(X, y, species=species_labels, groups=data.groups):
        pass
 
-Group-Aware Cross-Validation
+Group-aware cross-validation
 ----------------------------
 
 Technical replicates of one biological isolate share an underlying sample, so
@@ -293,6 +301,7 @@ splitter:
 
    from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
 
+   # ds: a MaldiSet (see Loading Datasets below); pipe: the pipeline defined above
    X, y = ds.X, ds.get_y_single("Ceftriaxone")
 
    cv = StratifiedGroupKFold(n_splits=5)
@@ -330,7 +339,7 @@ read them directly (this also overrides the suffix heuristic):
 Alternatively, collapse replicates at load time so each isolate contributes a
 single row (see *Loading Datasets* below).
 
-Building DRIAMS-like Datasets
+Building DRIAMS-like datasets
 -----------------------------
 
 Create a standardised DRIAMS-like dataset directory from raw spectra and a
@@ -340,7 +349,7 @@ metadata CSV:
 
    from maldiamrkit.data import DatasetBuilder, FlatLayout, ProcessingHandler
 
-   # Basic: produces raw/, preprocessed/, binned_6000/, id/
+   # Basic: produces raw/, preprocessed/, binned_6000/, id/ and site_info.json
    layout = FlatLayout("spectra/", "metadata.csv")
    report = DatasetBuilder(layout, "output/my_dataset").build()
    print(f"Processed {report.succeeded}/{report.total} spectra")
@@ -400,9 +409,10 @@ The output structure follows the DRIAMS convention:
    ├── preprocessed_sqrt/{year}/
    ├── binned_6000/{year}/
    ├── binned_3000/{year}/
-   └── id/{year}/{year}_clean.csv
+   ├── id/{year}/{year}_clean.csv
+   └── site_info.json
 
-Loading Datasets
+Loading datasets
 ----------------
 
 Load an existing dataset (built with ``DatasetBuilder`` or downloaded
@@ -439,7 +449,7 @@ Load directly from a MARISMa-style Bruker tree (no build step needed):
        MARISMaLayout("path/to/MARISMa", "path/to/AMR.csv", year=2024),
    ).load()
 
-Exporting Spectra
+Exporting spectra
 -----------------
 
 Save individual spectra (raw, preprocessed, or binned) to files:
@@ -455,7 +465,7 @@ Save individual spectra (raw, preprocessed, or binned) to files:
    # Save raw spectra as mzML files, readable by other mass spectrometry tools
    data.save_spectra("output/raw/", stage="raw", fmt="mzML")
 
-Batch Effect Correction
+Batch effect correction
 -----------------------
 
 For multi-site or multi-instrument data, use
@@ -467,7 +477,7 @@ See the `combatlearn documentation <https://combatlearn.readthedocs.io/>`_ for
 full usage and the :doc:`exploration tutorial </tutorials/notebooks/05_exploration>`
 for a worked example.
 
-Command-Line Interface
+Command-line interface
 ----------------------
 
 MaldiAMRKit provides CLI commands for batch processing:

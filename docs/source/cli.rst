@@ -1,4 +1,4 @@
-CLI Reference
+CLI reference
 =============
 
 MaldiAMRKit ships a command-line interface built on `Typer <https://typer.tiangolo.com/>`_.
@@ -6,7 +6,7 @@ Three subcommands cover the most common batch-processing workflows:
 preprocessing spectra into feature matrices, generating quality reports, and
 building standardised dataset directories.
 
-Command Reference
+Command reference
 -----------------
 
 .. typer:: maldiamrkit.cli:app
@@ -14,7 +14,7 @@ Command Reference
    :width: 80
    :show-nested:
 
-Usage Examples
+Usage examples
 --------------
 
 Preprocess
@@ -56,7 +56,10 @@ Build a DRIAMS-like dataset directory from flat ``.txt`` spectra (default layout
 
    maldiamrkit build -s data/ -m meta.csv -o output/
 
-Build from a Bruker binary tree:
+Build from a Bruker binary tree. The metadata needs the columns
+``Identifier``, ``Path``, ``target_position`` and ``Year``, which can be
+renamed with ``--id-column``, ``--path-column``,
+``--target-position-column`` and ``--year-column``:
 
 .. code-block:: bash
 
@@ -75,13 +78,26 @@ Organise output into year-based subfolders:
 
    maldiamrkit build -s data/ -m meta.csv -o output/ --year-column acquisition_date
 
-Add extra processing handlers from a YAML config:
+Add extra processing handlers from a YAML or JSON config:
 
 .. code-block:: bash
 
    maldiamrkit build -s data/ -m meta.csv -o output/ --extra-handlers handlers.yaml
 
-Pipeline Configuration
+The config is a list of handlers. Each one names an output folder and its
+``kind`` (``preprocessed`` or ``binned``), with an optional ``pipeline`` file,
+read relative to the config, and a ``bin_width`` for binned output:
+
+.. code-block:: yaml
+
+   - folder_name: binned_3000
+     kind: binned
+     bin_width: 6
+   - folder_name: preprocessed_sqrt
+     kind: preprocessed
+     pipeline: sqrt_pipeline.yaml
+
+Pipeline configuration
 ----------------------
 
 The ``--pipeline`` option accepts a JSON or YAML file describing the
@@ -91,15 +107,28 @@ preprocessing steps. When omitted, the default pipeline is used
 .. code-block:: yaml
 
    steps:
-     - name: clip
-     - name: sqrt
-     - name: savgol
-       params: {window_length: 11, polyorder: 3}
-     - name: snip
-       params: {n_iters: 20}
-     - name: trim
-       params: {mz_min: 2000, mz_max: 20000}
-     - name: tic
+     - name: ClipNegatives
+       step_name: clip
+     - name: SqrtTransform
+       step_name: sqrt
+     - name: SavitzkyGolaySmooth
+       step_name: smooth
+       window_length: 11
+       polyorder: 3
+     - name: SNIPBaseline
+       step_name: baseline
+       half_window: 40
+     - name: MzTrimmer
+       step_name: trim
+       mz_min: 2000
+       mz_max: 20000
+     - name: TICNormalizer
+       step_name: normalize
+
+``name`` is a registered transformer class, ``step_name`` a label of your
+choice, and the other keys are constructor arguments.
+:meth:`~maldiamrkit.preprocessing.PreprocessingPipeline.to_yaml` writes this
+format from an existing pipeline.
 
 See the :doc:`Quickstart Guide <quickstart>` for a full walkthrough of
 building and customising preprocessing pipelines.

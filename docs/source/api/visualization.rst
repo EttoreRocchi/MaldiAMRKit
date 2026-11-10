@@ -1,4 +1,4 @@
-Visualization Module
+Visualisation module
 ====================
 
 Standalone plotting functions for spectra, datasets, peaks, and alignment.
@@ -6,10 +6,10 @@ Standalone plotting functions for spectra, datasets, peaks, and alignment.
 All plotting functions use lazy ``matplotlib`` imports, so ``matplotlib``
 is only required when a plot function is actually called.
 
-Exploratory Plots
+Exploratory plots
 -----------------
 
-Dimensionality reduction scatter plots for exploring datasets, colored by
+Dimensionality reduction scatter plots for exploring datasets, coloured by
 metadata columns such as species or resistance phenotype. PCA and t-SNE
 are available with no extra dependencies; UMAP requires
 ``pip install maldiamrkit[batch]``.
@@ -20,19 +20,19 @@ are available with no extra dependencies; UMAP requires
 
 .. autofunction:: maldiamrkit.visualization.plot_umap
 
-Spectrum Plots
+Spectrum plots
 --------------
 
 .. autofunction:: maldiamrkit.visualization.plot_spectrum
 
 .. autofunction:: maldiamrkit.visualization.plot_pseudogel
 
-Peak Plots
+Peak plots
 ----------
 
 .. autofunction:: maldiamrkit.visualization.plot_peaks
 
-Alignment Plots
+Alignment plots
 ---------------
 
 .. autofunction:: maldiamrkit.visualization.plot_alignment

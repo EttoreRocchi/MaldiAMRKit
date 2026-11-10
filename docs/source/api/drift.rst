@@ -1,4 +1,4 @@
-Drift Module
+Drift module
 ============
 
 Temporal drift monitoring for MALDI-TOF spectra.  The ``DriftMonitor``
@@ -15,7 +15,7 @@ Monitor
    :undoc-members:
    :show-inheritance:
 
-Visualization
+Visualisation
 -------------
 
 .. autofunction:: maldiamrkit.drift.plot_reference_drift
@@ -42,6 +42,7 @@ Example
         plot_peak_stability,
         plot_effect_size_drift,
     )
+    from maldiamrkit.susceptibility import LabelEncoder
 
     # MaldiSet with an acquisition-date metadata column
     data = MaldiSet.from_directory(
@@ -61,7 +62,8 @@ Example
     plot_pca_drift(pca_df, title="Centroid trajectory")
 
     # Peak-selection stability + per-peak effect size drift, from an
-    # analysis of the baseline spectra only
+    # analysis of the baseline spectra only; these steps need 0/1 labels
+    data.meta["Ceftriaxone"] = LabelEncoder().fit_transform(data.meta["Ceftriaxone"])
     dates = pd.to_datetime(data.meta.loc[data.X.index, "acquisition_date"])
     baseline = data.X.index[dates <= monitor.baseline_end_]
     baseline_analysis = DifferentialAnalysis(

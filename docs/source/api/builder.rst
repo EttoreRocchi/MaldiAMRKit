@@ -1,4 +1,4 @@
-Dataset Builder & Loader
+Dataset builder & loader
 ========================
 
 Build and load datasets using pluggable layout adapters.
@@ -17,7 +17,7 @@ DatasetLoader
    :members:
    :undoc-members:
 
-Input Layouts
+Input layouts
 -------------
 
 .. autoclass:: maldiamrkit.data.InputLayout
@@ -31,7 +31,7 @@ Input Layouts
    :members:
    :undoc-members:
 
-Dataset Layouts
+Dataset layouts
 ---------------
 
 .. autoclass:: maldiamrkit.data.DatasetLayout
@@ -60,7 +60,7 @@ BuildReport
 .. autoclass:: maldiamrkit.data.BuildReport
    :no-members:
 
-Duplicate Handling
+Duplicate handling
 ------------------
 
 .. autoclass:: maldiamrkit.data.DuplicateStrategy
@@ -68,7 +68,7 @@ Duplicate Handling
    :undoc-members:
    :show-inheritance:
 
-Dataset Manifest
+Dataset manifest
 ----------------
 
 Every dataset produced by :class:`~maldiamrkit.data.DatasetBuilder` carries a

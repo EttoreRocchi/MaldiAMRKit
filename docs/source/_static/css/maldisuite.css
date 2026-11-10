@@ -1,0 +1,284 @@
+/*
+ * MaldiSuite theme for the pydata-sphinx-theme documentation of the three packages.
+ *
+ * Source: assets/docs/maldisuite.css in the MaldiSuite repository. Each package keeps
+ * an identical copy in docs/source/_static/css/maldisuite.css (see NOTE.md) and sets
+ * its own colour in docs/source/_static/css/custom.css:
+ *
+ *   html { --ms-pkg-light: #7a2fc4; --ms-pkg-dark: #9874df; }
+ *
+ * Colours and fonts are those of the website (css/style.css).
+ */
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap");
+
+html {
+  --pst-font-family-base: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pst-font-family-heading: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pst-font-family-monospace: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --pst-font-size-base: 1rem;
+  --pst-header-height: 4rem;
+  --ms-radius: 10px;
+}
+
+html[data-theme="light"] {
+  --pst-color-primary: #0b6f82;
+  --pst-color-primary-bg: #e3f1f3;
+  --pst-color-secondary: var(--ms-pkg);
+  --pst-color-accent: var(--ms-pkg);
+  --pst-color-link: #0b6f82;
+  --pst-color-link-hover: #085a69;
+  --pst-color-background: #ffffff;
+  --pst-color-on-background: #f5f8f7;
+  --pst-color-surface: #f2f6f5;
+  --pst-color-on-surface: #e3ebe9;
+  --pst-color-text-base: #0c2226;
+  --pst-color-text-muted: #3a555a;
+  --pst-color-border: #d3dfdc;
+  --pst-color-inline-code: #0b5f70;
+  --pst-color-info: #0b6f82;
+  --pst-color-info-bg: #e3f1f3;
+  --pst-color-info-highlight: #085a69;
+  --ms-ink-3: #587176;
+  --ms-on-primary: #ffffff;
+  --ms-code-bg: #f5f8f7;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #4fc9d6;
+  --pst-color-primary-bg: #0e2f35;
+  --pst-color-secondary: var(--ms-pkg);
+  --pst-color-accent: var(--ms-pkg);
+  --pst-color-link: #4fc9d6;
+  --pst-color-link-hover: #7ad8e2;
+  --pst-color-background: #071417;
+  --pst-color-on-background: #0c1f23;
+  --pst-color-surface: #10272c;
+  --pst-color-on-surface: #153237;
+  --pst-color-text-base: #e2eef0;
+  --pst-color-text-muted: #a9c3c7;
+  --pst-color-border: #1d3d43;
+  --pst-color-inline-code: #8fd6e0;
+  --pst-color-info: #4fc9d6;
+  --pst-color-info-bg: #0e2f35;
+  --pst-color-info-highlight: #7ad8e2;
+  --ms-ink-3: #87a3a8;
+  --ms-on-primary: #04262c;
+  --ms-code-bg: #0b1c20;
+}
+
+/* sphinx-design buttons and badges follow the brand colour */
+html {
+  --sd-color-primary: var(--pst-color-primary);
+  --sd-color-primary-highlight: var(--pst-color-link-hover);
+  --sd-color-primary-text: var(--ms-on-primary);
+  --sd-color-card-border: var(--pst-color-border);
+}
+
+body {
+  font-feature-settings: "ss01", "kern";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header: package colour as a thin top rule, logo lockup at a readable size */
+.bd-header {
+  border-top: 3px solid var(--ms-pkg);
+  border-bottom: 1px solid var(--pst-color-border);
+  box-shadow: none;
+}
+.navbar-brand img {
+  height: 2.1rem;
+  max-height: none;
+  width: auto;
+}
+.navbar-brand {
+  padding: 0.5rem 0;
+}
+.bd-header .navbar-nav .nav-link {
+  font-weight: 500;
+}
+.bd-header .navbar-nav li.current > .nav-link,
+.bd-header .navbar-nav .nav-link.active {
+  border-bottom-color: var(--ms-pkg);
+}
+
+/* Headings */
+.bd-article h1 {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.bd-article h2,
+.bd-article h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Sidebars */
+.bd-sidebar-primary .nav-link.active,
+.bd-sidebar-primary li.active > a {
+  color: var(--pst-color-text-base);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--ms-pkg);
+}
+.bd-sidebar-secondary .onthispage {
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ms-ink-3);
+}
+
+/* Code */
+div.highlight,
+div.highlight pre {
+  background-color: var(--ms-code-bg);
+}
+div.highlight {
+  border: 1px solid var(--pst-color-border);
+  border-radius: var(--ms-radius);
+}
+code.literal {
+  border: 0;
+  background-color: var(--pst-color-surface);
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+}
+
+/* Admonitions: neutral surface, brand-coloured edge */
+.admonition,
+div.admonition {
+  border-radius: var(--ms-radius);
+  box-shadow: none;
+  border: 1px solid var(--pst-color-border);
+  border-left: 3px solid var(--pst-color-primary);
+}
+
+/* API reference: signatures on a surface band with the package edge */
+dl.py > dt {
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.86rem;
+  background-color: var(--pst-color-on-background);
+  border-left: 3px solid var(--ms-pkg);
+  border-radius: 0 6px 6px 0;
+  padding: 0.45rem 0.75rem;
+}
+dl.py > dt .sig-name {
+  color: var(--pst-color-text-base);
+  font-weight: 600;
+}
+dl.py > dt em.property {
+  color: var(--ms-pkg);
+}
+dl.py dl.field-list > dt {
+  font-family: var(--pst-font-family-base);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ms-ink-3);
+}
+
+/* Landing page */
+.hero-section {
+  text-align: center;
+  padding: 2.5rem 1rem 2.5rem;
+}
+.hero-section section {
+  text-align: left;
+}
+.hero-section img {
+  max-width: 300px;
+  margin-bottom: 0.5rem;
+}
+.hero-section h1 {
+  font-size: clamp(2rem, 3.2vw, 2.6rem);
+}
+.hero-section > p,
+.hero-section p:first-of-type {
+  font-size: 1.15rem;
+  color: var(--pst-color-text-muted);
+  max-width: 44rem;
+  margin: 0 auto 1.75rem;
+}
+.sd-btn {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.5rem 1.15rem;
+}
+
+/* Feature cards, like the package cards of the website */
+.feature-grid .sd-card {
+  border: 1px solid var(--pst-color-border);
+  border-top: 3px solid var(--ms-pkg);
+  border-radius: var(--ms-radius);
+  background-color: var(--pst-color-background);
+  box-shadow: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.feature-grid .sd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(7, 26, 30, 0.08);
+}
+html[data-theme="dark"] .feature-grid .sd-card {
+  background-color: var(--pst-color-on-background);
+}
+.feature-grid .sd-card-title {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--pst-color-text-base);
+}
+.feature-grid .sd-card-body {
+  color: var(--pst-color-text-muted);
+  font-size: 0.95rem;
+}
+
+/* Footer band linking the suite */
+.ms-suite {
+  font-size: 0.9rem;
+  color: var(--pst-color-text-muted);
+}
+.ms-suite a {
+  margin: 0 0.35rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ms-suite .ms-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+  vertical-align: 0.05em;
+}
+.ms-suite .ms-amr { background: #16884f; }
+.ms-suite .ms-batch { background: #7a2fc4; }
+.ms-suite .ms-deep { background: #c45f00; }
+
+/* Package colour, set in custom.css */
+html[data-theme="light"] { --ms-pkg: var(--ms-pkg-light); }
+html[data-theme="dark"] { --ms-pkg: var(--ms-pkg-dark); }
+
+/* Landing buttons in one centred row */
+.hero-section .sd-d-flex-row {
+  justify-content: center !important;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.hero-section .sd-d-flex-row > *,
+.hero-section .sd-d-flex-row p {
+  margin: 0;
+}
+/* The empty "Section Navigation" title of pydata adds noise */
+.bd-sidebar-primary .sidebar-primary-items__start .bd-links__title {
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ms-ink-3);
+}
+
+/* One card per row on phones */
+@media (max-width: 575.98px) {
+  .feature-grid .sd-row > .sd-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}

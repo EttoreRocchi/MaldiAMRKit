@@ -1,12 +1,12 @@
-Alignment Module
+Alignment module
 ================
 
 Spectral alignment and warping transformers.
 
 Both ``Warping`` and ``RawWarping`` support parallel processing via the ``n_jobs`` parameter.
-Use ``n_jobs=-1`` to utilize all available CPU cores.
+Use ``n_jobs=-1`` to utilise all available CPU cores.
 
-Warping (Binned Spectra)
+Warping (binned spectra)
 ------------------------
 
 .. autoclass:: maldiamrkit.alignment.Warping
@@ -14,7 +14,7 @@ Warping (Binned Spectra)
    :undoc-members:
    :show-inheritance:
 
-RawWarping (Full Resolution)
+RawWarping (full resolution)
 ----------------------------
 
 .. autoclass:: maldiamrkit.alignment.RawWarping
@@ -22,13 +22,13 @@ RawWarping (Full Resolution)
    :undoc-members:
    :show-inheritance:
 
-Alignment Strategies
+Alignment strategies
 --------------------
 
 .. autoclass:: maldiamrkit.alignment.AlignmentStrategy
    :members:
 
-Alignment Methods
+Alignment methods
 -----------------
 
 .. autoclass:: maldiamrkit.alignment.AlignmentMethod
@@ -36,14 +36,14 @@ Alignment Methods
    :undoc-members:
    :show-inheritance:
 
-Utility Functions
+Utility functions
 -----------------
 
 .. autofunction:: maldiamrkit.alignment.create_raw_input
 
 .. autofunction:: maldiamrkit.alignment.align_peaks
 
-Example Usage
+Example usage
 -------------
 
 .. code-block:: python

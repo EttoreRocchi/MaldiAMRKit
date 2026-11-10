@@ -193,3 +193,30 @@ class TestCensoredMICs:
         ).fit_transform(df)
         assert calls
         assert list(out["category"]) == ["R", "S"]
+
+
+class TestUnmatchedBreakpoints:
+    """Rows without a breakpoint get a missing category, never an error."""
+
+    def test_no_row_matches(self, bp):
+        df = pd.DataFrame({"MIC": ["0.5", "<=0.25", ">16"]})
+        out = MICEncoder(
+            breakpoints=bp, species="Unknown species", drug="Ceftriaxone"
+        ).fit_transform(df)
+        assert out["category"].dtype == object
+        assert all(c is pd.NA for c in out["category"])
+        assert all(s is pd.NA for s in out["source"])
+
+    def test_one_row_unmatched(self, bp):
+        df = pd.DataFrame(
+            {
+                "MIC": ["2", "2"],
+                "Species": ["Klebsiella pneumoniae", "Unknown species"],
+            }
+        )
+        out = MICEncoder(
+            breakpoints=bp, species_col="Species", drug="Ceftriaxone"
+        ).fit_transform(df)
+        assert out["category"].dtype == object
+        assert out["category"].iloc[0] in ("S", "I", "R")
+        assert out["category"].iloc[1] is pd.NA

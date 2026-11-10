@@ -1,4 +1,4 @@
-Evaluation Module
+Evaluation module
 =================
 
 .. py:module:: maldiamrkit.evaluation
@@ -27,22 +27,24 @@ Metrics
 
 .. autofunction:: maldiamrkit.evaluation.mic_regression_report
 
-Sklearn Scorers
+Sklearn scorers
 ~~~~~~~~~~~~~~~
 
 Pre-built scorers for use with ``cross_val_score`` or ``GridSearchCV``:
 
 .. py:data:: maldiamrkit.evaluation.vme_scorer
 
-   Scorer that minimizes VME (Very Major Error rate).
+   Scorer that minimises VME (Very Major Error rate). ``y`` must hold binary
+   labels (R=1, S=0), and scores are negated, so higher is better.
    Use with ``cross_val_score(pipe, X, y, scoring=vme_scorer)``.
 
 .. py:data:: maldiamrkit.evaluation.me_scorer
 
-   Scorer that minimizes ME (Major Error rate).
+   Scorer that minimises ME (Major Error rate). ``y`` must hold binary
+   labels (R=1, S=0), and scores are negated, so higher is better.
    Use with ``cross_val_score(pipe, X, y, scoring=me_scorer)``.
 
-Metrics Example
+Metrics example
 ~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -53,6 +55,7 @@ Metrics Example
     )
     from sklearn.model_selection import cross_val_score
 
+    # y_true, y_pred, y: binary labels (R=1, S=0), for example from LabelEncoder
     # Individual metrics
     vme = very_major_error_rate(y_true, y_pred)
     me = major_error_rate(y_true, y_pred)
@@ -64,7 +67,7 @@ Metrics Example
     # (with replicates, use SpeciesDrugStratifiedKFold and groups=data.groups)
     scores = cross_val_score(pipe, X, y, cv=5, scoring=vme_scorer)
 
-Splitting Utilities
+Splitting utilities
 -------------------
 
 .. autofunction:: maldiamrkit.evaluation.stratified_species_drug_split
@@ -81,7 +84,7 @@ Splitting Utilities
    :undoc-members:
    :show-inheritance:
 
-Splitting Example
+Splitting example
 ~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -92,6 +95,8 @@ Splitting Example
         SpeciesDrugStratifiedKFold,
         CaseGroupedKFold,
     )
+
+    # species_labels, patient_ids: the species and the patient of each row of X
 
     # Single split preserving species-drug distributions, with the
     # replicates of each isolate on one side
@@ -114,26 +119,32 @@ Splitting Example
     for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
         pass
 
-Multi-Drug Evaluation
+Multi-drug evaluation
 ---------------------
 
 For predicting resistance to multiple antibiotics simultaneously:
 
 .. code-block:: python
 
+    import pandas as pd
     from maldiamrkit.susceptibility import LabelEncoder
     from maldiamrkit.evaluation import amr_multilabel_report
-    from sklearn.multioutput import MultiOutputClassifier
     from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.multioutput import MultiOutputClassifier
 
-    # Encode multi-drug labels (intermediate -> NaN)
-    enc = LabelEncoder(intermediate="nan")
-    y_encoded = enc.fit_transform(data.y)  # DataFrame with one column per drug
+    # Encode multi-drug labels (intermediate -> susceptible by default)
+    y_encoded = LabelEncoder().fit_transform(data.y)  # one column per drug
+    X_train, X_test, y_train, y_test = train_test_split(data.X, y_encoded)
 
     # Train multi-output model
     clf = MultiOutputClassifier(RandomForestClassifier())
     clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
+
+    # The report needs a DataFrame with the same index and columns as y_test
+    y_pred = pd.DataFrame(
+        clf.predict(X_test), index=y_test.index, columns=y_test.columns
+    )
 
     # Per-drug AMR report
     report = amr_multilabel_report(y_test, y_pred, as_dataframe=True)

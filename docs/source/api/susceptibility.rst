@@ -1,4 +1,4 @@
-Susceptibility Module
+Susceptibility module
 =====================
 
 .. py:module:: maldiamrkit.susceptibility
@@ -7,15 +7,14 @@ Clinical susceptibility utilities: MIC encoding, breakpoint tables, and
 R/I/S label encoding. Added in v0.15. The
 :class:`~maldiamrkit.susceptibility.LabelEncoder` previously lived in the
 :doc:`Evaluation module <evaluation>` and was moved here to sit alongside
-the new MIC tooling; the old import path still works for one release with
-a :class:`DeprecationWarning`.
+the new MIC tooling; the old import path has been removed.
 
 The regression-style evaluation function
 :func:`maldiamrkit.evaluation.mic_regression_report` lives in the
 :doc:`Evaluation module <evaluation>` alongside the binary AMR metrics it
 complements.
 
-MIC Encoding
+MIC encoding
 ------------
 
 .. autoclass:: maldiamrkit.susceptibility.MICEncoder
@@ -36,7 +35,7 @@ Breakpoints
    :undoc-members:
    :show-inheritance:
 
-Label Encoding
+Label encoding
 --------------
 
 .. autoclass:: maldiamrkit.susceptibility.LabelEncoder
@@ -49,7 +48,7 @@ Label Encoding
    :undoc-members:
    :show-inheritance:
 
-Label Encoding Example
+Label encoding example
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -70,13 +69,18 @@ Label Encoding Example
     y_binary = enc.fit_transform(["R", "S", "I"])
     # array([1, 0])
 
-MIC Encoding Example
+MIC encoding example
 ~~~~~~~~~~~~~~~~~~~~
 
 End-to-end: from raw MIC strings to ``log2(MIC)`` regression targets and
 S/I/R category labels, using a bundled EUCAST breakpoint table. The
 regression evaluator (:func:`maldiamrkit.evaluation.mic_regression_report`)
 is imported from the :doc:`Evaluation module <evaluation>`.
+
+Species and drug must match the names in the table exactly: bundled tables
+use EUCAST entries such as ``Enterobacterales`` and
+``Ceftriaxone (indications other than meningitis)``, not ``Escherichia coli``
+or ``Ceftriaxone``. ``bp.species()`` and ``bp.drugs()`` list them.
 
 .. code-block:: python
 
@@ -85,20 +89,22 @@ is imported from the :doc:`Evaluation module <evaluation>`.
 
     # Load the latest bundled EUCAST table
     bp = BreakpointTable.from_latest()
+    drug = "Ceftriaxone (indications other than meningitis)"
 
+    # meta: DataFrame with a MIC column and a Species column of EUCAST names
     enc = MICEncoder(
         breakpoints=bp,
         species_col="Species",
-        drug="Ceftriaxone",
+        drug=drug,
     )
     targets = enc.fit_transform(meta)  # log2_mic, censored, category, atu, source
 
-    # Evaluate regression predictions against ground truth
+    # Evaluate regression predictions (y_pred_log2: your model's predictions)
     report = mic_regression_report(
         y_true=targets["log2_mic"],
         y_pred=y_pred_log2,
         breakpoints=bp,
-        species="Klebsiella pneumoniae",
-        drug="Ceftriaxone",
+        species="Enterobacterales",
+        drug=drug,
     )
     print(report["rmse_log2"], report["essential_agreement"])

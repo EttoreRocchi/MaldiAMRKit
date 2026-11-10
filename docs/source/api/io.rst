@@ -1,4 +1,4 @@
-I/O Module
+I/O module
 ==========
 
 File reading utilities for spectrum data.

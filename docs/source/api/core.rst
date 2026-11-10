@@ -1,4 +1,4 @@
-Core Module
+Core module
 ===========
 
 Core data structures for MALDI-TOF mass spectrometry analysis.
@@ -63,7 +63,7 @@ Filters can be combined with ``&`` (and), ``|`` (or), and ``~`` (invert).
    :undoc-members:
    :show-inheritance:
 
-Filter Example
+Filter example
 ~~~~~~~~~~~~~~
 
 .. code-block:: python

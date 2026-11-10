@@ -14,6 +14,11 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Before pandas 3.1, float_precision="round_trip" is needed to parse floats
+# exactly; pandas 3.1 parses them exactly by default and deprecates the argument.
+_PANDAS_VERSION = tuple(int(part) for part in pd.__version__.split(".")[:2])
+_EXACT_FLOATS = {"float_precision": "round_trip"} if _PANDAS_VERSION < (3, 1) else {}
+
 
 def sniff_delimiter(path: str | Path, sample_lines: int = 10) -> str:
     """
@@ -579,7 +584,7 @@ def read_spectrum(
         comment="#",
         header=None,
         names=["mass", "intensity"],
-        float_precision="round_trip",
+        **_EXACT_FLOATS,
     )
 
     df = _coerce_numeric(df)
@@ -592,7 +597,7 @@ def read_spectrum(
             comment="#",
             header=None,
             names=["mass", "intensity"],
-            float_precision="round_trip",
+            **_EXACT_FLOATS,
         )
         df = _coerce_numeric(df)
 

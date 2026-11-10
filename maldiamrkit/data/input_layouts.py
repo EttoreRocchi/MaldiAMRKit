@@ -316,6 +316,15 @@ class BrukerTreeLayout(InputLayout):
         for empty and duplicate spectra.
         """
         meta = self._read_raw_metadata()
+        missing = [
+            column
+            for column in (self.path_column, self.year_column)
+            if column not in meta.columns
+        ]
+        if missing:
+            raise ValueError(
+                f"Metadata columns {missing} not found. Available: {list(meta.columns)}"
+            )
         meta = apply_metadata_strategy(
             meta,
             self.duplicate_strategy,

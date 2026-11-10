@@ -3,7 +3,7 @@ Contributing
 
 Thanks for your interest in contributing! Here's how to get started.
 
-Development Setup
+Development setup
 -----------------
 
 .. code-block:: bash
@@ -12,7 +12,7 @@ Development Setup
    cd MaldiAMRKit
    pip install -e .[dev]
 
-Running Tests
+Running tests
 -------------
 
 .. code-block:: bash
@@ -26,7 +26,7 @@ Linting
 
    ruff check .
 
-Submitting Changes
+Submitting changes
 ------------------
 
 1. Fork the repository and create a feature branch from ``main``.
@@ -34,7 +34,7 @@ Submitting Changes
 3. Make sure all tests pass and the linter is clean.
 4. Open a pull request with a clear title and description of your changes.
 
-Deprecation Policy
+Deprecation policy
 ------------------
 
 Before removing or renaming a public API, follow these steps:
@@ -53,7 +53,7 @@ Before removing or renaming a public API, follow these steps:
    remove in 0.14). This policy will be revisited for longer cycles once
    the project reaches v1.0.
 
-Reporting Issues
+Reporting issues
 ----------------
 
 Open an issue on `GitHub <https://github.com/EttoreRocchi/MaldiAMRKit/issues>`_

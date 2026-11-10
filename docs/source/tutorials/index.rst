@@ -30,10 +30,10 @@ on first use, and by default restricts the dataset to the **Rome
 sub-cohort** (single acquisition centre, ~470 spectra) so that the
 demonstrations do not require batch-effect correction.
 
-Example Workflows
+Example workflows
 -----------------
 
-Basic Classification Pipeline
+Basic classification pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -54,7 +54,7 @@ Basic Classification Pipeline
 
    # Build pipeline
    pipe = Pipeline([
-       ("peaks", MaldiPeakDetector(binary=False, prominence=0.005)),
+       ("peaks", MaldiPeakDetector(binary=False, prominence=1e-4)),
        ("warp", Warping(method="lowess")),
        ("scaler", StandardScaler()),
        ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
@@ -68,7 +68,7 @@ Basic Classification Pipeline
    )
    print(f"CV Accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
 
-Raw Spectra Alignment
+Raw spectra alignment
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -85,7 +85,7 @@ Raw Spectra Alignment
    warper.fit(X_raw)
    X_aligned = warper.transform(X_raw)
 
-Building Datasets
+Building datasets
 ~~~~~~~~~~~~~~~~~
 
 .. code-block:: python

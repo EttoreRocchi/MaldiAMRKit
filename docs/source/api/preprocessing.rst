@@ -1,4 +1,4 @@
-Preprocessing Module
+Preprocessing module
 ====================
 
 Functions for preprocessing MALDI-TOF spectra.
@@ -15,7 +15,7 @@ The ``preprocess()`` function is a convenience wrapper around the pipeline:
 
 .. autofunction:: maldiamrkit.preprocessing.preprocess
 
-Individual Transformers
+Individual transformers
 -----------------------
 
 Each transformer is a callable operating on a DataFrame with ``mass`` and
@@ -63,7 +63,7 @@ Each transformer is a callable operating on a DataFrame with ``mass`` and
 .. autoclass:: maldiamrkit.preprocessing.MzMultiTrimmer
    :members:
 
-Pipeline Serialization
+Pipeline serialisation
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Save and load pipeline configurations for reproducibility:
@@ -82,7 +82,7 @@ Save and load pipeline configurations for reproducibility:
     pipe.to_yaml("pipeline.yaml")
     pipe = PreprocessingPipeline.from_yaml("pipeline.yaml")
 
-Custom Transformers
+Custom transformers
 ~~~~~~~~~~~~~~~~~~~
 
 An in-memory pipeline accepts any object that is callable on a spectrum
@@ -147,7 +147,7 @@ Binning
    :undoc-members:
    :show-inheritance:
 
-Binning Methods
+Binning methods
 ~~~~~~~~~~~~~~~
 
 MaldiAMRKit supports multiple binning strategies:
@@ -184,7 +184,7 @@ Bin metadata is available via the ``bin_metadata`` attribute:
     #    bin_index  bin_start  bin_end  bin_width
     # 0          0     2000.0   2003.0        3.0
 
-Quality Metrics
+Quality metrics
 ---------------
 
 .. autofunction:: maldiamrkit.preprocessing.estimate_snr
@@ -203,7 +203,7 @@ Quality Metrics
    :undoc-members:
    :show-inheritance:
 
-Usage Example
+Usage example
 ~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -222,7 +222,7 @@ Usage Example
     print(f"Baseline fraction: {report.baseline_fraction:.2%}")
     print(f"Dynamic range: {report.dynamic_range:.2f}")
 
-Replicate Merging
+Replicate merging
 -----------------
 
 .. autofunction:: maldiamrkit.preprocessing.merge_replicates

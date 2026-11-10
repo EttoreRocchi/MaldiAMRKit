@@ -1,8 +1,8 @@
-Similarity Module
+Similarity module
 =================
 
 Spectral distance metrics, pairwise distance matrix computation,
-clustering algorithms, and visualizations for spectral similarity
+clustering algorithms, and visualisations for spectral similarity
 analysis.
 
 Metrics
@@ -15,7 +15,7 @@ Metrics
    :undoc-members:
    :show-inheritance:
 
-Custom Metrics
+Custom metrics
 ~~~~~~~~~~~~~~
 
 Register your own distance function to use it anywhere a metric name is
@@ -59,7 +59,7 @@ The built-in metrics are protected: registering over one of them requires
 ``override=True``, and unregistering an overridden built-in restores the
 default implementation. The built-in names themselves can never be removed.
 
-Pairwise Distances
+Pairwise distances
 ------------------
 
 .. autofunction:: maldiamrkit.similarity.pairwise_distances
@@ -89,7 +89,7 @@ Clustering
    :undoc-members:
    :show-inheritance:
 
-Visualization
+Visualisation
 -------------
 
 .. autofunction:: maldiamrkit.similarity.plot_distance_heatmap
@@ -109,6 +109,7 @@ Example
         hierarchical_clustering,
     )
 
+    # spectra: a binned feature matrix such as MaldiSet.X; sample_ids: its index
     # Compute pairwise distance matrix
     D = pairwise_distances(spectra, metric="cosine")
 

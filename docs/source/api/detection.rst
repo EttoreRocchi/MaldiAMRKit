@@ -1,10 +1,10 @@
-Detection Module
+Detection module
 ================
 
 Peak detection algorithms and transformers.
 
 ``MaldiPeakDetector`` supports parallel processing via the ``n_jobs`` parameter.
-Use ``n_jobs=-1`` to utilize all available CPU cores.
+Use ``n_jobs=-1`` to utilise all available CPU cores.
 
 MaldiPeakDetector
 -----------------
@@ -14,7 +14,7 @@ MaldiPeakDetector
    :undoc-members:
    :show-inheritance:
 
-Peak Detection Methods
+Peak detection methods
 ----------------------
 
 .. autoclass:: maldiamrkit.detection.PeakMethod
@@ -22,7 +22,7 @@ Peak Detection Methods
    :undoc-members:
    :show-inheritance:
 
-Peak Sets
+Peak sets
 ---------
 
 ``PeakSet`` / ``PeakList`` represent spectra as variable-length
@@ -47,7 +47,7 @@ on the training fold's reference.
 
 .. autofunction:: maldiamrkit.detection.create_peakset_input
 
-Parallel Processing Example
+Parallel processing example
 ---------------------------
 
 .. code-block:: python
@@ -57,7 +57,7 @@ Parallel Processing Example
     # Parallel peak detection
     detector = MaldiPeakDetector(
         method="local",
-        prominence=0.01,
+        prominence=1e-4,
         n_jobs=-1  # use all cores
     )
     peaks = detector.fit_transform(X)

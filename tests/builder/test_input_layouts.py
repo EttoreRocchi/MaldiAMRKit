@@ -291,6 +291,25 @@ class TestBrukerTreeLayout:
         assert layout._year_map == {}
         assert layout._id_to_path == {}
 
+    def test_missing_year_column_raises(self, tmp_path):
+        """A metadata CSV without the year column gives a ValueError naming it."""
+        root = tmp_path / "root"
+        _make_bruker_dir(root, "specimen_A/0_A1")
+        csv_path = tmp_path / "meta.csv"
+        _make_bruker_metadata(
+            csv_path,
+            [
+                {
+                    "Identifier": "specimen_A",
+                    "Path": "specimen_A/0_A1",
+                    "target_position": "0_A1",
+                }
+            ],
+        )
+        layout = BrukerTreeLayout(root, csv_path, validate=False)
+        with pytest.raises(ValueError, match="Year"):
+            layout.discover_spectra()
+
     def test_discover_spectra_strategy_first(self, tmp_path):
         """Verify duplicate_strategy='first' keeps first spectrum per ID."""
         root = tmp_path / "root"

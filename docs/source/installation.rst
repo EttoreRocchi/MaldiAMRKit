@@ -5,20 +5,20 @@ Installation
 
    pip install maldiamrkit
 
-Optional: Batch Correction & UMAP
----------------------------------
+Optional: UMAP & combatlearn
+----------------------------
 
-For multi-site batch effect correction with
-`combatlearn <https://combatlearn.readthedocs.io/>`__ and
-UMAP-based exploratory plots:
+MaldiAMRKit has no batch corrector of its own. The ``batch`` extra adds
+``umap-learn`` for UMAP-based exploratory plots, and
+`combatlearn <https://github.com/EttoreRocchi/combatlearn>`__ to use ComBat
+directly on a feature matrix:
 
 .. code-block:: bash
 
    pip install maldiamrkit[batch]
 
-This installs `combatlearn <https://github.com/EttoreRocchi/combatlearn>`__
-for ComBat-based batch correction and ``umap-learn`` for UMAP
-dimensionality reduction.
+For batch correction built for MALDI-TOF spectra, see
+`MaldiBatchKit <https://maldibatchkit.readthedocs.io/>`__.
 
 See the `combatlearn documentation <https://combatlearn.readthedocs.io/>`__
 for usage examples. Reference:
@@ -46,7 +46,7 @@ with ``lxml``, ``psims``, and ``pynumpress``:
 ``pynumpress`` ships no wheels for Python 3.10, so numpress arrays need
 Python 3.11 or newer.
 
-Development Installation
+Development installation
 ------------------------
 
 .. code-block:: bash

@@ -9,7 +9,10 @@
 [![License](https://img.shields.io/github/license/EttoreRocchi/MaldiAMRKit)](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE)
 
 <p align="center">
-  <img src="docs/maldiamrkit.png" alt="MaldiAMRKit" width="320"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/EttoreRocchi/MaldiAMRKit/main/docs/maldiamrkit_dark.png">
+    <img src="https://raw.githubusercontent.com/EttoreRocchi/MaldiAMRKit/main/docs/maldiamrkit.png" alt="MaldiAMRKit" width="320"/>
+  </picture>
 </p>
 
 <p align="center">
@@ -17,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/preprocessing_pipeline.svg" alt="Animated MaldiAMRKit pipeline: a raw MALDI-TOF spectrum is smoothed, baseline-corrected, peak-detected and binned into a feature vector that predicts antimicrobial resistance (R/S)" width="720"/>
+  <img src="https://raw.githubusercontent.com/EttoreRocchi/MaldiAMRKit/main/docs/preprocessing_pipeline.svg" alt="Animated MaldiAMRKit pipeline: a raw MALDI-TOF spectrum is smoothed, baseline-corrected, peak-detected and binned into a feature vector that predicts antimicrobial resistance (R/S)" width="720"/>
 </p>
 
 <p align="center">
@@ -48,13 +51,13 @@ pip install maldisuite
 
 Visit the **MaldiSuite** landing page at <https://ettorerocchi.github.io/MaldiSuite/>.
 
-### Optional: Batch Correction & UMAP
+### Optional: UMAP & combatlearn
 
 ```bash
 pip install maldiamrkit[batch]
 ```
 
-Installs [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) for ComBat-based batch effect correction and `umap-learn` for UMAP exploratory plots.
+MaldiAMRKit has no batch corrector of its own. This extra adds `umap-learn` for UMAP exploratory plots, and [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) to use ComBat directly on a feature matrix. For batch correction built for MALDI-TOF spectra, see [MaldiBatchKit](https://github.com/EttoreRocchi/MaldiBatchKit).
 
 ### Optional: extended mzML/mzXML support
 
@@ -64,7 +67,7 @@ pip install maldiamrkit[formats]
 
 `.mzML` and `.mzXML` files are read out of the box (zlib-compressed or uncompressed arrays). This extra installs [`pyteomics`](https://pyteomics.readthedocs.io/) with `lxml`, `psims`, and `pynumpress`, which additionally handle numpress-compressed arrays. `pynumpress` ships no wheels for Python 3.10, so numpress arrays need Python 3.11 or newer.
 
-### Development Installation
+### Development installation
 
 ```bash
 git clone https://github.com/EttoreRocchi/MaldiAMRKit.git
@@ -75,15 +78,15 @@ pip install -e .[dev]
 ## Features
 
 ### Preprocessing
-- **Composable Pipeline**: Build custom `PreprocessingPipeline` from individual transformers (smoothing, baseline correction, normalization, trimming), serializable to JSON/YAML
+- **Composable Pipeline**: Build custom `PreprocessingPipeline` from individual transformers (smoothing, baseline correction, normalisation, trimming), serialisable to JSON/YAML
 - **Smoothing**: Savitzky-Golay and moving-average filters
 - **Baseline Correction**: SNIP, morphological top-hat, lower-convex-hull, and iterative rolling-median baselines
 - **Multiple Binning Strategies**: Uniform, proportional, adaptive, and custom bin edges
 - **Quality Metrics**: SNR estimation, MAD-based noise estimation, comprehensive quality reports, and alignment assessment
 - **Replicate Merging**: Mean/median/weighted merging with correlation-based outlier detection
 
-### Alignment & Detection
-- **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra. Spectra are first shifted and then aligned to the reference of the shifted spectra, a non-rigid warp is kept only when the matched peaks support it, and resampling preserves the total intensity; spectra of several species are best aligned one species at a time
+### Alignment & detection
+- **Spectral Alignment**: Shift, linear, piecewise, DTW, quadratic, cubic, and LOWESS warping for both binned and raw full-resolution spectra. Spectra are first shifted and then aligned to the reference of the shifted spectra, a non-rigid warp is kept only when the matched peaks support it, and resampling preserves the total intensity (neither applies to DTW); spectra of several species are best aligned one species at a time
 - **Peak Detection**: Local maxima and persistent homology methods
 - **Peak Sets**: `PeakSet` / `PeakList` represent each spectrum as a variable-length `(m/z, intensity)` set for peak-set models, via `MaldiPeakDetector.transform_peaklist()` on binned spectra or `create_peakset_input()` at full m/z resolution; extraction is stateless per spectrum, so results are cacheable without leakage
 - **Fit-Free Peak Alignment**: `align_peaks()` warps a peak set onto caller-supplied reference peaks, which the caller estimates on the training split (for example `RawWarping(...).fit(X_train).ref_peaks_mz_`; a reference built with test spectra leaks)
@@ -100,19 +103,23 @@ pip install -e .[dev]
 
 ### Susceptibility (MIC encoding & breakpoints)
 - **`MICEncoder`**: Convert raw MIC strings into `log2(MIC)` regression targets plus S/I/R categories and ATU flags in a single pass
-- **`BreakpointTable`**: Clinical breakpoint tables (EUCAST v1.0-v16.0 bundled) loaded by version, year, latest, or custom YAML
+- **`BreakpointTable`**: Clinical breakpoint tables (19 EUCAST versions between v1.0 and v16.0 bundled) loaded by version, year, latest, or custom YAML
 - **`LabelEncoder`**: Map R/I/S to binary with configurable intermediate handling (moved from `maldiamrkit.evaluation` in v0.15)
 
-### Differential Analysis
+### Differential analysis
 - **`DifferentialAnalysis`**: Per-bin statistical testing (Mann-Whitney U, Welch's t-test) between resistant and susceptible groups, with multiple-testing correction, log2 fold change, and Cohen's d effect size
 - **Peak Ranking**: `top_peaks()` by adjusted p-value, `significant_peaks()` with fold-change and p-value thresholds, `compare_drugs()` for multi-drug boolean significance matrices (to select features for a classifier, rank peaks inside each training fold)
 - **AMR-Aware Plots**: `plot_volcano()`, `plot_manhattan()` along the m/z axis, and `plot_drug_comparison()` with binary heatmap or UpSet-style intersection view
 
-### Drift Monitoring
+### Drift monitoring
 - **`DriftMonitor`**: Anchor a baseline on early timestamps (default: first 20%) and track temporal drift via three complementary views - reference similarity of per-window median spectra, PCA centroid trajectory in a baseline-fitted PCA space, and Jaccard stability of top-k differential peaks over time
 - **Trajectory Plots**: `plot_reference_drift`, `plot_pca_drift`, `plot_peak_stability`, `plot_effect_size_drift`
 
-### Data Management
+### Spectral similarity
+- **Distances & Clustering**: `spectral_distance` and `pairwise_distances` with built-in or registered metrics, `cluster_spectra` with hierarchical, HDBSCAN, and k-medoids methods, silhouette scores, and metadata concordance
+- **Plots**: `plot_distance_heatmap` and `plot_dendrogram`
+
+### Data management
 - **Dataset Building & Loading**: `DatasetBuilder` and `DatasetLoader` with pluggable layout adapters (`FlatLayout`, `BrukerTreeLayout`, `DRIAMSLayout`, `MARISMaLayout`)
 - **Replicate Collapsing**: `DRIAMSLayout(collapse_replicates=True)` merges technical replicates (`_MALDI<N>`) to one row per isolate at load time via the active `duplicate_strategy`
 - **Bruker Format Support**: Read Bruker flexAnalysis binary data (fid/1r + acqus) natively via `read_spectrum()` on directories
@@ -121,9 +128,9 @@ pip install -e .[dev]
 - **Composable Filters**: `SpeciesFilter`, `DrugFilter`, `QualityFilter`, `MetadataFilter` combinable with `&`/`|`/`~` operators
 - **Spectrum Export**: Save spectra to CSV, TXT, or mzML via `MaldiSpectrum.save()` and `MaldiSet.save_spectra()`
 
-### Visualization & Tools
-- **Exploratory Plots**: PCA, t-SNE, and UMAP scatter plots colored by species, resistance phenotype, or any metadata column
-- **Batch Effect Correction**: Multi-site/multi-instrument correction via [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) (`pip install maldiamrkit[batch]`)
+### Visualisation & tools
+- **Exploratory Plots**: PCA, t-SNE, and UMAP scatter plots coloured by species, resistance phenotype, or any metadata column
+- **Batch Effect Correction**: Not part of this package. Use [`combatlearn`](https://github.com/EttoreRocchi/combatlearn) directly (`pip install maldiamrkit[batch]`) or [MaldiBatchKit](https://github.com/EttoreRocchi/MaldiBatchKit)
 - **CLI**: `maldiamrkit preprocess`, `maldiamrkit quality`, and `maldiamrkit build` for batch processing
 - **Parallel Processing**: Multi-core support via `n_jobs` parameter
 - **ML-Ready**: Direct integration with scikit-learn pipelines
@@ -132,9 +139,9 @@ pip install -e .[dev]
 
 Full documentation is available at [maldiamrkit.readthedocs.io](https://maldiamrkit.readthedocs.io/).
 
-## Quick Start
+## Quick start
 
-### Load and Preprocess a Single Spectrum
+### Load and preprocess a single spectrum
 
 ```python
 from maldiamrkit import MaldiSpectrum
@@ -153,7 +160,7 @@ from maldiamrkit.visualization import plot_spectrum
 plot_spectrum(spec, stage="binned")
 ```
 
-### Build a Dataset from Multiple Spectra
+### Build a dataset from multiple spectra
 
 ```python
 from maldiamrkit import MaldiSet
@@ -171,7 +178,7 @@ X = data.X  # Feature matrix
 y = data.get_y_single("Drug")  # Target labels
 ```
 
-### Machine Learning Pipeline
+### Machine learning pipeline
 
 ```python
 from sklearn.pipeline import Pipeline
@@ -183,7 +190,7 @@ from maldiamrkit.detection import MaldiPeakDetector
 
 # Create ML pipeline
 pipe = Pipeline([
-    ("peaks", MaldiPeakDetector(binary=False, prominence=0.05)),
+    ("peaks", MaldiPeakDetector(binary=False, prominence=1e-4)),
     ("warp", Warping(method="shift")),
     ("scaler", StandardScaler()),
     ("clf", RandomForestClassifier(n_estimators=100, random_state=42))
@@ -202,32 +209,32 @@ For more examples covering alignment, filtering, evaluation, CLI usage, and more
 
 For more detailed examples, see the notebooks:
 
-- [Quick Start](notebooks/01_quick_start.ipynb) - Loading, preprocessing, binning, and quality assessment
-- [Peak Detection](notebooks/02_peak_detection.ipynb) - Local maxima and persistent homology methods
-- [Alignment](notebooks/03_alignment.ipynb) - Warping methods and alignment quality
-- [Evaluation](notebooks/04_evaluation.ipynb) - AMR metrics, label encoding, and stratified splitting
-- [Exploration](notebooks/05_exploration.ipynb) - PCA, t-SNE, UMAP visualizations and batch correction
-- [Differential Analysis](notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
-- [Drift Monitoring](notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
-- [Susceptibility](notebooks/08_susceptibility.ipynb) - `MICEncoder` + `BreakpointTable` for log2(MIC) regression targets, S/I/R categorisation with ATU, and `mic_regression_report` evaluation
-- [Peak Sets](notebooks/09_peak_sets.ipynb) - `PeakSet` / `PeakList` extraction, ranking and padding, caching, and fit-free peak alignment
-- [Custom Components](notebooks/10_custom_components.ipynb) - registering a custom distance metric and a custom transformer end-to-end
+- [Quick Start](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/01_quick_start.ipynb) - Loading, preprocessing, binning, and quality assessment
+- [Peak Detection](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/02_peak_detection.ipynb) - Local maxima and persistent homology methods
+- [Alignment](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/03_alignment.ipynb) - Warping methods and alignment quality
+- [Evaluation](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/04_evaluation.ipynb) - AMR metrics, label encoding, and stratified splitting
+- [Exploration](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/05_exploration.ipynb) - PCA, t-SNE, and UMAP visualisations, spectral similarity, and clustering
+- [Differential Analysis](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/06_differential_analysis.ipynb) - R vs. S peak testing, volcano/Manhattan plots, and multi-drug comparison
+- [Drift Monitoring](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/07_drift_monitoring.ipynb) - Baseline-anchored drift detection: reference similarity, PCA trajectory, peak stability, and effect-size drift
+- [Susceptibility](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/08_susceptibility.ipynb) - `MICEncoder` + `BreakpointTable` for log2(MIC) regression targets, S/I/R categorisation with ATU, and `mic_regression_report` evaluation
+- [Peak Sets](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/09_peak_sets.ipynb) - `PeakSet` / `PeakList` extraction, ranking and padding, caching, and fit-free peak alignment
+- [Custom Components](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/10_custom_components.ipynb) - registering a custom distance metric and a custom transformer end-to-end
 
-Notebooks `01`-`03` and `08`-`10` run on the small example dataset bundled under [`data/`](data/) or are fully self-contained. Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
+Notebooks `01`-`03` and `08`-`10` run on the small example dataset bundled under [`data/`](https://github.com/EttoreRocchi/MaldiAMRKit/tree/main/data) or are fully self-contained. Notebooks `04`-`07` need more samples and pull the real **MALDI-Kleb-AI** archive (Rocchi *et al.*, 2026; [Zenodo DOI 10.5281/zenodo.17405072](https://zenodo.org/records/17405072)) via the [`demo`](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/notebooks/_demo.py) helper. By default the helper restricts the dataset to the **Rome sub-cohort** (~470 spectra, single acquisition centre, no batch correction required); the 370 MB tarball is cached under `~/.cache/maldiamrkit/` on first use.
 
-## MaldiSuite Ecosystem
+## MaldiSuite ecosystem
 
-MaldiAMRKit is the data-model and preprocessing package of the **MaldiSuite** ecosystem:
+MaldiAMRKit is one of the three packages of the **MaldiSuite** ecosystem:
 
 - **MaldiAMRKit** (this package) - data model (`MaldiSpectrum`, `MaldiSet`), preprocessing, alignment, peak detection, differential analysis, and AMR-aware evaluation.
 - **[MaldiBatchKit](https://github.com/EttoreRocchi/MaldiBatchKit)** - batch-effect correction and harmonisation for multi-centre / multi-instrument MALDI-TOF spectra.
 - **[MaldiDeepKit](https://github.com/EttoreRocchi/MaldiDeepKit)** - sklearn-compatible deep learning classifiers (MLP, CNN, ResNet, Transformer).
 
-The three packages share the `MaldiSet` / `MaldiSpectrum` data model and are designed to compose in a single end-to-end pipeline. Install the full suite with `pip install maldisuite`. Landing page: [MaldiSuite](<https://ettorerocchi.github.io/MaldiSuite/>).
+The three packages share the `MaldiSet` data model. Each can be used on its own, or combined with the others. Install the full suite with `pip install maldisuite`. Landing page: [MaldiSuite](<https://ettorerocchi.github.io/MaldiSuite/>).
 
 ## Contributing
 
-Pull requests, bug reports, and feature ideas are welcome. See the [Contributing Guide](CONTRIBUTING.md) for how to get started.
+Pull requests, bug reports, and feature ideas are welcome. See the [Contributing Guide](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/CONTRIBUTING.md) for how to get started.
 
 ## Citing
 
@@ -239,7 +246,7 @@ See the [full publications list](https://maldiamrkit.readthedocs.io/en/latest/pa
 
 ## License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License**. See the [LICENSE](https://github.com/EttoreRocchi/MaldiAMRKit/blob/main/LICENSE) file for details.
 
 ## Acknowledgements
 

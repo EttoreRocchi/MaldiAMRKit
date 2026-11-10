@@ -5,14 +5,14 @@
    :width: 280px
    :class: only-light
 
-.. image:: _static/maldiamrkit.png
+.. image:: _static/maldiamrkit_dark.png
    :align: center
    :width: 280px
    :class: only-dark
 
 .. rst-class:: hero-section
 
-MaldiAMRKit Documentation
+MaldiAMRKit documentation
 =========================
 
 A Python toolkit for MALDI-TOF mass spectrometry preprocessing for
@@ -32,47 +32,48 @@ for direct use in machine learning pipelines.
       :outline:
       :shadow:
 
-      API Reference
+      API reference
 
    .. button-link:: quickstart.html
       :color: primary
       :outline:
       :shadow:
 
-      Quickstart Guide
+      Quickstart guide
 
 ----
 
-Key Features
+Key features
 ------------
 
 .. grid:: 2 2 3 3
    :gutter: 3
    :class-container: feature-grid
 
-   .. grid-item-card:: Preprocessing Pipeline
+   .. grid-item-card:: Preprocessing pipeline
       :link: quickstart.html#custom-preprocessing-pipeline
       :link-type: url
 
-      Composable transformers (smoothing, baseline, trimming, normalization),
-      multiple binning strategies, and peak detection. Serializable to JSON/YAML.
+      Composable transformers (smoothing, baseline, trimming, normalisation),
+      multiple binning strategies, and peak detection. Serialisable to JSON/YAML.
 
-   .. grid-item-card:: Sklearn Pipelines
+   .. grid-item-card:: Sklearn pipelines
       :link: quickstart.html#building-ml-pipelines
       :link-type: url
 
       Scikit-learn compatible transformers. Drop into any ``Pipeline``,
       ``cross_val_score``, or ``GridSearchCV`` workflow.
 
-   .. grid-item-card:: Spectral Alignment
+   .. grid-item-card:: Spectral alignment
       :link: api/alignment.html
       :link-type: url
 
       Shift, linear, quadratic, cubic, piecewise, LOWESS, and DTW warping
       for binned and raw full-resolution spectra: a global shift first,
-      then a warp kept only when the matched peaks support it.
+      then, except for DTW, a warp kept only when the matched peaks support
+      it.
 
-   .. grid-item-card:: AMR Evaluation
+   .. grid-item-card:: AMR evaluation
       :link: api/evaluation.html
       :link-type: url
 
@@ -80,15 +81,15 @@ Key Features
       following EUCAST conventions. Species-drug stratified, case-based,
       and group-aware (replicate-safe) splitting to prevent data leakage.
 
-   .. grid-item-card:: MIC & Susceptibility
+   .. grid-item-card:: MIC & susceptibility
       :link: api/susceptibility.html
       :link-type: url
 
       ``MICEncoder`` and ``BreakpointTable`` turn raw MIC strings into
-      log2(MIC) regression targets and S/I/R categories, with bundled
-      EUCAST clinical breakpoints (v1.0-v16.0).
+      log2(MIC) regression targets and S/I/R categories, with 19 bundled
+      EUCAST breakpoint versions between v1.0 and v16.0.
 
-   .. grid-item-card:: Differential Analysis
+   .. grid-item-card:: Differential analysis
       :link: api/differential.html
       :link-type: url
 
@@ -96,7 +97,7 @@ Key Features
       correction, fold change, and effect size. Volcano, Manhattan, and
       multi-drug comparison plots.
 
-   .. grid-item-card:: Drift Monitoring
+   .. grid-item-card:: Drift monitoring
       :link: api/drift.html
       :link-type: url
 
@@ -104,7 +105,14 @@ Key Features
       PCA centroid trajectory, and top-peak stability, with ready-made
       trajectory plots.
 
-   .. grid-item-card:: DRIAMS Dataset Builder
+   .. grid-item-card:: Spectral similarity
+      :link: api/similarity.html
+      :link-type: url
+
+      Spectral distances, pairwise distance matrices, clustering, and
+      distance heatmaps and dendrograms.
+
+   .. grid-item-card:: DRIAMS dataset builder
       :link: quickstart.html#building-driams-like-datasets
       :link-type: url
 
@@ -112,7 +120,7 @@ Key Features
       metadata, with year-based subfolders, custom processing handlers, and
       technical-replicate collapsing.
 
-   .. grid-item-card:: Composable Filters
+   .. grid-item-card:: Composable filters
       :link: api/core.html#filters
       :link-type: url
 
@@ -121,7 +129,7 @@ Key Features
 
 ----
 
-Quick Example
+Quick example
 -------------
 
 .. code-block:: python
@@ -154,7 +162,7 @@ Quick Example
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Get Started
+   :caption: Get started
 
    installation
    quickstart

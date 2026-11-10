@@ -95,7 +95,7 @@ def apply_metadata_strategy(
         return df.drop_duplicates(subset=id_col, keep=False)
 
     if strategy is DuplicateStrategy.keep_all:
-        isolates = df.get("_isolate", pd.Series(np.nan, index=df.index))
+        isolates = df.get("_isolate", pd.Series(np.nan, index=df.index, dtype=object))
         df = df.assign(_isolate=isolates.fillna(df[id_col]))
         return _suffix_duplicates(df, id_col, suffix_col)
 

@@ -453,3 +453,33 @@ class TestBrukerLayout:
         )
         assert result.exit_code == 0, result.output
         assert (out / "raw").is_dir()
+
+    def test_build_bruker_without_year_column(self, tmp_path: Path):
+        if not self.BRUKER_DIR.exists():
+            pytest.skip("No bruker_sample data available")
+        meta = pd.DataFrame(
+            {
+                "Identifier": ["922145"],
+                "Path": ["922145/0_G10/1/1SLin"],
+                "target_position": ["G10"],
+            }
+        )
+        meta_path = tmp_path / "bruker_meta.csv"
+        meta.to_csv(meta_path, index=False)
+        result = runner.invoke(
+            app,
+            [
+                "build",
+                "-s",
+                str(self.BRUKER_DIR),
+                "-m",
+                str(meta_path),
+                "-o",
+                str(tmp_path / "out"),
+                "-l",
+                "bruker",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Year" in result.output
+        assert not isinstance(result.exception, KeyError)

@@ -1,8 +1,8 @@
-API Reference
+API reference
 =============
 
 Complete reference for all public classes and functions in MaldiAMRKit,
-organized by module.
+organised by module.
 
 .. toctree::
    :maxdepth: 2
@@ -21,7 +21,7 @@ organized by module.
    visualization
    io
 
-Core Data Structures
+Core data structures
 --------------------
 
 .. autosummary::
@@ -96,7 +96,7 @@ Alignment
    maldiamrkit.alignment.AlignmentStrategy
    maldiamrkit.alignment.AlignmentMethod
 
-Peak Detection
+Peak detection
 --------------
 
 .. autosummary::
@@ -179,7 +179,7 @@ Similarity
    maldiamrkit.similarity.plot_distance_heatmap
    maldiamrkit.similarity.plot_dendrogram
 
-Differential Analysis
+Differential analysis
 ---------------------
 
 Analysis
@@ -203,7 +203,7 @@ Plots
    maldiamrkit.differential.plot_drug_comparison
    maldiamrkit.differential.DrugComparisonKind
 
-Drift Monitoring
+Drift monitoring
 ----------------
 
 Monitor
@@ -225,7 +225,7 @@ Plots
    maldiamrkit.drift.plot_peak_stability
    maldiamrkit.drift.plot_effect_size_drift
 
-Visualization
+Visualisation
 -------------
 
 .. autosummary::
@@ -239,7 +239,7 @@ Visualization
    maldiamrkit.visualization.plot_tsne
    maldiamrkit.visualization.plot_umap
 
-Dataset Building & Loading
+Dataset building & loading
 --------------------------
 
 Builder
@@ -252,7 +252,7 @@ Builder
    maldiamrkit.data.ProcessingHandler
    maldiamrkit.data.BuildReport
 
-Input Layouts
+Input layouts
 ~~~~~~~~~~~~~
 
 .. autosummary::
@@ -270,7 +270,7 @@ Loader
 
    maldiamrkit.data.DatasetLoader
 
-Dataset Layouts
+Dataset layouts
 ~~~~~~~~~~~~~~~
 
 .. autosummary::
@@ -281,7 +281,7 @@ Dataset Layouts
    maldiamrkit.data.MARISMaLayout
    maldiamrkit.data.strip_driams_replicate
 
-Duplicate Handling
+Duplicate handling
 ~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
@@ -289,7 +289,7 @@ Duplicate Handling
 
    maldiamrkit.data.DuplicateStrategy
 
-Dataset Manifest
+Dataset manifest
 ~~~~~~~~~~~~~~~~
 
 .. autosummary::

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -148,6 +149,14 @@ class TestExactTextReload:
         f = tmp_path / "spec.txt"
         f.write_text("\n".join(lines) + "\n")
         _assert_exact(read_spectrum(f), expected)
+
+    def test_no_float_precision_deprecation(self, tmp_path):
+        expected = _random_spectrum(n=10)
+        f = tmp_path / "spec.txt"
+        np.savetxt(f, expected.values, fmt="%.17g")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message=".*float_precision.*")
+            _assert_exact(read_spectrum(f), expected)
 
 
 class TestBrukerReaderErrors:

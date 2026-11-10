@@ -1,0 +1,5 @@
+{#- MaldiSuite docs theme: page titles as "Page · Package version", like the website. -#}
+{%- extends "!layout.html" %}
+{%- block htmltitle %}
+<title>{{ title|striptags|e }}{% if not embedded and docstitle %} · {{ docstitle|e }}{% endif %}</title>
+{%- endblock %}

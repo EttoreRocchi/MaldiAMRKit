@@ -166,16 +166,23 @@ class MICEncoder(BaseEstimator, TransformerMixin):
         values = values.astype(float)
         bound = np.where(qualifiers == ">", np.nextafter(values, np.inf), values)
         batch = self.breakpoints.apply_batch(species_arr, drug_arr, bound)
-        category = batch["category"].to_numpy(dtype=object)
+        # A copy: with pandas 3 copy-on-write, to_numpy returns a read-only view.
+        category = np.array(batch["category"].to_numpy(dtype=object), copy=True)
         undecided = (upper & (category != "S")) | (lower & (category != "R"))
         category[undecided] = pd.NA
         atu = batch["atu"].to_numpy(dtype=bool) & ~(upper | lower)
-        out["category"] = pd.array(
-            [pd.NA if pd.isna(c) else c for c in category], dtype="object"
+        # Object Series keep pd.NA for missing values; pandas 3 would store the
+        # strings of a plain array with its "str" dtype and NaN instead.
+        out["category"] = pd.Series(
+            [pd.NA if pd.isna(c) else c for c in category],
+            index=out.index,
+            dtype="object",
         )
         out["atu"] = pd.array(atu.tolist(), dtype="boolean")
-        out["source"] = pd.array(
-            [pd.NA if pd.isna(s) else s for s in batch["source"]], dtype="object"
+        out["source"] = pd.Series(
+            [pd.NA if pd.isna(s) else s for s in batch["source"]],
+            index=out.index,
+            dtype="object",
         )
         return out
 
