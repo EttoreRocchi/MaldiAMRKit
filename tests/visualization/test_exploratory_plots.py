@@ -176,6 +176,28 @@ class TestScatterEmbedding:
         assert not gridlines_off
 
 
+class TestStarredCalls:
+    """Calls marked with a trailing ``*`` plot with the plain call."""
+
+    def test_scatter_merges_star_and_uses_palette(self):
+        """R* joins the R points, one legend entry, user palette accepted."""
+        rs = np.array(["R", "R*", "S", "S*"] * 5)
+        emb = np.random.default_rng(0).standard_normal((20, 2))
+        palette = {"S": "blue", "R": "red"}
+        fig, ax = _scatter_embedding(emb, color_by=rs, palette=palette, show=False)
+        legend_texts = [t.get_text() for t in ax.get_legend().get_texts()]
+        assert legend_texts == ["Susceptible (S)", "Resistant (R)"]
+        sizes = sorted(len(c.get_offsets()) for c in ax.collections)
+        assert sizes == [10, 10]
+
+    def test_scatter_same_colour_with_colormap(self):
+        """Without a palette, R and R* points share one colour."""
+        rs = np.array(["R", "R*", "S"] * 4)
+        emb = np.random.default_rng(0).standard_normal((12, 2))
+        fig, ax = _scatter_embedding(emb, color_by=rs, show=False)
+        assert len(ax.collections) == 2
+
+
 class TestPlotPCA:
     def test_returns_fig_ax(self, small_X, labels):
         fig, ax = plot_pca(small_X, color_by=labels, show=False)

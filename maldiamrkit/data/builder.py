@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -107,7 +108,8 @@ class BuildReport:
     Attributes
     ----------
     total : int
-        Number of spectra attempted.
+        Number of spectra in both the inputs and the metadata, including
+        those not built because their ID or input is ambiguous.
     succeeded : int
         Number successfully processed.
     failed : int
@@ -166,12 +168,13 @@ def _process_single_spectrum(
     year: str | None,
     mz_min: int,
     mz_max: int,
+    bruker_source: str,
 ) -> str | None:
     """Process one spectrum through all outputs.  Returns ID on success."""
     year_sub = f"{year}/" if year else ""
 
     try:
-        raw_df = read_spectrum(src_path)
+        raw_df = read_spectrum(src_path, bruker_source=bruker_source)
 
         _save_spectrum(raw_df, output_dir / "raw" / f"{year_sub}{spec_id}.txt")
 
@@ -246,6 +249,21 @@ class DatasetBuilder:
         Number of parallel workers.
     on_error : str, default="warn"
         Error handling: ``"warn"``, ``"raise"``, or ``"skip"``.
+        With ``"raise"``, an ambiguous ID or input (see Notes) raises
+        before anything is written.
+    bruker_source : {"1r", "fid"}, default="1r"
+        For Bruker directories, which binary is read into ``raw/``:
+        ``"1r"`` (``pdata/1/1r``) or ``"fid"`` (the raw free induction
+        decay). A spectrum whose binary is missing fails. Recorded in
+        ``site_info.json``.
+
+    Notes
+    -----
+    A spectrum ID found in several inputs (e.g. ``2018/x.txt`` and
+    ``2019/x.txt``), and an input named by several IDs (one Bruker
+    directory named by two identifiers), cannot be built unambiguously:
+    none of them is built, and each of their IDs is reported once in
+    ``BuildReport.failed_ids``.
 
     Examples
     --------
@@ -269,7 +287,12 @@ class DatasetBuilder:
         metadata_suffix: str = "_clean.csv",
         n_jobs: int = -1,
         on_error: str = "warn",
+        bruker_source: str = "1r",
     ) -> None:
+        if bruker_source not in ("1r", "fid"):
+            raise ValueError(
+                f"Invalid bruker_source {bruker_source!r}; expected '1r' or 'fid'."
+            )
         self.layout = layout
         self.output_dir = Path(output_dir)
         self.name = name or self.output_dir.name
@@ -281,6 +304,7 @@ class DatasetBuilder:
         self.metadata_suffix = metadata_suffix
         self.n_jobs = n_jobs
         self.on_error = on_error
+        self.bruker_source = bruker_source
 
     def build(self) -> BuildReport:
         """Execute the build pipeline.
@@ -293,7 +317,12 @@ class DatasetBuilder:
         spectrum_paths = self.layout.discover_spectra()
         meta = self.layout.discover_metadata()
 
-        matched_ids, id_to_path = self._match_ids(spectrum_paths, meta)
+        matched_ids, id_to_path, collided = self._match_ids(spectrum_paths, meta)
+        if collided and self.on_error == "raise":
+            raise RuntimeError(
+                f"{len(collided)} spectrum IDs are found in several inputs or share "
+                f"an input with another ID: {collided[:5]}"
+            )
 
         mz_min, mz_max = self.pipeline.mz_range
         n_bins = len(_uniform_edges(mz_min, mz_max, self.bin_width)) - 1
@@ -326,14 +355,17 @@ class DatasetBuilder:
                 year_map.get(sid),
                 mz_min,
                 mz_max,
+                bruker_source=self.bruker_source,
             )
             for sid in sorted_ids
         )
 
         succeeded_ids = [r for r in results if r is not None]
-        failed_ids = [
-            sid for sid, r in zip(sorted_ids, results, strict=True) if r is None
-        ]
+        failed_ids = sorted(
+            [sid for sid, r in zip(sorted_ids, results, strict=True) if r is None]
+            + collided
+        )
+        n_total = len(sorted_ids) + len(collided)
 
         if self.on_error == "raise" and failed_ids:
             raise RuntimeError(f"{len(failed_ids)} spectra failed: {failed_ids}")
@@ -342,13 +374,14 @@ class DatasetBuilder:
             all_folders=all_folders,
             mz_min=mz_min,
             mz_max=mz_max,
-            n_total=len(sorted_ids),
+            n_total=n_total,
             n_succeeded=len(succeeded_ids),
             n_failed=len(failed_ids),
+            bruker_inputs=Path(spectrum_paths[0]).is_dir(),
         )
 
         return BuildReport(
-            total=len(sorted_ids),
+            total=n_total,
             succeeded=len(succeeded_ids),
             failed=len(failed_ids),
             failed_ids=failed_ids,
@@ -365,6 +398,7 @@ class DatasetBuilder:
         n_total: int,
         n_succeeded: int,
         n_failed: int,
+        bruker_inputs: bool,
     ) -> None:
         """Write ``site_info.json`` describing this build.
 
@@ -381,13 +415,11 @@ class DatasetBuilder:
         else:
             dup_str = getattr(dup_attr, "value", None) or str(dup_attr)
 
-        spectrum_ext = getattr(self.layout, "spectrum_ext", ".txt") or ".txt"
-
         manifest = SiteInfo(
             id_column=self.id_column,
             metadata_dir=self.metadata_dir,
             metadata_suffix=self.metadata_suffix,
-            spectrum_ext=spectrum_ext,
+            spectrum_ext=".txt",
             spectra_folders=list(all_folders),
             mz_range=(float(mz_min), float(mz_max)),
             bin_width=float(self.bin_width),
@@ -399,6 +431,8 @@ class DatasetBuilder:
                 n_total_spectra=int(n_total),
                 n_succeeded=int(n_succeeded),
                 n_failed=int(n_failed),
+                bruker_source=self.bruker_source if bruker_inputs else None,
+                metadata_rows=self.layout._metadata_rows,
             ),
         )
 
@@ -409,20 +443,48 @@ class DatasetBuilder:
 
     def _match_ids(
         self, spectrum_paths: list[Path], meta: pd.DataFrame
-    ) -> tuple[set[str], dict[str, Path]]:
-        """Match spectrum IDs with metadata and log mismatches."""
-        id_to_path: dict[str, Path] = {}
-        for p in spectrum_paths:
-            sid = self.layout.get_id(p)
-            if sid not in id_to_path:
-                id_to_path[sid] = p
+    ) -> tuple[set[str], dict[str, Path], list[str]]:
+        """Match spectrum IDs with metadata and log mismatches.
+
+        Returns the IDs to build, the input of each, and the sorted
+        metadata IDs left out because they name several inputs or share
+        their input with another ID.
+        """
+        paths_by_id: dict[str, list[Path]] = defaultdict(list)
+        ids_by_path: dict[Path, list[str]] = defaultdict(list)
+        for sid, path in self.layout._spectrum_ids(spectrum_paths):
+            if path not in paths_by_id[sid]:
+                paths_by_id[sid].append(path)
+            if sid not in ids_by_path[path]:
+                ids_by_path[path].append(sid)
 
         meta_ids = set(meta["ID"].astype(str))
-        spec_ids = set(id_to_path.keys())
-        matched_ids = meta_ids & spec_ids
+        spec_ids = set(paths_by_id)
+        colliding: set[str] = set()
+        for sid, paths in paths_by_id.items():
+            if len(paths) > 1 and sid in meta_ids:
+                logger.warning(
+                    "Spectrum ID '%s' names %d input files (%s): none is built.",
+                    sid,
+                    len(paths),
+                    ", ".join(self._display_path(p) for p in paths),
+                )
+                colliding.add(sid)
+        for path, ids in ids_by_path.items():
+            named = [sid for sid in ids if sid in meta_ids]
+            if len(named) > 1:
+                logger.warning(
+                    "Input %s is named by %d spectrum IDs (%s): none is built.",
+                    self._display_path(path),
+                    len(named),
+                    ", ".join(named),
+                )
+                colliding.update(named)
 
-        if not matched_ids:
+        if not meta_ids & spec_ids:
             raise ValueError("No matching IDs between metadata and spectra.")
+        matched_ids = (meta_ids & spec_ids) - colliding
+        id_to_path = {sid: paths_by_id[sid][0] for sid in matched_ids}
 
         meta_only = meta_ids - spec_ids
         spec_only = spec_ids - meta_ids
@@ -438,7 +500,19 @@ class DatasetBuilder:
                 len(spec_only),
                 sorted(spec_only)[:5],
             )
-        return matched_ids, id_to_path
+        return matched_ids, id_to_path, sorted(colliding)
+
+    def _display_path(self, path: Path) -> str:
+        """Show *path* relative to the layout's input folder when possible."""
+        base = getattr(self.layout, "spectra_dir", None) or getattr(
+            self.layout, "root_dir", None
+        )
+        if base is not None:
+            try:
+                return Path(path).relative_to(base).as_posix()
+            except ValueError:
+                pass
+        return str(path)
 
     def _build_year_map(
         self, matched_ids: set[str]

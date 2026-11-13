@@ -203,6 +203,11 @@ Select subsets of a dataset using composable filter predicates:
    f = SpeciesFilter("Escherichia coli") & DrugFilter("Ceftriaxone", status="R")
    resistant_ecoli = data.filter(f)
 
+Calls marked with a trailing ``*`` (``R*``, ``S*``), which MARISMa uses for a
+call set by a rule rather than read from the MIC, stay as written in the
+metadata and count as ``R`` and ``S`` in ``DrugFilter``, ``LabelEncoder``, the
+AMR metrics, the stratified splitters and the plots.
+
 Evaluation metrics
 ------------------
 
@@ -379,6 +384,20 @@ Build from Bruker binary data (e.g. MARISMa-style directory tree):
 
    layout = BrukerTreeLayout("path/to/MARISMa", "path/to/AMR.csv")
    report = DatasetBuilder(layout, "output/my_dataset").build()
+
+Metadata paths may start with the dataset folder (``/MARISMa/2024/...``), and
+rows that repeat one spectrum are merged before ``duplicate_strategy`` applies
+(calls on which they disagree become missing; ``site_info.json`` records the
+counts under ``build_info.metadata_rows``). ``bruker_source="fid"`` reads the
+raw ``fid`` instead of the processed ``pdata/1/1r``:
+
+.. code-block:: python
+
+   layout = BrukerTreeLayout(
+       "path/to/MARISMa", "path/to/AMR.csv", duplicate_strategy="keep_all"
+   )
+   report = DatasetBuilder(layout, "output/my_dataset", bruker_source="fid").build()
+   print(report.failed_ids)  # e.g. IDs sharing one Bruker folder, not built
 
 Add extra processing variants alongside the defaults using
 ``ProcessingHandler``:

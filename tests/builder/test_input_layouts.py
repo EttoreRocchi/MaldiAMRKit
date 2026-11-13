@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import struct
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -656,3 +657,107 @@ class TestBrukerTreeLayout:
         layout = BrukerTreeLayout(root, csv_path, id_column="MyID")
         meta = layout._read_raw_metadata()
         assert "ID" in meta.columns
+
+
+class TestBrukerTreeLayoutMetadata:
+    """Metadata as written by MARISMa: prefixed paths, mixed columns, repeats."""
+
+    def test_paths_starting_with_dataset_folder_resolve(self, tmp_path):
+        """'/MARISMa/2024/...' resolves when root_dir is the MARISMa folder."""
+        root = tmp_path / "MARISMa"
+        expected = _make_bruker_dir(root, "2024/Escherichia/Coli/A/0_D11")
+        csv_path = tmp_path / "AMR.csv"
+        _make_bruker_metadata(
+            csv_path,
+            [
+                {
+                    "Identifier": "A",
+                    "Year": "2024",
+                    "Path": "/MARISMa/2024/Escherichia/Coli/A/0_D11",
+                    "target_position": "0_D11",
+                }
+            ],
+        )
+        layout = BrukerTreeLayout(root, csv_path, validate=False)
+        assert layout.discover_spectra() == [expected]
+
+    def test_mixed_type_columns_read_without_dtype_warning(self, tmp_path):
+        """A call column that turns from numbers to text raises no DtypeWarning."""
+        n_rows = 270_000  # more than the 262,144 rows pandas reads per chunk
+        drug = ["1.5"] * n_rows
+        drug[-1] = "R"
+        csv_path = tmp_path / "AMR.csv"
+        pd.DataFrame(
+            {
+                "Identifier": [str(i) for i in range(n_rows)],
+                "Year": 2024,
+                "Path": "x",
+                "Drug": drug,
+            }
+        ).to_csv(csv_path, index=False)
+        layout = BrukerTreeLayout(tmp_path, csv_path, validate=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", pd.errors.DtypeWarning)
+            meta = layout.discover_metadata()
+        assert meta["Drug"].iloc[-1] == "R"
+
+    @pytest.mark.parametrize(
+        "strategy", ["first", "last", "drop", "keep_all", "average"]
+    )
+    def test_repeated_rows_of_one_spectrum_are_merged(self, tmp_path, strategy):
+        """Rows sharing ID, target position and path become one row."""
+        root = tmp_path / "root"
+        _make_bruker_dir(root, "2024/A/0_A1")
+        _make_bruker_dir(
+            root, "2024/B/0_B1", fid_content=struct.pack("<8i", *range(10, 18))
+        )
+        csv_path = tmp_path / "AMR.csv"
+        row = {
+            "Identifier": "A",
+            "Year": "2024",
+            "Path": "2024/A/0_A1",
+            "target_position": "0_A1",
+        }
+        _make_bruker_metadata(
+            csv_path,
+            [
+                {**row, "Mechanism": "ESBL", "Ampicillin": "R", "Cipro": "S"},
+                {**row, "Mechanism": "AmpC", "Ampicillin": "R*", "Cipro": "R"},
+                {
+                    "Identifier": "B",
+                    "Year": "2024",
+                    "Path": "2024/B/0_B1",
+                    "target_position": "0_B1",
+                    "Mechanism": None,
+                    "Ampicillin": "S",
+                    "Cipro": "S",
+                },
+            ],
+        )
+        layout = BrukerTreeLayout(
+            root, csv_path, duplicate_strategy=strategy, validate=False
+        )
+        assert len(layout.discover_spectra()) == 2
+        meta = layout.discover_metadata().set_index("ID")
+        assert meta.loc["A", "Mechanism"] == "ESBL; AmpC"
+        assert meta.loc["A", "Ampicillin"] == "R"
+        assert pd.isna(meta.loc["A", "Cipro"])
+        assert meta.loc["B", "Cipro"] == "S"
+
+    def test_discovery_reads_and_merges_the_metadata_once(self, tmp_path, caplog):
+        """discover_spectra then discover_metadata warn once about the merge."""
+        root = tmp_path / "root"
+        _make_bruker_dir(root, "2024/A/0_A1")
+        csv_path = tmp_path / "AMR.csv"
+        row = {
+            "Identifier": "A",
+            "Year": "2024",
+            "Path": "2024/A/0_A1",
+            "target_position": "0_A1",
+        }
+        _make_bruker_metadata(csv_path, [{**row, "Cipro": "S"}, {**row, "Cipro": "R"}])
+        layout = BrukerTreeLayout(root, csv_path, validate=False)
+        layout.discover_spectra()
+        meta = layout.discover_metadata()
+        assert caplog.text.count("several metadata rows") == 1
+        assert meta["ID"].tolist() == ["A"]

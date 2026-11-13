@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from .._calls import _plain_calls
 from ._common import order_labels, resolve_display_label, show_with_warning
 
 if TYPE_CHECKING:
@@ -146,10 +147,11 @@ def _scatter_embedding(
     embedding : np.ndarray
         Array of shape ``(n_samples, 2)``.
     color_by : pd.Series, np.ndarray, or None
-        Categorical labels used to color points.  Always rendered as
-        discrete categories (no continuous colorbar branch); numeric
-        ``color_by`` with many unique values is accepted but will
-        produce one legend entry per value.
+        Categorical labels used to color points.  Calls marked with a
+        trailing ``*`` (``R*``, ``S*``) are drawn with the plain call.
+        Always rendered as discrete categories (no continuous colorbar
+        branch); numeric ``color_by`` with many unique values is accepted
+        but will produce one legend entry per value.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. If ``None``, a new figure is created.
     palette : str or dict, optional
@@ -197,7 +199,7 @@ def _scatter_embedding(
     if color_by is None:
         ax.scatter(embedding[:, 0], embedding[:, 1], alpha=alpha, s=marker_size)
     else:
-        labels = np.asarray(color_by)
+        labels = _plain_calls(np.asarray(color_by))
         unique_labels = order_labels(list(dict.fromkeys(labels.tolist())))
         colors = _resolve_colors(unique_labels, palette)
 

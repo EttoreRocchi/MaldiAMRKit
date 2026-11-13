@@ -244,6 +244,21 @@ class TestPlotPseudogel:
         assert len(axes) == 2
         plt.close("all")
 
+    def test_starred_calls_share_panel(self, pseudogel_dataset):
+        """R* and S* samples go in the R and S panels."""
+        index = pseudogel_dataset.X.index
+        pseudogel_dataset.get_y_single.return_value = pd.Series(
+            ["R", "R*", "R*", "R", "R", "S", "S*", "S", "S*", "S"],
+            index=index,
+            name="Ceftriaxone",
+        )
+        fig, axes = plot_pseudogel(pseudogel_dataset, show=False)
+        assert len(axes) == 2
+        titles = [ax.get_ylabel() for ax in axes]
+        assert titles[0].startswith("Susceptible (S)\n(n=5)")
+        assert titles[1].startswith("Resistant (R)\n(n=5)")
+        plt.close("all")
+
     def test_log_scale_false(self, pseudogel_dataset):
         """Verify log_scale=False does not raise."""
         fig, axes = plot_pseudogel(pseudogel_dataset, log_scale=False, show=False)

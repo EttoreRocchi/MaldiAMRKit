@@ -66,6 +66,13 @@ class InputLayoutType(str, Enum):
     bruker = "bruker"
 
 
+class BrukerSourceType(str, Enum):
+    """Bruker binaries the build command can read."""
+
+    one_r = "1r"
+    fid = "fid"
+
+
 @app.command()
 def preprocess(
     input_dir: Annotated[
@@ -361,6 +368,12 @@ def build(
             help="Skip empty spectra and warn on duplicates (bruker layout only)."
         ),
     ] = True,
+    bruker_source: Annotated[
+        BrukerSourceType,
+        typer.Option(
+            help="Bruker binary to read: '1r' (pdata/1/1r) or 'fid' (bruker layout only)."
+        ),
+    ] = BrukerSourceType.one_r,
 ) -> None:
     """Build a standardised dataset directory from raw spectra and metadata."""
     pipe = _load_pipeline(pipeline)
@@ -414,6 +427,7 @@ def build(
                 bin_width=bin_width,
                 extra_handlers=handlers,
                 n_jobs=n_jobs,
+                bruker_source=bruker_source.value,
             )
             report = builder.build()
         except ValueError as exc:

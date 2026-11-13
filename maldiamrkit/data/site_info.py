@@ -29,6 +29,11 @@ Optional nested ``build_info`` (provenance, informational only):
 * ``source_layout`` (class name of the input layout used at build time)
 * ``duplicate_strategy`` (str or null)
 * ``n_total_spectra`` / ``n_succeeded`` / ``n_failed`` (int)
+* ``bruker_source`` (``"1r"`` or ``"fid"``; null when no input was a
+  Bruker directory)
+* ``metadata_rows`` (object of int ``rows``, ``spectra``,
+  ``merged_spectra`` and ``conflicting_calls``; null when the input
+  layout merges no metadata rows)
 
 Downstream readers (notably
 :class:`maldiamrkit.data.DRIAMSLayout`) consult the manifest at load
@@ -82,6 +87,15 @@ class BuildInfo:
         Strategy used for duplicate sample IDs.
     n_total_spectra, n_succeeded, n_failed : int or None, default=None
         Number of spectra processed, written and failed during the build.
+    bruker_source : str or None, default=None
+        Bruker binary read into ``raw/`` (``"1r"`` or ``"fid"``), or
+        ``None`` when no input was a Bruker directory.
+    metadata_rows : dict or None, default=None
+        Counts of the merge of the metadata rows that repeat one spectrum
+        (:class:`BrukerTreeLayout`), over the whole metadata CSV and
+        before ``duplicate_strategy``: ``rows`` read, ``spectra`` left,
+        ``merged_spectra`` that had several rows and ``conflicting_calls``
+        set missing. ``None`` when the input layout merges no rows.
     """
 
     maldiamrkit_version: str | None = None
@@ -91,6 +105,8 @@ class BuildInfo:
     n_total_spectra: int | None = None
     n_succeeded: int | None = None
     n_failed: int | None = None
+    bruker_source: str | None = None
+    metadata_rows: dict[str, int] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise as a plain dict (omitting ``None`` values for cleanliness)."""

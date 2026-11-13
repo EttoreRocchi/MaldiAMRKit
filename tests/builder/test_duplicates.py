@@ -10,6 +10,7 @@ import pytest
 
 from maldiamrkit.data.duplicates import (
     DuplicateStrategy,
+    _merge_spectrum_rows,
     apply_index_strategy,
     apply_metadata_strategy,
 )
@@ -221,3 +222,134 @@ class TestSuffixOnlyDuplicatedIds:
         out = apply_index_strategy(df, "keep_all")
         assert list(out.index) == ["x", "y_rep1", "y_rep2"]
         assert "_original_id" not in out.columns
+
+
+class TestMergeSpectrumRows:
+    """Rows of one spectrum (same ID, target position and path) are merged."""
+
+    @staticmethod
+    def _merge(df):
+        merged, _ = _merge_spectrum_rows(
+            df, path_column="path", target_position_column="pos"
+        )
+        return merged
+
+    @staticmethod
+    def _rows(**columns):
+        base = {
+            "ID": ["A", "A", "B"],
+            "pos": ["p1", "p1", "p1"],
+            "path": ["a", "a", "b"],
+        }
+        return pd.DataFrame({**base, **columns})
+
+    def test_calls_that_disagree_become_missing(self):
+        """S against R becomes missing; other spectra keep their call."""
+        merged = self._merge(self._rows(Cipro=["S", "R", "S"]))
+        assert merged["ID"].tolist() == ["A", "B"]
+        assert pd.isna(merged["Cipro"].iloc[0])
+        assert merged["Cipro"].iloc[1] == "S"
+
+    def test_starred_and_plain_calls_agree_keeping_the_first(self):
+        """R* and R (S and ' S* ') agree; the first value is kept."""
+        merged = self._merge(self._rows(Amp=["R*", "R", "S"], Levo=["S", " S* ", "R"]))
+        assert merged["Amp"].tolist() == ["R*", "S"]
+        assert merged["Levo"].tolist() == ["S", "R"]
+
+    def test_other_values_in_call_columns_disagree_with_calls(self):
+        """ESBL against R in a call column becomes missing."""
+        merged = self._merge(self._rows(Cefotaxime=["ESBL", "R", "S"]))
+        assert pd.isna(merged["Cefotaxime"].iloc[0])
+
+    def test_other_columns_join_distinct_values_in_order(self):
+        """Text and MIC values are joined with '; ' in order."""
+        merged = self._merge(
+            self._rows(Mechanism=["ESBL", "AmpC", None], MIC=["32", ">32", "4"])
+        )
+        assert merged["Mechanism"].iloc[0] == "ESBL; AmpC"
+        assert merged["MIC"].iloc[0] == "32; >32"
+        assert pd.isna(merged["Mechanism"].iloc[1])
+
+    def test_empty_cells_are_ignored(self):
+        """An empty cell neither joins nor disagrees."""
+        merged = self._merge(
+            self._rows(Mechanism=[None, "ESBL", None], Cipro=["", "R", "S"])
+        )
+        assert merged["Mechanism"].iloc[0] == "ESBL"
+        assert merged["Cipro"].iloc[0] == "R"
+
+    def test_replicates_at_other_positions_are_kept(self):
+        """Rows at other target positions are replicates, not merged."""
+        df = pd.DataFrame(
+            {
+                "ID": ["A", "A"],
+                "pos": ["p1", "p2"],
+                "path": ["a1", "a2"],
+                "Cipro": ["S", "R"],
+            }
+        )
+        pd.testing.assert_frame_equal(self._merge(df), df)
+
+    def test_missing_target_position_column_merges_on_id_and_path(self):
+        """Without a target position column, ID and path are the key."""
+        df = self._rows(Cipro=["S", "S", "R"]).drop(columns="pos")
+        assert self._merge(df)["ID"].tolist() == ["A", "B"]
+
+    def test_missing_path_column_does_not_merge(self):
+        """ID and target position alone may name different spectra."""
+        df = self._rows(Cipro=["S", "R", "S"]).drop(columns="path")
+        pd.testing.assert_frame_equal(self._merge(df), df)
+
+    def test_id_alone_is_not_a_spectrum_key(self):
+        """Without target position and path nothing is merged."""
+        df = pd.DataFrame({"ID": ["A", "A"], "Cipro": ["S", "R"]})
+        pd.testing.assert_frame_equal(self._merge(df), df)
+
+    def test_rows_keep_their_order(self):
+        """Merged rows stay at the position of their first row."""
+        df = pd.DataFrame(
+            {
+                "ID": ["B", "A", "C", "A"],
+                "pos": ["p", "p", "p", "p"],
+                "path": ["b", "a", "c", "a"],
+                "Cipro": ["S", "R", "I", "R*"],
+            }
+        )
+        merged = self._merge(df)
+        assert merged["ID"].tolist() == ["B", "A", "C"]
+        assert merged["Cipro"].tolist() == ["S", "R", "I"]
+
+    def test_counts_rows_spectra_merges_and_conflicting_calls(self):
+        """3 rows give 2 spectra; A had 2 rows and 1 call they disagree on."""
+        df = self._rows(Cipro=["S", "R", "S"], Amp=["R*", "R", "S"])
+        _, counts = _merge_spectrum_rows(
+            df, path_column="path", target_position_column="pos"
+        )
+        assert counts == {
+            "rows": 3,
+            "spectra": 2,
+            "merged_spectra": 1,
+            "conflicting_calls": 1,
+        }
+
+    def test_counts_without_repeated_rows(self):
+        """Nothing to merge: every row is a spectrum."""
+        df = pd.DataFrame({"ID": ["A", "B"], "pos": ["p", "p"], "path": ["a", "b"]})
+        _, counts = _merge_spectrum_rows(
+            df, path_column="path", target_position_column="pos"
+        )
+        assert counts == {
+            "rows": 2,
+            "spectra": 2,
+            "merged_spectra": 0,
+            "conflicting_calls": 0,
+        }
+
+    def test_one_warning_counts_spectra_rows_and_missing_calls(self, caplog):
+        """One warning gives the spectra, rows and missing calls."""
+        df = self._rows(Cipro=["S", "R", "S"], Amp=["R", "S", "R"])
+        with caplog.at_level(logging.WARNING):
+            self._merge(df)
+        assert caplog.text.count("several metadata rows") == 1
+        assert "1 spectra had several metadata rows (2 rows)" in caplog.text
+        assert "2 susceptibility calls" in caplog.text

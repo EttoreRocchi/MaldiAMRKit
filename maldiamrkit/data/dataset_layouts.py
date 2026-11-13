@@ -19,7 +19,12 @@ import numpy as np
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
-from ._metadata import _detect_id_column, _read_metadata_csv
+from ._metadata import (
+    _detect_id_column,
+    _read_bruker_metadata,
+    _read_metadata_csv,
+    _resolve_metadata_path,
+)
 from .duplicates import DuplicateStrategy, apply_metadata_strategy
 from .site_info import read_site_info
 
@@ -685,7 +690,14 @@ class MARISMaLayout(DatasetLayout):
 
     Load spectra directly from Bruker binary files without requiring
     a build step.  The metadata CSV must contain a column with
-    relative paths pointing to the Bruker data directories.
+    relative paths pointing to the Bruker data directories; a path may
+    start with the name of ``root_dir`` itself (``/MARISMa/2024/...``).
+
+    Metadata rows that repeat one spectrum (same identifier, target
+    position and path) are merged into one row before
+    ``duplicate_strategy`` applies: a susceptibility call on which they
+    disagree becomes missing (``R`` and ``R*`` agree), and other differing
+    values are joined with ``"; "``.
 
     Parameters
     ----------
@@ -749,18 +761,12 @@ class MARISMaLayout(DatasetLayout):
 
     def discover_metadata(self) -> pd.DataFrame:
         """Read metadata CSV and normalise the ID column."""
-        # low_memory=False: the MARISMa AMR.csv has ~160 antibiotic columns
-        # mixing "R"/"S"/"I" strings with MIC values like "<=8" / ">16" and
-        # bare numbers, which pandas' chunked type inference flags as mixed.
-        meta = _read_metadata_csv(self.metadata_csv, self.id_column, low_memory=False)
-        if self.id_column not in meta.columns:
-            raise ValueError(
-                f"ID column '{self.id_column}' not in metadata. "
-                f"Available: {list(meta.columns)}"
-            )
-        if self.id_column != "ID":
-            meta = meta.rename(columns={self.id_column: "ID"})
-        meta["ID"] = meta["ID"].astype(str)
+        meta, _ = _read_bruker_metadata(
+            self.metadata_csv,
+            self.id_column,
+            self.path_column,
+            self.target_position_column,
+        )
 
         if self.id_transform is not None:
             # Deduplicate on the canonical identifier; preserve raw
@@ -834,30 +840,6 @@ class MARISMaLayout(DatasetLayout):
     def detect_stage(self) -> str:
         """Return ``'raw'`` as the only available stage."""
         return "raw"
-
-
-def _resolve_metadata_path(root_dir: Path, raw_path: str) -> Path | None:
-    """Resolve a metadata path against *root_dir*, stripping overlapping prefixes.
-
-    Metadata may store absolute-looking paths (e.g. ``/MARISMa/2024/...``)
-    whose leading segments duplicate part of *root_dir*.  This helper tries
-    the literal join first, then progressively strips leading components
-    (up to 3) until the resolved path exists on disk.
-    """
-    rel = raw_path.lstrip("/")
-    candidate = root_dir / rel
-    if candidate.exists():
-        return candidate
-
-    parts = Path(rel).parts
-    for n in range(1, min(len(parts), 4)):
-        if parts[n - 1].lower() == root_dir.name.lower():
-            trimmed = Path(*parts[n:]) if n < len(parts) else Path()
-            candidate = root_dir / trimmed
-            if candidate.exists():
-                return candidate
-
-    return root_dir / rel
 
 
 def _detect_species_column(meta: pd.DataFrame) -> str | None:

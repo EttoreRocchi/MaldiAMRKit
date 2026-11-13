@@ -23,6 +23,8 @@ from sklearn.model_selection import (
     StratifiedShuffleSplit,
 )
 
+from .._calls import _plain_calls
+
 
 def _by_row(values, X, name: str) -> np.ndarray:
     """Return ``values`` as an array in the row order of ``X``.
@@ -64,6 +66,8 @@ def _build_strata(
 
     Combines species and resistance label into a single stratum key.
     Rare strata (< min_count samples) are merged into an "other" group.
+    Calls marked with a trailing ``*`` (``R*``, ``S*``) fall in the stratum
+    of the plain call.
 
     Parameters
     ----------
@@ -79,7 +83,7 @@ def _build_strata(
     np.ndarray
         Array of stratum keys (strings).
     """
-    y = np.asarray(y, dtype=str)
+    y = _plain_calls(np.asarray(y)).astype(str)
     species = np.asarray(species, dtype=str)
     strata = np.array([f"{s}__{lab}" for s, lab in zip(species, y, strict=True)])
 
@@ -115,7 +119,7 @@ def stratified_species_drug_split(
     X : pd.DataFrame or np.ndarray
         Feature matrix.
     y : array-like
-        Resistance labels.
+        Resistance labels; ``R*`` and ``S*`` count as ``R`` and ``S``.
     species : array-like
         Species labels aligned with X (a Series indexed like X is matched
         to its rows by label).
@@ -322,7 +326,8 @@ class SpeciesDrugStratifiedKFold(BaseCrossValidator):
         X : array-like
             Feature matrix.
         y : array-like
-            Resistance labels. Required.
+            Resistance labels. Required; ``R*`` and ``S*`` count as ``R``
+            and ``S``.
         groups : array-like or None, default=None
             Group of each sample (for example ``MaldiSet.groups``, the
             isolate of each replicate). When given, every group stays in
@@ -355,7 +360,7 @@ class SpeciesDrugStratifiedKFold(BaseCrossValidator):
             species = _by_row(species, X, "species")
             strata = _build_strata(y, species, self.min_count)
         else:
-            strata = y
+            strata = _plain_calls(y)
 
         if groups is not None:
             sgkf = StratifiedGroupKFold(
@@ -444,7 +449,8 @@ class CaseGroupedKFold(BaseCrossValidator):
         X : array-like
             Feature matrix.
         y : array-like
-            Resistance labels. Required for stratification.
+            Resistance labels. Required for stratification;
+            ``R*`` and ``S*`` count as ``R`` and ``S``.
         groups : array-like
             Case/patient identifiers. Required. A Series indexed like X is
             matched to its rows by label.
@@ -469,4 +475,5 @@ class CaseGroupedKFold(BaseCrossValidator):
             shuffle=self.shuffle,
             random_state=self.random_state,
         )
+        y = _plain_calls(np.asarray(y))
         yield from sgkf.split(X, y, groups=_by_row(groups, X, "groups"))

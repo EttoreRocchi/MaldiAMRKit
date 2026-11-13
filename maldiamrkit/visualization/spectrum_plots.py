@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 
+from .._calls import _plain_calls
 from ._common import _DEFAULT_LABEL_MAP, order_labels, show_with_warning
 
 if TYPE_CHECKING:
@@ -200,7 +201,8 @@ def plot_pseudogel(
 
     Creates one subplot per unique value of the antibiotic column, in
     susceptibility order (S, I, R) with unknown labels appended
-    alphabetically.
+    alphabetically. Calls marked with a trailing ``*`` (``R*``, ``S*``)
+    are grouped with the plain call.
 
     Parameters
     ----------
@@ -289,7 +291,7 @@ def plot_pseudogel(
         dataset = dataset.filter(SpeciesFilter(species))
 
     X = dataset.X.copy()
-    y = dataset.get_y_single(antibiotic)
+    y = _plain_calls(dataset.get_y_single(antibiotic))
 
     X = _apply_region_filter(X, regions)
 

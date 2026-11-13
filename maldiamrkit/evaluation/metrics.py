@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, make_scorer
 
+from .._calls import _plain_call, _plain_calls
+
 
 def _get_confusion_values(
     y_true: np.ndarray,
@@ -29,15 +31,17 @@ def _get_confusion_values(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
     tp, tn, fp, fn : int
         Confusion matrix values where positive = resistant.
     """
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
+    y_true = _plain_calls(np.asarray(y_true))
+    y_pred = _plain_calls(np.asarray(y_pred))
+    resistant_label = _plain_call(resistant_label)
     labels = sorted(set(y_true) | set(y_pred))
     _check_resistant_label(labels, resistant_label)
 
@@ -112,7 +116,8 @@ def very_major_error_rate(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -150,7 +155,8 @@ def major_error_rate(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -188,7 +194,8 @@ def sensitivity_score(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -221,7 +228,8 @@ def specificity_score(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -244,7 +252,8 @@ def categorical_agreement(
 ) -> float:
     """Categorical agreement (accuracy) as reported in AST studies.
 
-    CA = (TP + TN) / N.
+    CA = (TP + TN) / N.  Text calls marked with a trailing ``*`` (``R*``,
+    ``S*``) count as the plain call.
 
     Parameters
     ----------
@@ -258,8 +267,8 @@ def categorical_agreement(
     float
         Agreement rate in [0, 1].
     """
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
+    y_true = _plain_calls(np.asarray(y_true))
+    y_pred = _plain_calls(np.asarray(y_pred))
     if len(y_true) == 0:
         return 0.0
     return float(np.mean(y_true == y_pred))
@@ -281,7 +290,8 @@ def vme_me_curve(
     y_score : array-like
         Predicted scores (e.g., probabilities for the resistant class).
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -298,7 +308,8 @@ def vme_me_curve(
         If ``resistant_label`` is not one of the two labels, or the only
         label is of another kind (text or number) than ``resistant_label``.
     """
-    y_true = np.asarray(y_true)
+    y_true = _plain_calls(np.asarray(y_true))
+    resistant_label = _plain_call(resistant_label)
     y_score = np.asarray(y_score, dtype=float)
     labels = sorted(set(y_true))
     if labels:
@@ -349,7 +360,8 @@ def amr_classification_report(
     y_pred : array-like
         Predicted labels.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
 
     Returns
     -------
@@ -404,7 +416,8 @@ def amr_multilabel_report(
         Predicted binary labels with matching columns and the same index
         (sample IDs) as ``y_true``; rows are matched by ID.
     resistant_label : int, default=1
-        Label value representing the resistant class.
+        Label value representing the resistant class.  Text calls marked
+        with a trailing ``*`` (``R*``, ``S*``) count as the plain call.
     as_dataframe : bool, default=False
         If ``True``, return a :class:`~pandas.DataFrame` instead of a
         nested dict.

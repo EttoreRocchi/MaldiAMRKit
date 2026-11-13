@@ -483,3 +483,34 @@ class TestBrukerLayout:
         assert result.exit_code == 1
         assert "Year" in result.output
         assert not isinstance(result.exception, KeyError)
+
+    @pytest.mark.parametrize(
+        ("flags", "built"), [([], False), (["--bruker-source", "fid"], True)]
+    )
+    def test_bruker_source_flag_reads_fid(self, tmp_path: Path, flags, built):
+        """--bruker-source fid builds a tree that has no pdata/1/1r."""
+        import shutil
+
+        if not self.BRUKER_DIR.exists():
+            pytest.skip("No bruker_sample data available")
+        root = tmp_path / "tree"
+        shutil.copytree(self.BRUKER_DIR / "922145" / "0_G10", root / "2024" / "A")
+        for pdata in root.rglob("pdata"):
+            shutil.rmtree(pdata)
+        meta_path = tmp_path / "AMR.csv"
+        pd.DataFrame(
+            {
+                "Identifier": ["A"],
+                "Year": [2024],
+                "Path": ["2024/A"],
+                "target_position": ["0_G10"],
+            }
+        ).to_csv(meta_path, index=False)
+        out = tmp_path / "out"
+        result = runner.invoke(
+            app,
+            ["build", "-s", str(root), "-m", str(meta_path), "-o", str(out)]
+            + ["-l", "bruker", "-j", "1", *flags],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out / "raw" / "2024" / "A.txt").exists() is built

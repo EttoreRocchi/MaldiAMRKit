@@ -168,6 +168,26 @@ class TestDrugFilter:
         kept = [sid for sid, row in sample_meta.iterrows() if f(row)]
         assert kept == ["s3", "s4"]
 
+    @pytest.mark.parametrize("status", ["R", "R*", ["R*", "I"]])
+    def test_starred_calls_match_plain_status(self, status):
+        """A call marked ``R*`` matches status ``R`` and ``R*`` alike."""
+        f = DrugFilter("Drug", status=status)
+        assert f(pd.Series({"Drug": "R*"}, name="a"))
+        assert f(pd.Series({"Drug": "R"}, name="b"))
+        assert not f(pd.Series({"Drug": "S*"}, name="c"))
+
+    def test_starred_susceptible_and_spaces(self):
+        """``S*`` matches ``S`` and surrounding spaces are ignored."""
+        f = DrugFilter("Drug", status="S")
+        assert f(pd.Series({"Drug": "S*"}, name="a"))
+        assert f(pd.Series({"Drug": " S "}, name="b"))
+
+    def test_repr_keeps_user_status(self):
+        """The repr shows the statuses exactly as passed."""
+        assert repr(DrugFilter("Drug", status="R*")) == (
+            "DrugFilter('Drug', status='R*')"
+        )
+
     def test_nan_excluded(self, sample_meta: pd.DataFrame):
         """NaN values should be excluded even without status filter."""
         f = DrugFilter("Ceftazidime")

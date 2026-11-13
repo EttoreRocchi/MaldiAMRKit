@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -9,10 +10,14 @@ import pandas as pd
 import pytest
 
 from maldiamrkit.data import (
+    BrukerTreeLayout,
     BuildReport,
     DatasetBuilder,
+    DatasetLoader,
+    DRIAMSLayout,
     FlatLayout,
     ProcessingHandler,
+    read_site_info,
 )
 from maldiamrkit.data.input_layouts import _extract_year
 from maldiamrkit.io import read_spectrum
@@ -27,7 +32,7 @@ from maldiamrkit.preprocessing.transformers import (
 )
 
 # Import shared helper
-from tests.conftest import _generate_synthetic_spectrum
+from tests.conftest import DATA_DIR, _generate_synthetic_spectrum
 
 
 @pytest.fixture()
@@ -717,3 +722,234 @@ class TestZeroPaddedIds:
         report = DatasetBuilder(FlatLayout(src, meta), out, n_jobs=1).build()
         assert report.succeeded == 2
         assert (out / "preprocessed" / "007.txt").exists()
+
+
+BRUKER_SAMPLE = DATA_DIR / "bruker_sample"
+
+
+def _write_text_spectrum(path: Path, seed: int) -> None:
+    """Write one synthetic text spectrum, creating its folder."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df = _generate_synthetic_spectrum(random_state=seed)
+    np.savetxt(path, df[["mass", "intensity"]].values, fmt="%.6f")
+
+
+def _bruker_tree(
+    root: Path, rows: list[tuple[str, str]], *, without_pdata: bool = False
+) -> Path:
+    """Copy the sample Bruker spectrum into ``root`` and write its metadata.
+
+    ``rows`` holds ``(identifier, relative folder)`` pairs; a folder named
+    twice is copied once. ``without_pdata`` leaves only the raw ``fid``.
+    """
+    if not BRUKER_SAMPLE.exists():
+        pytest.skip("No bruker_sample data available")
+    for _, folder in rows:
+        if not (root / folder).exists():
+            shutil.copytree(BRUKER_SAMPLE / "922145" / "0_G10", root / folder)
+    if without_pdata:
+        for pdata in list(root.rglob("pdata")):
+            shutil.rmtree(pdata)
+    csv = root.parent / f"{root.name}.csv"
+    pd.DataFrame(
+        {
+            "Identifier": [ident for ident, _ in rows],
+            "Year": 2024,
+            "Path": [folder for _, folder in rows],
+            "target_position": "0_G10",
+            "Drug": "R",
+        }
+    ).to_csv(csv, index=False)
+    return csv
+
+
+class TestCollidingInputs:
+    """IDs that name several inputs, or inputs named by several IDs, fail."""
+
+    @pytest.fixture()
+    def flat_collision(self, tmp_path: Path) -> tuple[Path, Path]:
+        spectra = tmp_path / "spectra"
+        _write_text_spectrum(spectra / "2018" / "x.txt", seed=1)
+        _write_text_spectrum(spectra / "2019" / "x.txt", seed=2)
+        _write_text_spectrum(spectra / "2019" / "y.txt", seed=3)
+        meta = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["x", "y"], "Drug": ["R", "S"]}).to_csv(meta, index=False)
+        return spectra, meta
+
+    def test_id_in_two_folders_fails_and_is_not_built(
+        self, tmp_path, flat_collision, caplog
+    ):
+        """Neither file of an ID found in two folders is built; the ID fails."""
+        spectra, meta = flat_collision
+        out = tmp_path / "out"
+        report = DatasetBuilder(FlatLayout(spectra, meta), out, n_jobs=1).build()
+        assert (report.total, report.succeeded, report.failed) == (2, 1, 1)
+        assert report.failed_ids == ["x"]
+        assert not list((out / "raw").rglob("x.txt"))
+        assert (
+            "Spectrum ID 'x' names 2 input files (2018/x.txt, 2019/x.txt)"
+            in caplog.text
+        )
+        written = pd.concat(pd.read_csv(f) for f in (out / "id").rglob("*.csv"))
+        assert written["code"].tolist() == ["y"]
+
+    def test_id_not_in_metadata_is_not_a_failure(self, tmp_path, flat_collision):
+        """Files sharing an ID the metadata lacks are skipped, not failed."""
+        spectra, meta = flat_collision
+        _write_text_spectrum(spectra / "2018" / "z.txt", seed=4)
+        _write_text_spectrum(spectra / "2019" / "z.txt", seed=5)
+        report = DatasetBuilder(
+            FlatLayout(spectra, meta), tmp_path / "out", n_jobs=1
+        ).build()
+        assert report.failed_ids == ["x"]
+        assert report.total == 2
+
+    def test_on_error_raise_stops_before_writing(self, tmp_path, flat_collision):
+        """With on_error='raise' nothing is written for a colliding ID."""
+        spectra, meta = flat_collision
+        out = tmp_path / "out"
+        builder = DatasetBuilder(FlatLayout(spectra, meta), out, on_error="raise")
+        with pytest.raises(RuntimeError, match="'x'"):
+            builder.build()
+        assert not out.exists()
+
+    def test_bruker_folder_named_by_two_ids_fails(self, tmp_path, caplog):
+        """Two IDs naming one Bruker folder both fail; the others build."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/AB"), ("B", "2024/AB"), ("C", "2024/C")])
+        layout = BrukerTreeLayout(root, csv, validate=False)
+        out = tmp_path / "out"
+        report = DatasetBuilder(layout, out, n_jobs=1).build()
+        assert report.failed_ids == ["A", "B"]
+        assert (report.total, report.succeeded) == (3, 1)
+        assert sorted(p.name for p in (out / "raw").rglob("*.txt")) == ["C.txt"]
+        assert "named by 2 spectrum IDs (A, B)" in caplog.text
+
+
+class TestBrukerSource:
+    """The builder reads the Bruker binary chosen with bruker_source."""
+
+    @staticmethod
+    def _tree_with_distinct_1r(tmp_path: Path) -> tuple[Path, Path, Path]:
+        """Bruker tree whose pdata/1/1r differs from its fid (fid halved)."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/A")])
+        acqus_dir = next((root / "2024" / "A").rglob("acqus")).parent
+        fid = np.fromfile(acqus_dir / "fid", dtype="<i4")
+        (fid // 2).astype("<i4").tofile(acqus_dir / "pdata" / "1" / "1r")
+        return root, csv, root / "2024" / "A"
+
+    @pytest.mark.parametrize("source", ["1r", "fid"])
+    def test_raw_stage_holds_the_chosen_binary(self, tmp_path, source):
+        """raw/ holds read_spectrum(..., bruker_source=source) of each folder."""
+        root, csv, folder = self._tree_with_distinct_1r(tmp_path)
+        out = tmp_path / f"out_{source}"
+        kwargs = {} if source == "1r" else {"bruker_source": source}
+        report = DatasetBuilder(
+            BrukerTreeLayout(root, csv, validate=False), out, n_jobs=1, **kwargs
+        ).build()
+        assert report.succeeded == 1
+        written = read_spectrum(out / "raw" / "2024" / "A.txt")
+        expected = read_spectrum(folder, bruker_source=source)
+        np.testing.assert_array_equal(
+            written["intensity"].to_numpy(), expected["intensity"].to_numpy()
+        )
+
+    def test_tree_without_1r_builds_from_fid(self, tmp_path):
+        """A tree without pdata/1/1r builds with bruker_source='fid'."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/A")], without_pdata=True)
+        layout = BrukerTreeLayout(root, csv, validate=False)
+        report = DatasetBuilder(
+            layout, tmp_path / "out", n_jobs=1, bruker_source="fid"
+        ).build()
+        assert (report.succeeded, report.failed) == (1, 0)
+
+    def test_missing_1r_fails_naming_the_fid_option(self, tmp_path, caplog):
+        """Without pdata/1/1r the default fails and points to bruker_source='fid'."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/A")], without_pdata=True)
+        layout = BrukerTreeLayout(root, csv, validate=False)
+        report = DatasetBuilder(layout, tmp_path / "out", n_jobs=1).build()
+        assert report.failed_ids == ["A"]
+        assert "bruker_source='fid'" in caplog.text
+
+    def test_invalid_value_raises(self, tmp_path, synthetic_spectra_dir):
+        """An unknown bruker_source raises ValueError at construction."""
+        layout = FlatLayout(synthetic_spectra_dir, tmp_path / "meta.csv")
+        with pytest.raises(ValueError, match="bruker_source"):
+            DatasetBuilder(layout, tmp_path / "out", bruker_source="2rr")
+
+    def test_manifest_records_the_source_of_bruker_inputs(self, tmp_path):
+        """site_info.json records bruker_source for a Bruker build."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/A")])
+        out = tmp_path / "out"
+        DatasetBuilder(
+            BrukerTreeLayout(root, csv, validate=False),
+            out,
+            n_jobs=1,
+            bruker_source="fid",
+        ).build()
+        assert read_site_info(out).build_info.bruker_source == "fid"
+
+    def test_manifest_has_no_source_for_text_inputs(
+        self, tmp_path, synthetic_spectra_dir, synthetic_metadata
+    ):
+        """A build from text files records no bruker_source."""
+        out = tmp_path / "out"
+        layout = FlatLayout(synthetic_spectra_dir, synthetic_metadata)
+        DatasetBuilder(layout, out, n_jobs=1).build()
+        assert read_site_info(out).build_info.bruker_source is None
+
+
+class TestManifestMetadataRows:
+    """site_info.json records the counts of the Bruker metadata merge."""
+
+    def test_bruker_build_records_the_merge_counts(self, tmp_path):
+        """A repeated row of A with another call: 3 rows, 2 spectra, 1 conflict."""
+        root = tmp_path / "tree"
+        csv = _bruker_tree(root, [("A", "2024/A"), ("B", "2024/B")])
+        meta = pd.read_csv(csv)
+        pd.concat([meta, meta.iloc[[0]].assign(Drug="S")]).to_csv(csv, index=False)
+        out = tmp_path / "out"
+        DatasetBuilder(
+            BrukerTreeLayout(root, csv, validate=False), out, n_jobs=1
+        ).build()
+        assert read_site_info(out).build_info.metadata_rows == {
+            "rows": 3,
+            "spectra": 2,
+            "merged_spectra": 1,
+            "conflicting_calls": 1,
+        }
+
+    def test_text_build_records_no_counts(
+        self, tmp_path, synthetic_spectra_dir, synthetic_metadata
+    ):
+        """FlatLayout merges no rows, so nothing is recorded."""
+        out = tmp_path / "out"
+        layout = FlatLayout(synthetic_spectra_dir, synthetic_metadata)
+        DatasetBuilder(layout, out, n_jobs=1).build()
+        assert read_site_info(out).build_info.metadata_rows is None
+
+
+class TestManifestSpectrumExtension:
+    """site_info.json records the extension of the files the builder writes."""
+
+    def test_dataset_built_from_tsv_inputs_loads(self, tmp_path):
+        """A dataset built from .tsv inputs loads with DRIAMSLayout."""
+        spectra = tmp_path / "spectra"
+        spectra.mkdir()
+        for i, sid in enumerate(("a", "b")):
+            df = _generate_synthetic_spectrum(random_state=i)
+            df[["mass", "intensity"]].to_csv(
+                spectra / f"{sid}.tsv", sep="\t", index=False
+            )
+        meta = tmp_path / "meta.csv"
+        pd.DataFrame({"ID": ["a", "b"], "Drug": ["R", "S"]}).to_csv(meta, index=False)
+        out = tmp_path / "out"
+        layout = FlatLayout(spectra, meta, spectrum_ext=".tsv")
+        DatasetBuilder(layout, out, n_jobs=1).build()
+        assert read_site_info(out).spectrum_ext == ".txt"
+        ds = DatasetLoader(DRIAMSLayout(out), n_jobs=1).load()
+        assert len(ds.meta) == 2

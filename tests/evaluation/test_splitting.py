@@ -203,6 +203,63 @@ class TestBuildStrataEdgeCases:
         assert len(set(strata)) == 4
 
 
+class TestBuildStrataStarredCalls:
+    """Calls marked with a trailing ``*`` share the stratum of the plain call."""
+
+    def test_star_shares_stratum(self):
+        """R, R*, S, S* and I give three strata."""
+        from maldiamrkit.evaluation.splitting import _build_strata
+
+        y = np.array(["R", "R*", "S", "S*", "I"])
+        species = np.array(["E. coli"] * 5)
+        strata = _build_strata(y, species, min_count=1)
+        assert len(set(strata)) == 3
+        assert strata[0] == strata[1]
+        assert strata[2] == strata[3]
+
+    def test_numeric_labels_unchanged(self):
+        """Numeric labels still give one stratum per value and species."""
+        from maldiamrkit.evaluation.splitting import _build_strata
+
+        strata = _build_strata(np.array([0, 1, 1, 0]), np.array(["a"] * 4), 1)
+        assert strata.tolist() == ["a__0", "a__1", "a__1", "a__0"]
+
+
+class TestSplittersStarredCalls:
+    """Folds stratified on calls with ``*`` equal those of the plain calls."""
+
+    Y_STAR = np.array(["R", "R*", "S", "S*", "I*"] * 8)
+    Y_PLAIN = np.array(["R", "R", "S", "S", "I"] * 8)
+    X = np.zeros((40, 2))
+
+    @staticmethod
+    def _folds(cv, X, y, **kwargs):
+        return [(tr.tolist(), te.tolist()) for tr, te in cv.split(X, y, **kwargs)]
+
+    def test_species_drug_kfold_without_species(self):
+        """Folds stratified on y alone."""
+        cv = SpeciesDrugStratifiedKFold(n_splits=4, shuffle=True, random_state=0)
+        assert self._folds(cv, self.X, self.Y_STAR) == self._folds(
+            cv, self.X, self.Y_PLAIN
+        )
+
+    def test_species_drug_kfold_with_groups(self):
+        """Group-aware folds stratified on y."""
+        cv = SpeciesDrugStratifiedKFold(n_splits=4, shuffle=True, random_state=0)
+        groups = np.repeat(np.arange(20), 2)
+        assert self._folds(cv, self.X, self.Y_STAR, groups=groups) == self._folds(
+            cv, self.X, self.Y_PLAIN, groups=groups
+        )
+
+    def test_case_grouped_kfold(self):
+        """Case-grouped folds stratified on y."""
+        cv = CaseGroupedKFold(n_splits=4, shuffle=True, random_state=0)
+        groups = np.repeat(np.arange(20), 2)
+        assert self._folds(cv, self.X, self.Y_STAR, groups=groups) == self._folds(
+            cv, self.X, self.Y_PLAIN, groups=groups
+        )
+
+
 class TestCaseGroupedKFoldEdgeCases:
     """Edge-case tests for CaseGroupedKFold."""
 

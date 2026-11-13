@@ -121,6 +121,44 @@ class TestLabelEncoder:
         assert result.ndim == 1
 
 
+class TestStarredCalls:
+    """Calls marked with a trailing ``*`` encode as the plain call."""
+
+    def test_star_calls(self):
+        """R* encodes to 1 and S* to 0."""
+        result = LabelEncoder().fit_transform(["R*", "S*", "R", "S", " R* "])
+        np.testing.assert_array_equal(result, [1, 0, 1, 0, 1])
+
+    @pytest.mark.parametrize(
+        ("policy", "expected"), [("susceptible", [0, 0]), ("resistant", [1, 1])]
+    )
+    def test_intermediate_star_follows_policy(self, policy, expected):
+        """I* follows the intermediate policy exactly like I."""
+        result = LabelEncoder(intermediate=policy).transform(["I", "I*"])
+        np.testing.assert_array_equal(result, expected)
+
+    def test_intermediate_star_nan(self):
+        """I* is NaN with intermediate='nan' and not an unknown label."""
+        result = LabelEncoder(intermediate="nan").transform(["R*", "I*", "S*"])
+        np.testing.assert_array_equal(result, [1, np.nan, 0])
+
+    def test_intermediate_star_drop(self):
+        """I* is dropped with intermediate='drop'."""
+        with pytest.warns(UserWarning, match="removed 1"):
+            result = LabelEncoder(intermediate="drop").transform(["R*", "I*", "S"])
+        np.testing.assert_array_equal(result, [1, 0])
+
+    def test_spellings_still_work(self):
+        """Lowercase and full-word labels keep working."""
+        result = LabelEncoder().transform(["r", "susceptible", "Resistant"])
+        np.testing.assert_array_equal(result, [1, 0, 1])
+
+    def test_unknown_label_still_raises(self):
+        """Labels that are not calls are still rejected."""
+        with pytest.raises(ValueError, match="Unrecognized"):
+            LabelEncoder().transform(["R*", "ESBL"])
+
+
 class TestDropOnSeveralDrugs:
     """intermediate="drop" refuses 2-D input instead of mixing samples."""
 

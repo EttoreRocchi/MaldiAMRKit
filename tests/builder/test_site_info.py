@@ -73,6 +73,19 @@ class TestSiteInfoRoundTrip:
         assert loaded.build_info.maldiamrkit_version == "0.15.0"
         assert loaded.build_info.n_failed == 2
 
+    def test_metadata_rows_round_trip(self, tmp_path: Path):
+        """The counts of the metadata merge are written and read back."""
+        counts = {
+            "rows": 36141,
+            "spectra": 34246,
+            "merged_spectra": 1751,
+            "conflicting_calls": 1254,
+        }
+        info = _example_site_info()
+        info.build_info.metadata_rows = counts
+        write_site_info(tmp_path, info)
+        assert read_site_info(tmp_path).build_info.metadata_rows == counts
+
     def test_missing_returns_none_by_default(self, tmp_path: Path):
         assert read_site_info(tmp_path) is None
 

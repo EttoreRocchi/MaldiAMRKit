@@ -56,6 +56,10 @@ Build a DRIAMS-like dataset directory from flat ``.txt`` spectra (default layout
 
    maldiamrkit build -s data/ -m meta.csv -o output/
 
+A spectrum ID found in more than one input file (e.g. ``2018/x.txt`` and
+``2019/x.txt``) is not built: it counts as failed in the build summary, and
+the log names its files.
+
 Build from a Bruker binary tree. The metadata needs the columns
 ``Identifier``, ``Path``, ``target_position`` and ``Year``, which can be
 renamed with ``--id-column``, ``--path-column``,
@@ -64,6 +68,21 @@ renamed with ``--id-column``, ``--path-column``,
 .. code-block:: bash
 
    maldiamrkit build -s data/ -m meta.csv -o output/ -l bruker
+
+Paths may start with the name of the ``-s`` folder (MARISMa writes
+``/MARISMa/2024/...``). Metadata rows that repeat one spectrum (same
+identifier, target position and path) are merged into one row: susceptibility
+calls on which they disagree become missing, and other differing values are
+joined with ``"; "``. ``--duplicate-strategy`` (``first``, ``last``, ``drop``,
+``keep_all`` or ``average``) then handles the spectra of one identifier, and
+a Bruker folder named by several identifiers is not built. The processed
+``pdata/1/1r`` binary is read by default; ``--bruker-source fid`` reads the
+raw ``fid``:
+
+.. code-block:: bash
+
+   maldiamrkit build -s MARISMa/ -m MARISMa/AMR.csv -o output/ -l bruker \
+     --duplicate-strategy keep_all --bruker-source fid
 
 Customise Bruker-specific column names:
 

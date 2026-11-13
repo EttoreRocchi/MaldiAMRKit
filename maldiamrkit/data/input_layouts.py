@@ -15,7 +15,11 @@ from pathlib import Path
 import pandas as pd
 
 from ..io.readers import _find_bruker_acqus
-from ._metadata import _read_metadata_csv
+from ._metadata import (
+    _read_bruker_metadata,
+    _read_metadata_csv,
+    _resolve_metadata_path,
+)
 from .duplicates import DuplicateStrategy, apply_metadata_strategy
 
 logger = logging.getLogger(__name__)
@@ -23,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 class InputLayout(ABC):
     """Abstract adapter for discovering spectra and metadata."""
+
+    _metadata_rows: dict[str, int] | None = None
+    """Counts of the metadata rows merged during discovery, if any."""
 
     @abstractmethod
     def discover_spectra(self) -> list[Path]:
@@ -61,6 +68,10 @@ class InputLayout(ABC):
         str or None
             The four-digit year, or ``None`` when it is unknown.
         """
+
+    def _spectrum_ids(self, spectrum_paths: list[Path]) -> list[tuple[str, Path]]:
+        """Return the ``(ID, source)`` pair of every discovered spectrum."""
+        return [(self.get_id(path), path) for path in spectrum_paths]
 
 
 def _extract_year(value: object) -> str:
@@ -107,6 +118,12 @@ class FlatLayout(InputLayout):
         File extension of the spectrum files.  Any format understood by
         :func:`~maldiamrkit.io.read_spectrum` works, e.g. ``".mzML"`` or
         ``".mzXML"`` for open-format exports.
+
+    Notes
+    -----
+    The file name (without extension) is the spectrum ID. When two files
+    share it (``2018/x.txt`` and ``2019/x.txt``), :class:`DatasetBuilder`
+    builds neither and reports the ID as failed.
     """
 
     def __init__(
@@ -250,7 +267,17 @@ class BrukerTreeLayout(InputLayout):
     Suitable for datasets where spectra are stored as Bruker ``fid``/``acqus``
     binaries in a hierarchical directory tree.  The metadata CSV must
     contain a column with relative paths pointing to the Bruker data
-    directories.
+    directories; a path may start with the name of ``root_dir`` itself
+    (MARISMa writes ``/MARISMa/2024/...``).
+
+    Metadata rows that repeat one spectrum (same identifier, target
+    position and path) are merged into one row before
+    ``duplicate_strategy`` applies: a susceptibility call on which they
+    disagree becomes missing (``R`` and ``R*`` agree), and other differing
+    values are joined with ``"; "``. :class:`DatasetBuilder` records the
+    counts of the merge in ``site_info.json``
+    (:attr:`BuildInfo.metadata_rows`). A Bruker directory named by
+    several identifiers is not built (see :class:`DatasetBuilder`).
 
     Parameters
     ----------
@@ -307,6 +334,8 @@ class BrukerTreeLayout(InputLayout):
         self.validate = validate
         self._year_map: dict[str, str] = {}
         self._id_to_path: dict[str, Path] = {}
+        self._pairs: list[tuple[str, Path]] = []
+        self._meta: pd.DataFrame | None = None
 
     def discover_spectra(self) -> list[Path]:
         """Resolve Bruker directories from metadata paths.
@@ -330,13 +359,18 @@ class BrukerTreeLayout(InputLayout):
             self.duplicate_strategy,
             suffix_col=self.target_position_column,
         )
+        self._meta = meta
 
         paths: list[Path] = []
         seen_hashes: dict[str, str] = {}
+        self._id_to_path = {}
+        self._year_map = {}
+        self._pairs = []
 
         for _, row in meta.iterrows():
-            rel_path = str(row[self.path_column]).lstrip("/")
-            bruker_dir = self.root_dir / rel_path
+            bruker_dir = _resolve_metadata_path(
+                self.root_dir, str(row[self.path_column])
+            )
             if not bruker_dir.is_dir():
                 logger.warning("Directory not found: %s", bruker_dir)
                 continue
@@ -353,6 +387,7 @@ class BrukerTreeLayout(InputLayout):
 
             self._id_to_path[str(row["ID"])] = bruker_dir
             self._year_map[str(row["ID"])] = str(row[self.year_column])
+            self._pairs.append((str(row["ID"]), bruker_dir))
             paths.append(bruker_dir)
 
         if not paths:
@@ -383,13 +418,17 @@ class BrukerTreeLayout(InputLayout):
         return True
 
     def discover_metadata(self) -> pd.DataFrame:
-        """Read metadata CSV, normalise ID column."""
-        meta = self._read_raw_metadata()
-        meta = apply_metadata_strategy(
-            meta,
-            self.duplicate_strategy,
-            suffix_col=self.target_position_column,
-        )
+        """Read metadata CSV, normalise ID column.
+
+        After :meth:`discover_spectra`, the metadata it read is reused.
+        """
+        meta = self._meta
+        if meta is None:
+            meta = apply_metadata_strategy(
+                self._read_raw_metadata(),
+                self.duplicate_strategy,
+                suffix_col=self.target_position_column,
+            )
         if self._id_to_path:
             meta = meta[meta["ID"].isin(self._id_to_path.keys())]
         return meta.reset_index(drop=True)
@@ -427,15 +466,19 @@ class BrukerTreeLayout(InputLayout):
         """
         return self._year_map.get(spectrum_id)
 
+    def _spectrum_ids(self, spectrum_paths: list[Path]) -> list[tuple[str, Path]]:
+        """Return the ``(ID, directory)`` pair of every metadata row kept."""
+        return list(self._pairs)
+
     def _read_raw_metadata(self) -> pd.DataFrame:
-        """Read and normalise the raw metadata CSV."""
-        meta = _read_metadata_csv(self.metadata_csv, self.id_column)
-        if self.id_column not in meta.columns:
-            raise ValueError(
-                f"ID column '{self.id_column}' not in metadata. "
-                f"Available: {list(meta.columns)}"
-            )
-        if self.id_column != "ID":
-            meta = meta.rename(columns={self.id_column: "ID"})
-        meta["ID"] = meta["ID"].astype(str)
+        """Read the metadata CSV, normalise the ID column, merge repeated rows.
+
+        The counts of the merge are kept for the build manifest.
+        """
+        meta, self._metadata_rows = _read_bruker_metadata(
+            self.metadata_csv,
+            self.id_column,
+            self.path_column,
+            self.target_position_column,
+        )
         return meta

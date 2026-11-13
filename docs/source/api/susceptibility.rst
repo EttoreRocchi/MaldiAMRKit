@@ -69,6 +69,10 @@ Label encoding example
     y_binary = enc.fit_transform(["R", "S", "I"])
     # array([1, 0])
 
+    # Calls set by a rule (MARISMa R*, S*) encode as the plain call
+    y_binary = LabelEncoder().fit_transform(["R*", "S*", "R"])
+    # array([1, 0, 1])
+
 MIC encoding example
 ~~~~~~~~~~~~~~~~~~~~
 

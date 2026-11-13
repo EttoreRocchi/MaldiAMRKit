@@ -269,7 +269,12 @@ def _read_bruker(path: Path, *, source: str = "1r") -> pd.DataFrame:
         raise ValueError(f"Unknown source '{source}', expected '1r' or 'fid'")
 
     if not binary_path.is_file():
-        raise FileNotFoundError(f"Binary file not found: {binary_path}")
+        other = "fid" if source == "1r" else "1r"
+        described = {"fid": "raw fid", "1r": "processed pdata/1/1r"}
+        raise FileNotFoundError(
+            f"Binary file not found: {binary_path} (bruker_source={source!r}); "
+            f"pass bruker_source={other!r} to read the {described[other]}."
+        )
 
     intensity = _read_bruker_binary(binary_path, byte_order, td)
 

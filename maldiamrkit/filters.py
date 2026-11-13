@@ -23,6 +23,8 @@ from typing import Any, Callable, Sequence
 
 import pandas as pd
 
+from ._calls import _plain_call
+
 
 class SpectrumFilter(ABC):
     """Base filter with operator overloading.
@@ -130,7 +132,8 @@ class DrugFilter(SpectrumFilter):
     status : str or list of str, optional
         Keep only samples with this resistance status (e.g. ``"R"``, ``"S"``,
         ``"I"``).  If *None*, keeps any sample where the drug column is not
-        null.
+        null.  Calls marked with a trailing ``*`` (``R*``, ``S*``), which some
+        datasets use for a call set by a rule, match the plain call.
 
     Examples
     --------
@@ -147,6 +150,9 @@ class DrugFilter(SpectrumFilter):
             self._status = set(status)
         else:
             self._status = None
+        self._plain_status = (
+            {_plain_call(s) for s in self._status} if self._status is not None else None
+        )
 
     def __call__(self, meta_row: pd.Series) -> bool:
         """Return True if the sample matches the drug filter criteria."""
@@ -159,7 +165,7 @@ class DrugFilter(SpectrumFilter):
         except (TypeError, ValueError):
             pass
         if self._status is not None:
-            return val in self._status
+            return _plain_call(val) in self._plain_status
         return True
 
     def __repr__(self) -> str:

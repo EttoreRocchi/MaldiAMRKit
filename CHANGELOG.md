@@ -4,6 +4,25 @@ All notable changes to MaldiAMRKit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.3] - 2026-11-13
+
+### Added
+
+- **Bruker source**: `DatasetBuilder(bruker_source=...)` and `maldiamrkit build --bruker-source` read `pdata/1/1r` (the default) or the raw `fid`; `site_info.json` records the choice.
+- **Merge counts**: a `BrukerTreeLayout` build records in `site_info.json` (`build_info.metadata_rows`) the metadata rows read, the spectra left, the spectra merged and the calls set missing.
+
+### Changed
+
+- **Results that change**: metadata rows that repeat one Bruker spectrum (same ID, target position and path) are merged before any `duplicate_strategy`, with the calls on which they disagree set to missing, so `first` and `last` no longer keep one row's call and `drop` keeps such a spectrum.
+- **Results that change**: `R*` and `S*` calls (MARISMa) count as `R` and `S`, with surrounding spaces ignored, in `DrugFilter`, `LabelEncoder`, the AMR metrics, the stratified splitters and the plots.
+- **New failures**: `DatasetBuilder` no longer builds a spectrum ID found in several input files, or a Bruker folder named by several IDs, and reports them in `failed_ids`; before, one of them was built silently, possibly under the wrong year.
+
+### Fixed
+
+- **Repeated metadata rows**: `BrukerTreeLayout` and `MARISMaLayout` with `duplicate_strategy="keep_all"` or `"average"` no longer raise on rows that repeat one spectrum, as in the MARISMa `AMR.csv`.
+- **`DatasetBuilder`**: `site_info.json` records the `.txt` extension of the spectra it writes, so datasets built from `.tsv` or `.mzML` inputs load with `DRIAMSLayout`.
+- **`read_spectrum`**: a missing Bruker binary names the other `bruker_source`.
+
 ## [0.22.2] - 2026-11-10
 
 ### Changed

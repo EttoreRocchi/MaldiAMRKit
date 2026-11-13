@@ -417,3 +417,78 @@ class TestMultilabelAlignment:
         dup.index = list("abca")
         with pytest.raises(ValueError, match="index"):
             amr_multilabel_report(dup, dup)
+
+
+class TestStarredCalls:
+    """Calls marked with a trailing ``*`` count as the plain call."""
+
+    def test_categorical_agreement(self):
+        """R against R* is an agreement."""
+        assert categorical_agreement(["R"], ["R*"]) == 1.0
+        assert categorical_agreement(["S*", "R"], ["S", "S*"]) == 0.5
+
+    def test_report_with_starred_labels(self):
+        """A report on R, R* and S labels is binary, not three classes."""
+        y_true = ["R", "R*", "S", "S*"]
+        y_pred = ["R*", "S", "S*", "S"]
+        report = amr_classification_report(y_true, y_pred, resistant_label="R")
+        assert report["vme"] == 0.5
+        assert report["me"] == 0.0
+        assert report["categorical_agreement"] == 0.75
+
+    def test_metrics_match_unstarred(self):
+        """Starred labels give the same rates as the plain labels."""
+        plain = (["R", "R", "S", "S"], ["R", "S", "S", "R"])
+        starred = (["R*", "R", "S*", "S"], ["R", "S*", "S", "R*"])
+        for fn in (very_major_error_rate, major_error_rate, sensitivity_score):
+            assert fn(*starred, resistant_label="R*") == fn(*plain, resistant_label="R")
+
+    def test_resistant_label_star_equals_plain(self):
+        """resistant_label='R*' and 'R' are the same class."""
+        y_true = ["R*", "S", "R"]
+        y_pred = ["R", "S", "S"]
+        assert very_major_error_rate(
+            y_true, y_pred, resistant_label="R*"
+        ) == very_major_error_rate(y_true, y_pred, resistant_label="R")
+
+    def test_vme_me_curve_counts_starred(self):
+        """R* counts as resistant and S* as susceptible in the curve."""
+        y = ["R", "R*", "S", "S*"]
+        scores = [0.9, 0.8, 0.2, 0.1]
+        out = vme_me_curve(y, scores, resistant_label="R")
+        ref = vme_me_curve(["R", "R", "S", "S"], scores, resistant_label="R")
+        for got, want in zip(out, ref, strict=True):
+            np.testing.assert_array_equal(got, want)
+        np.testing.assert_array_equal(out[0], [0.0, 0.0, 0.0, 0.5])
+
+    def test_scorer_with_starred_labels(self):
+        """A VME scorer counts R and R* missed by an all-S model."""
+        from sklearn.dummy import DummyClassifier
+        from sklearn.metrics import make_scorer
+
+        X = np.array([[1], [2], [3], [4]])
+        y = np.array(["R*", "R", "S*", "S"])
+        clf = DummyClassifier(strategy="constant", constant="S").fit(X, y)
+        scorer = make_scorer(
+            very_major_error_rate, greater_is_better=False, resistant_label="R"
+        )
+        assert scorer(clf, X, y) == -1.0
+
+
+class TestSeriesInputs:
+    """Series labels are compared by position, whatever their index."""
+
+    def test_categorical_agreement_ignores_the_index(self):
+        """Series with different indices are compared row by row."""
+        y_true = pd.Series(["R", "S", "R*"], index=[10, 11, 12])
+        y_pred = pd.Series(["R", "R", "R"], index=[0, 1, 2])
+        assert categorical_agreement(y_true, y_pred) == pytest.approx(2 / 3)
+
+    def test_vme_me_curve_accepts_a_series(self):
+        """A Series gives the curve of its values."""
+        y_true = pd.Series(["R", "S*", "R*", "S"], index=[7, 3, 9, 1])
+        scores = [0.9, 0.1, 0.8, 0.2]
+        got = vme_me_curve(y_true, scores, resistant_label="R")
+        want = vme_me_curve(np.array(["R", "S", "R", "S"]), scores, resistant_label="R")
+        for g, w in zip(got, want, strict=True):
+            np.testing.assert_array_equal(g, w)

@@ -23,6 +23,8 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from .._calls import _plain_call
+
 
 class IntermediateHandling(str, Enum):
     """Strategy for handling intermediate (I) resistance labels.
@@ -50,7 +52,9 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
 
     Supports configurable handling of intermediate (I) labels.
     Accepts both 1-D arrays (single drug) and 2-D DataFrames
-    (multiple drugs).
+    (multiple drugs). Calls marked with a trailing ``*`` (``R*``, ``S*``,
+    ``I*``), which some datasets use for a call set by a rule, encode as
+    the plain call.
 
     Parameters
     ----------
@@ -153,7 +157,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         result = np.full(len(y), np.nan)
 
         for i, label in enumerate(y):
-            result[i] = self._classify_label(str(label))
+            result[i] = self._classify_label(str(_plain_call(label)))
 
         self._validate_unrecognized(y, result)
 
@@ -191,7 +195,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         unrecognized_mask = np.isnan(result)
         if self.intermediate in ("drop", "nan"):
             intermediate_mask = np.array(
-                [str(label) in self._INTERMEDIATE for label in y]
+                [str(_plain_call(label)) in self._INTERMEDIATE for label in y]
             )
             unexpected_nan = unrecognized_mask & ~intermediate_mask
         else:

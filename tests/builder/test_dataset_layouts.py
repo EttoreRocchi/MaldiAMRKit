@@ -404,6 +404,24 @@ class TestMARISMaLayout:
         assert "A_0_A1" in meta["ID"].values
         assert "A_0_A2" in meta["ID"].values
 
+    @pytest.mark.parametrize("strategy", ["keep_all", "average"])
+    def test_repeated_rows_of_one_spectrum_are_merged(self, tmp_path, strategy):
+        """Rows sharing ID, target position and path no longer clash."""
+        csv_path = tmp_path / "AMR.csv"
+        pd.DataFrame(
+            {
+                "Identifier": ["A", "A", "A"],
+                "Path": ["p1", "p1", "p2"],
+                "target_position": ["0_A1", "0_A1", "0_A2"],
+                "Cipro": ["S", "R", "S"],
+            }
+        ).to_csv(csv_path, index=False)
+        layout = MARISMaLayout(tmp_path, csv_path, duplicate_strategy=strategy)
+        meta = layout.discover_metadata().set_index("ID")
+        assert sorted(meta.index) == ["A_0_A1", "A_0_A2"]
+        assert pd.isna(meta.loc["A_0_A1", "Cipro"])
+        assert meta.loc["A_0_A2", "Cipro"] == "S"
+
     def test_discover_metadata_year_filter(self, tmp_path):
         """Verify year parameter filters metadata rows."""
         csv_path = tmp_path / "meta.csv"
